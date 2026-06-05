@@ -732,92 +732,6 @@ func CommonFieldNavigationActions() *ActionRegistry {
 	return r
 }
 
-// TikiEditTitleActions returns actions available when editing the title field
-func TikiEditTitleActions() *ActionRegistry {
-	r := NewActionRegistry()
-	r.Register(Action{ID: ActionQuickSave, Key: tcell.KeyEnter, Label: "Quick Save", ShowInHeader: true, HideFromPalette: true})
-	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
-	r.Merge(CommonFieldNavigationActions())
-	return r
-}
-
-// TikiEditStatusActions returns actions available when editing the status field
-func TikiEditStatusActions() *ActionRegistry {
-	r := CommonFieldNavigationActions()
-	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
-	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
-	return r
-}
-
-// TikiEditTypeActions returns actions available when editing the type field
-func TikiEditTypeActions() *ActionRegistry {
-	r := CommonFieldNavigationActions()
-	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
-	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
-	return r
-}
-
-// TikiEditPriorityActions returns actions available when editing the priority field
-func TikiEditPriorityActions() *ActionRegistry {
-	r := CommonFieldNavigationActions()
-	// Future: Add ActionChangePriority when priority editor is implemented
-	return r
-}
-
-// TikiEditAssigneeActions returns actions available when editing the assignee field
-func TikiEditAssigneeActions() *ActionRegistry {
-	r := CommonFieldNavigationActions()
-	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
-	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
-	return r
-}
-
-// TikiEditPointsActions returns actions available when editing the story points field
-func TikiEditPointsActions() *ActionRegistry {
-	r := CommonFieldNavigationActions()
-	// Future: Add ActionChangePoints when points editor is implemented
-	return r
-}
-
-// TikiEditDueActions returns actions available when editing the due date field
-func TikiEditDueActions() *ActionRegistry {
-	r := CommonFieldNavigationActions()
-	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
-	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
-	r.Register(Action{ID: ActionClearField, Key: tcell.KeyCtrlU, Label: "Clear", ShowInHeader: true, HideFromPalette: true})
-	return r
-}
-
-// TikiEditRecurrenceActions returns actions available when editing the recurrence field
-func TikiEditRecurrenceActions() *ActionRegistry {
-	r := CommonFieldNavigationActions()
-	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
-	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
-	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "← Part", ShowInHeader: true, HideFromPalette: true})
-	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRight, Label: "Part →", ShowInHeader: true, HideFromPalette: true})
-	return r
-}
-
-// TikiEditDescriptionActions returns actions available when editing the description field
-func TikiEditDescriptionActions() *ActionRegistry {
-	r := NewActionRegistry()
-	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
-	r.Merge(CommonFieldNavigationActions())
-	return r
-}
-
-// TikiEditTagsActions returns actions available when editing the tags
-// field as part of the metadata grid (not the whole-view tags-only mode).
-// Modeled on TikiEditDescriptionActions: Save + standard field navigation.
-// Esc is router-handled — never registered here, matching every other
-// per-field registry.
-func TikiEditTagsActions() *ActionRegistry {
-	r := NewActionRegistry()
-	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
-	r.Merge(CommonFieldNavigationActions())
-	return r
-}
-
 // DescOnlyEditActions returns actions for description-only edit mode (no field navigation).
 func DescOnlyEditActions() *ActionRegistry {
 	r := NewActionRegistry()
@@ -830,35 +744,6 @@ func TagsOnlyEditActions() *ActionRegistry {
 	r := NewActionRegistry()
 	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	return r
-}
-
-// GetActionsForField returns the appropriate action registry for the given edit field
-func GetActionsForField(field model.EditField) *ActionRegistry {
-	switch field {
-	case model.EditFieldTitle:
-		return TikiEditTitleActions()
-	case model.EditFieldStatus:
-		return TikiEditStatusActions()
-	case model.EditFieldType:
-		return TikiEditTypeActions()
-	case model.EditFieldPriority:
-		return TikiEditPriorityActions()
-	case model.EditFieldAssignee:
-		return TikiEditAssigneeActions()
-	case model.EditFieldPoints:
-		return TikiEditPointsActions()
-	case model.EditFieldDue:
-		return TikiEditDueActions()
-	case model.EditFieldRecurrence:
-		return TikiEditRecurrenceActions()
-	case model.EditFieldTags:
-		return TikiEditTagsActions()
-	case model.EditFieldDescription:
-		return TikiEditDescriptionActions()
-	default:
-		// default to title actions if field is unknown
-		return TikiEditTitleActions()
-	}
 }
 
 // PluginViewActions returns the canonical action registry for plugin views.

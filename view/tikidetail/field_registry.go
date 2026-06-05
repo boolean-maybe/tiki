@@ -104,6 +104,12 @@ type FieldDescriptor struct {
 	Set             func(tk *tikipkg.Tiki, v any) error
 	ReadOnly        bool
 	EditTraversable bool
+	// EmptyPlaceholder is the text shown when the field has no value. Empty
+	// string means the default "─". Enum renderers treat it as a marker that
+	// is styled with the muted role at render time (see renderEnumValue);
+	// text renderers emit it verbatim. This replaces the per-field-name
+	// switches that previously special-cased assignee/createdBy/type.
+	EmptyPlaceholder string
 }
 
 var fieldRegistry = map[string]FieldDescriptor{}
@@ -159,6 +165,10 @@ func registerBuiltinFields() {
 		EditField:       model.EditFieldType,
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldType); return v },
 		EditTraversable: true,
+		// muted styling is applied at render time from ctx.Roles (renderEnumValue);
+		// the descriptor holds only the literal marker so registration stays
+		// theme-independent (registerBuiltinFields runs in init(), before SetTheme).
+		EmptyPlaceholder: "(none)",
 	}
 	fieldRegistry[tikipkg.FieldPriority] = FieldDescriptor{
 		Name:            tikipkg.FieldPriority,
@@ -177,12 +187,13 @@ func registerBuiltinFields() {
 		EditTraversable: true,
 	}
 	fieldRegistry[tikipkg.FieldAssignee] = FieldDescriptor{
-		Name:            tikipkg.FieldAssignee,
-		Label:           "Assignee",
-		Semantic:        SemanticText,
-		EditField:       model.EditFieldAssignee,
-		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldAssignee); return v },
-		EditTraversable: true,
+		Name:             tikipkg.FieldAssignee,
+		Label:            "Assignee",
+		Semantic:         SemanticText,
+		EditField:        model.EditFieldAssignee,
+		Get:              func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldAssignee); return v },
+		EditTraversable:  true,
+		EmptyPlaceholder: "Unassigned",
 	}
 	fieldRegistry[tikipkg.FieldDue] = FieldDescriptor{
 		Name:            tikipkg.FieldDue,
@@ -216,11 +227,12 @@ func registerBuiltinFields() {
 		EditTraversable: true,
 	}
 	fieldRegistry["createdBy"] = FieldDescriptor{
-		Name:     "createdBy",
-		Label:    "Author",
-		Semantic: SemanticText,
-		Get:      func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField("createdBy"); return v },
-		ReadOnly: true,
+		Name:             "createdBy",
+		Label:            "Author",
+		Semantic:         SemanticText,
+		Get:              func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField("createdBy"); return v },
+		ReadOnly:         true,
+		EmptyPlaceholder: "Unknown",
 	}
 	fieldRegistry["createdAt"] = FieldDescriptor{
 		Name:     "createdAt",
@@ -546,17 +558,14 @@ func renderDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primiti
 	return valueOnlyLine(value, ctx.Roles)
 }
 
-// textEmptyPlaceholder returns the historical empty-value placeholder for
-// well-known fields.
+// textEmptyPlaceholder returns the empty-value placeholder for a text field,
+// reading the descriptor's EmptyPlaceholder trait and falling back to the
+// default "─" when the field declares none (or is unknown).
 func textEmptyPlaceholder(name string) string {
-	switch name {
-	case tikipkg.FieldAssignee:
-		return "Unassigned"
-	case "createdBy":
-		return "Unknown"
-	default:
-		return "─"
+	if fd, ok := LookupField(name); ok && fd.EmptyPlaceholder != "" {
+		return fd.EmptyPlaceholder
 	}
+	return "─"
 }
 
 func renderRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
@@ -600,9 +609,11 @@ func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 		} else {
 			display = tview.Escape(value)
 		}
-	} else if name == tikipkg.FieldType {
-		// preserve legacy "(none)" placeholder color for missing type
-		display = ctx.Roles.TextMuted().Tag() + "(none)[-]"
+	} else if hasFD && fd.EmptyPlaceholder != "" {
+		// the descriptor's empty-placeholder marker, styled muted at render
+		// time from ctx.Roles (registration is theme-independent — see the
+		// EmptyPlaceholder comment on the type descriptor).
+		display = ctx.Roles.TextMuted().Tag() + fd.EmptyPlaceholder + "[-]"
 	}
 
 	focused := ctx.Mode == RenderModeEdit && editField != "" && ctx.FocusedField == editField

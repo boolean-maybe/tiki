@@ -326,81 +326,6 @@ func TestActionRegistry_GetHeaderActions(t *testing.T) {
 	}
 }
 
-func TestGetActionsForField(t *testing.T) {
-	tests := []struct {
-		name            string
-		field           model.EditField
-		wantActionCount int
-		mustHaveActions []ActionID
-	}{
-		{
-			name:            "title field has quick save and save",
-			field:           model.EditFieldTitle,
-			wantActionCount: 4, // QuickSave, Save, NextField, PrevField
-			mustHaveActions: []ActionID{ActionQuickSave, ActionSaveTiki, ActionNextField, ActionPrevField},
-		},
-		{
-			name:            "status field has next/prev value",
-			field:           model.EditFieldStatus,
-			wantActionCount: 4, // NextField, PrevField, NextValue, PrevValue
-			mustHaveActions: []ActionID{ActionNextField, ActionPrevField, ActionNextValue, ActionPrevValue},
-		},
-		{
-			name:            "type field has next/prev value",
-			field:           model.EditFieldType,
-			wantActionCount: 4, // NextField, PrevField, NextValue, PrevValue
-			mustHaveActions: []ActionID{ActionNextField, ActionPrevField, ActionNextValue, ActionPrevValue},
-		},
-		{
-			name:            "assignee field has next/prev value",
-			field:           model.EditFieldAssignee,
-			wantActionCount: 4, // NextField, PrevField, NextValue, PrevValue
-			mustHaveActions: []ActionID{ActionNextField, ActionPrevField, ActionNextValue, ActionPrevValue},
-		},
-		{
-			name:            "priority field has only navigation",
-			field:           model.EditFieldPriority,
-			wantActionCount: 2, // NextField, PrevField
-			mustHaveActions: []ActionID{ActionNextField, ActionPrevField},
-		},
-		{
-			name:            "points field has only navigation",
-			field:           model.EditFieldPoints,
-			wantActionCount: 2, // NextField, PrevField
-			mustHaveActions: []ActionID{ActionNextField, ActionPrevField},
-		},
-		{
-			name:            "description field has save",
-			field:           model.EditFieldDescription,
-			wantActionCount: 3, // Save, NextField, PrevField
-			mustHaveActions: []ActionID{ActionSaveTiki, ActionNextField, ActionPrevField},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			registry := GetActionsForField(tt.field)
-
-			actions := registry.GetActions()
-			if len(actions) != tt.wantActionCount {
-				t.Errorf("expected %d actions, got %d", tt.wantActionCount, len(actions))
-			}
-
-			// Check that all required actions are present
-			actionMap := make(map[ActionID]bool)
-			for _, action := range actions {
-				actionMap[action.ID] = true
-			}
-
-			for _, mustHave := range tt.mustHaveActions {
-				if !actionMap[mustHave] {
-					t.Errorf("missing required action: %v", mustHave)
-				}
-			}
-		})
-	}
-}
-
 func TestDefaultGlobalActions(t *testing.T) {
 	registry := DefaultGlobalActions()
 	actions := registry.GetActions()
@@ -843,29 +768,6 @@ func TestPluginViewActions_NavHiddenFromPalette(t *testing.T) {
 		if !found[want] {
 			t.Errorf("expected palette-visible action %v", want)
 		}
-	}
-}
-
-func TestTikiEditActions_FieldLocalHidden_SaveVisible(t *testing.T) {
-	registry := TikiEditTitleActions()
-	paletteActions := registry.GetPaletteActions()
-
-	found := map[ActionID]bool{}
-	for _, a := range paletteActions {
-		found[a.ID] = true
-	}
-
-	if !found[ActionSaveTiki] {
-		t.Error("Save should be palette-visible in tiki edit")
-	}
-	if found[ActionQuickSave] {
-		t.Error("Quick Save should be hidden from palette")
-	}
-	if found[ActionNextField] {
-		t.Error("Next field should be hidden from palette")
-	}
-	if found[ActionPrevField] {
-		t.Error("Prev field should be hidden from palette")
 	}
 }
 

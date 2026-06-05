@@ -659,3 +659,46 @@ func TestRenderViewModeAnchor_CaptionRendersFieldCaption(t *testing.T) {
 		t.Errorf("caption anchor rendered %q, want it to contain %q", got, "My Caption:")
 	}
 }
+
+// TestTextEmptyPlaceholder_FromDescriptorTrait pins the empty-value
+// placeholder text for text-type fields: assignee→"Unassigned",
+// createdBy→"Unknown", everything else→"─". After the refactor these
+// values come from the FieldDescriptor.EmptyPlaceholder trait rather than
+// a per-name switch; the observable result must stay identical.
+func TestTextEmptyPlaceholder_FromDescriptorTrait(t *testing.T) {
+	if got := textEmptyPlaceholder(tikipkg.FieldAssignee); got != "Unassigned" {
+		t.Errorf("assignee placeholder = %q, want %q", got, "Unassigned")
+	}
+	if got := textEmptyPlaceholder("createdBy"); got != "Unknown" {
+		t.Errorf("createdBy placeholder = %q, want %q", got, "Unknown")
+	}
+	if got := textEmptyPlaceholder(tikipkg.FieldStatus); got != "─" {
+		t.Errorf("default placeholder = %q, want %q", got, "─")
+	}
+	if got := textEmptyPlaceholder("does-not-exist"); got != "─" {
+		t.Errorf("unknown-field placeholder = %q, want %q", got, "─")
+	}
+}
+
+// TestRenderEnumValue_EmptyTypeMutedNone pins that rendering a tiki with an
+// empty `type` field produces the muted "(none)" placeholder. This is the
+// type field's empty-value presentation; after the refactor it is driven by
+// the descriptor's EmptyPlaceholder trait (resolved to muted at render time
+// via ctx.Roles.TextMuted) instead of a `name == FieldType` switch. The
+// rendered bytes must be identical to today's output.
+func TestRenderEnumValue_EmptyTypeMutedNone(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI099")
+	tk.Set(tikipkg.FieldType, "") // empty type → muted "(none)"
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	colors := theme.Roles()
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: colors, FieldName: tikipkg.FieldType}
+
+	want := colors.TextMuted().Tag() + "(none)[-]"
+	rawOut := extractTextView(renderEnumValue(tk, ctx), false)
+	if !strings.Contains(rawOut, want) {
+		t.Errorf("empty-type render = %q, want it to contain muted placeholder %q", rawOut, want)
+	}
+}
