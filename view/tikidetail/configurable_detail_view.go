@@ -49,10 +49,15 @@ type ConfigurableDetailView struct {
 
 	pluginDef *plugin.DetailPlugin // workflow-yaml-derived definition; source of name/description/layout
 
-	spec        gridlayout.GridSpec // parsed layout grid (alias of pluginDef.Layout, kept for hot-path reads)
-	layout      []string            // flat anchor names in declaration order (edit traversal)
-	navMarkdown *markdown.NavigableMarkdown
-	listenerID  int
+	spec   gridlayout.GridSpec // parsed layout grid (alias of pluginDef.Layout, kept for hot-path reads)
+	layout []string            // flat anchor names in declaration order (edit traversal)
+
+	// fieldAnchorNames is the deduped, in-order list of AnchorField names in
+	// spec — the immutable candidate set tested against each tiki to decide
+	// which list-fields to hide. Computed once at construction (see below).
+	fieldAnchorNames []string
+	navMarkdown      *markdown.NavigableMarkdown
+	listenerID       int
 
 	// edit-mode state
 	editMode          bool
@@ -140,6 +145,23 @@ func NewConfigurableDetailView(
 		focusedIdx:        -1,
 		editors:           make(map[string]FieldEditorWidget),
 		onEditFieldChange: make(map[string]func(string)),
+	}
+
+	// deduped AnchorField names, in declaration order — the immutable
+	// candidate set for specForTiki. Not GridSpec.AnchorNames() because that
+	// also includes AnchorComposite names and does not dedup, whereas we need
+	// only AnchorField names, deduped, to match HideFields (which acts only on
+	// AnchorField).
+	seen := make(map[string]struct{})
+	for _, a := range cv.spec.Anchors {
+		if a.Kind != gridlayout.AnchorField {
+			continue
+		}
+		if _, dup := seen[a.Name]; dup {
+			continue
+		}
+		seen[a.Name] = struct{}{}
+		cv.fieldAnchorNames = append(cv.fieldAnchorNames, a.Name)
 	}
 
 	cv.build()
@@ -343,6 +365,37 @@ func (cv *ConfigurableDetailView) focusActiveEditor() {
 	}
 }
 
+// emptyListFieldNames returns the names of list-type fields (TypeListRef /
+// TypeListString, i.e. tikiIdList / stringList in workflow.yaml) among
+// candidates whose value is empty for tk. Scalar fields and
+// non-empty lists are excluded. Used to hide empty list fields (and their
+// captions) from the metadata grid per tiki.
+func emptyListFieldNames(tk *tikipkg.Tiki, candidates []string) []string {
+	var out []string
+	for _, name := range candidates {
+		fd, ok := workflow.Field(name)
+		if !ok {
+			continue
+		}
+		if fd.Type != workflow.TypeListString && fd.Type != workflow.TypeListRef {
+			continue
+		}
+		if vals, _, _ := tk.StringSliceField(name); len(vals) == 0 {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// specForTiki returns the layout spec to render for tk: the parsed template
+// with empty list-fields (and their field.caption cells) hidden. Candidate
+// names come from the template's field anchors so we only test fields the
+// layout actually references.
+func (cv *ConfigurableDetailView) specForTiki(tk *tikipkg.Tiki) gridlayout.GridSpec {
+	hidden := emptyListFieldNames(tk, cv.fieldAnchorNames)
+	return gridlayout.HideFields(cv.spec, hidden)
+}
+
 // buildMetadataBox assembles the configured layout fields into a framed
 // box. Title renders only if declared in the layout grid (as a regular
 // field cell). Configured fields flow into the grid body via the
@@ -360,11 +413,12 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 	}
 	ctx := FieldRenderContext{Mode: mode, Roles: roles, Store: cv.tikiStore}
 
-	primitives := cv.buildAnchorPrimitives(tk, ctx)
+	spec := cv.specForTiki(tk)
+	primitives := cv.buildAnchorPrimitivesForSpec(spec, tk, ctx)
 	heightOf := func(name string, w int) int { return FieldHeight(name, tk, w) }
 
 	container := tview.NewFlex().SetDirection(tview.FlexRow)
-	container.AddItem(gridbox.NewContainer(cv.spec, primitives, heightOf), cv.spec.Rows, 0, false)
+	container.AddItem(gridbox.NewContainer(spec, primitives, heightOf), spec.Rows, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
@@ -375,17 +429,17 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 	return frame
 }
 
-// buildAnchorPrimitives produces one tview.Primitive per anchor in the
-// layout grid, indexed by anchor position. Two cases:
+// buildAnchorPrimitivesForSpec produces one tview.Primitive per anchor in the
+// given spec, indexed by anchor position. Two cases:
 //
 //  1. Literal anchor: renders as a static text view carrying the caption
 //     text declared by the layout author.
 //  2. Field anchor: read-only renderer (with optional role color for text
 //     fields), or (in edit mode + focused + editable) a cached editor widget.
-func (cv *ConfigurableDetailView) buildAnchorPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) []tview.Primitive {
+func (cv *ConfigurableDetailView) buildAnchorPrimitivesForSpec(spec gridlayout.GridSpec, tk *tikipkg.Tiki, ctx FieldRenderContext) []tview.Primitive {
 	focusedName := cv.GetFocusedFieldName()
-	primitives := make([]tview.Primitive, len(cv.spec.Anchors))
-	for i, a := range cv.spec.Anchors {
+	primitives := make([]tview.Primitive, len(spec.Anchors))
+	for i, a := range spec.Anchors {
 		switch a.Kind {
 		case gridlayout.AnchorLiteral:
 			primitives[i] = renderLiteralAnchor(a, ctx.Roles)
@@ -479,7 +533,7 @@ func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRe
 // RenderViewModeAnchor produces the read-only primitive for a single
 // layout anchor. Used by the tiki box (board/list cards) and by any
 // non-edit-mode caller that doesn't need cv's per-instance editor cache.
-// Edit-mode rendering stays in ConfigurableDetailView.buildAnchorPrimitives,
+// Edit-mode rendering stays in ConfigurableDetailView.buildAnchorPrimitivesForSpec,
 // which adds focus and editor wiring on top of the view-mode primitive.
 //
 // Literal anchors are colored via Anchor.Role / Anchor.Modifier (set from the
@@ -492,6 +546,9 @@ func RenderViewModeAnchor(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRender
 		return renderLiteralAnchor(a, ctx.Roles)
 	case gridlayout.AnchorComposite:
 		return renderCompositePrimitive(a, tk, ctx)
+	}
+	if a.Display == gridlayout.DisplayCaption {
+		return renderCaptionAnchor(a, ctx.Roles)
 	}
 	ctx.Display = a.Display
 	if a.Name == "title" {
@@ -536,6 +593,20 @@ func renderLiteralCaption(text, role, modifier string, roles *theme.Theme) tview
 	return tv
 }
 
+// renderCaptionAnchor renders a field anchor's caption text as a static label —
+// the field-owned equivalent of a literal caption cell. Resolution order:
+// workflow FieldDef.DisplayCaption(), then the typed registry Label, then the
+// bare field name.
+func renderCaptionAnchor(a gridlayout.Anchor, roles *theme.Theme) tview.Primitive {
+	caption := a.Name
+	if wfd, ok := workflow.Field(a.Name); ok {
+		caption = wfd.DisplayCaption()
+	} else if fd, ok := LookupField(a.Name); ok && fd.Label != "" {
+		caption = fd.Label
+	}
+	return renderLiteralCaption(caption, a.Role, a.Modifier, roles)
+}
+
 // renderLiteralAnchor dispatches a literal anchor to the appropriate
 // primitive: a single-line caption for row-span <= 1, or a word-wrapping
 // prose block for row-span > 1. Both paths honor the anchor's Role/Modifier
@@ -563,6 +634,9 @@ func renderLiteralAnchor(a gridlayout.Anchor, roles *theme.Theme) tview.Primitiv
 // mode so user input isn't lost when other rows trigger a refresh.
 func (cv *ConfigurableDetailView) buildFieldPrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext, focusedName string) tview.Primitive {
 	name := a.Name
+	if a.Display == gridlayout.DisplayCaption {
+		return renderCaptionAnchor(a, ctx.Roles)
+	}
 	ctx.Display = a.Display
 	renderField := func() tview.Primitive {
 		if name == "title" {
@@ -1042,6 +1116,9 @@ func (cv *ConfigurableDetailView) focusedRecurrenceEditor() (*recurrenceEditAdap
 // fields qualify, since they're the only workflow-only fields that
 // route through a generic editor.
 func (cv *ConfigurableDetailView) isEditableLayoutField(name string) bool {
+	if cv.isHiddenForCurrentTiki(name) {
+		return false
+	}
 	if fd, ok := LookupField(name); ok {
 		if fd.ReadOnly || !fd.EditTraversable {
 			return false
@@ -1051,4 +1128,17 @@ func (cv *ConfigurableDetailView) isEditableLayoutField(name string) bool {
 	// Workflow-only fields: defer entirely to FieldHasEditor, which
 	// already excludes non-editable types.
 	return FieldHasEditor(name)
+}
+
+// isHiddenForCurrentTiki reports whether name is hidden from the metadata grid
+// for the tiki being viewed (an empty list-type field). Hidden fields are
+// skipped in edit-mode traversal too — a field skipped in view mode is skipped
+// in edit mode. The tiki source mirrors what specForTiki/buildMetadataBox
+// actually render (getTiki prefers the in-flight editing copy in edit mode).
+func (cv *ConfigurableDetailView) isHiddenForCurrentTiki(name string) bool {
+	tk := cv.getTiki()
+	if tk == nil {
+		return false
+	}
+	return len(emptyListFieldNames(tk, []string{name})) > 0
 }

@@ -6,6 +6,7 @@ description: |
 fields:
   - name: status
     type: enum
+    caption: "Status"
     values:
       - value: inbox
         label: Inbox
@@ -22,6 +23,7 @@ fields:
         visual: "✅"
   - name: type
     type: enum
+    caption: "Type"
     values:
       - value: story
         label: Story
@@ -38,6 +40,7 @@ fields:
         visual: "🗂️"
   - name: priority
     type: enum
+    caption: "Priority"
     values:
       - {value: high, label: High, visual: "🔴"}
       - {value: medium-high, label: "Medium High", visual: "🟠"}
@@ -46,6 +49,7 @@ fields:
       - {value: low, label: Low, visual: "🔵"}
   - name: points
     type: enum
+    caption: "Points"
     values:
       - {value: "11", label: "11", visual: "<action>❚❚❚❚❚❚❚❚❚❚❚"}
       - {value: "7",  label: "7",  visual: "<action>❚❚❚❚❚❚❚<muted>❘❘❘❘"}
@@ -53,15 +57,20 @@ fields:
       - {value: "1",  label: "1",  visual: "<action>❚<muted>❘❘❘❘❘❘❘❘❘❘"}
   - name: tags
     type: stringList
+    caption: "Tags"
     default: ["idea"]
   - name: dependsOn
     type: tikiIdList
+    caption: "Deps"
   - name: due
     type: date
+    caption: "Due"
   - name: recurrence
     type: recurrence
+    caption: "Recurrence"
   - name: assignee
     type: text
+    caption: "Assignee"
 
 actions:
   - key: "y"
@@ -256,12 +265,12 @@ views:
     description: "View and edit selected task"
     require: ["selection:one"]
     layout: |
-      <highlight>title | --                                 | --          | --        | --            | --         | --      | --
-      _                | _                                  | _           | _         | _             | _          | _       | _
-      <text.label>"Status:"        | status.label + " " + status.visual | <text.label>"Assignee:" | assignee  | <text.label>"Due:"        | due        | <text.label>"Tags:" | tags
-      <text.label>"Type:"          | type.label + " " + type.visual     | <text.label>"Author:"   | createdBy | <text.label>"Recurrence:" | recurrence | ^       | ^
-      <text.label>"Priority:"      | priority                           | <text.label>"Created:"  | createdAt | _             | _          | ^       | ^
-      <text.label>"Points:"        | points                             | <text.label>"Updated:"  | updatedAt | _             | _          | ^       | ^
+      <highlight>title | --                                 | --          | --        | --            | --         | --      | --   | --                          | --
+      _                | _                                  | _           | _         | _             | _          | _       | _    | _                           | _
+      <text.label>status.caption    | status.label + " " + status.visual | <text.label>assignee.caption | assignee  | <text.label>due.caption   | due        | <text.label>tags.caption | tags | <text.label>dependsOn.caption | dependsOn:10
+      <text.label>type.caption      | type.label + " " + type.visual     | <text.label>"Author"   | createdBy | <text.label>recurrence.caption | recurrence | ^       | ^    | ^                           | ^
+      <text.label>priority.caption  | priority                           | <text.label>"Created"  | createdAt | _             | _          | ^       | ^    | ^                           | ^
+      <text.label>points.caption    | points                             | <text.label>"Updated"  | updatedAt | _             | _          | ^       | ^    | ^                           | ^
 
   - name: Project
     kind: detail
@@ -270,9 +279,9 @@ views:
     layout: |
       <highlight>title | --                                 | --         | --        | --      | --   | --                                                                                                                        | --
       _                | _                                  | _          | _         | _       | _    | _                                                                                                                         | _
-      <text.label>"Status:"        | status.label + " " + status.visual | <text.label>"Author:"  | createdBy | <text.label>"Tags:" | tags | <text.muted>"Projects gather related tasks — stories, bugs, and spikes — into a single unit of planning. Press " + <status.warn>"<L>" + <text.muted>" to see every task linked to this project. Move it across Now, Next, and Later as priorities shift; it auto-completes when all its tasks are done." | --
-      <text.label>"Priority:"      | priority                           | <text.label>"Created:" | createdAt | ^       | ^    | ^                                                                                                                                                                                                                                                                                          | ^
-      <text.label>"Points:"        | points                             | <text.label>"Updated:" | updatedAt | ^       | ^    | ^                                                                                                                                                                                                                                                                                          | ^
+      <text.label>status.caption    | status.label + " " + status.visual | <text.label>"Author"  | createdBy | <text.label>tags.caption | tags | <text.muted>"Projects gather related tasks — stories, bugs, and spikes — into a single unit of planning. Press " + <status.warn>"<L>" + <text.muted>" to see every task linked to this project. Move it across Now, Next, and Later as priorities shift; it auto-completes when all its tasks are done." | --
+      <text.label>priority.caption  | priority                           | <text.label>"Created" | createdAt | ^       | ^    | ^                                                                                                                                                                                                                                                                                          | ^
+      <text.label>points.caption    | points                             | <text.label>"Updated" | updatedAt | ^       | ^    | ^                                                                                                                                                                                                                                                                                          | ^
     actions:
       - key: "L"
         label: "List tasks"

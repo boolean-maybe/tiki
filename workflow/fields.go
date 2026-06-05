@@ -46,8 +46,18 @@ type FieldDef struct {
 	Name         string
 	Type         ValueType
 	Custom       bool        // true for fields loaded from workflow.yaml
+	Caption      string      // optional display caption; falls back to Name via DisplayCaption()
 	EnumValues   []EnumValue // populated only for TypeEnum
 	DefaultValue interface{} // creation default for non-enum fields; for enum, derived from EnumValues[i].Default
+}
+
+// DisplayCaption returns the field's display caption, falling back to the
+// bare field Name when no caption was declared.
+func (f FieldDef) DisplayCaption() string {
+	if f.Caption != "" {
+		return f.Caption
+	}
+	return f.Name
 }
 
 // AllowedValues returns the value keys for an enum FieldDef in declaration

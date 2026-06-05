@@ -29,6 +29,11 @@ func longestWordWidth(s string) int {
 // tied to the visual style of the box.
 const InterColumnGap = 2
 
+// DefaultFieldWidth is the fallback minimum width (in cells) for a field
+// anchor that did not declare a `:N` width in the layout. Authors set an
+// explicit `:N` when a field needs more room.
+const DefaultFieldWidth = 12
+
 // TikiBoxOverhead is the fixed vertical cost a tiki-card frame adds
 // beyond the grid body: 1 top border + 1 bottom border. Tiki cards have
 // no inner padding rows, so a layout with N rows renders as N+2 cells
@@ -90,7 +95,7 @@ func DefaultAnchorWidth(a gridlayout.Anchor) int {
 			if seg.Kind == gridlayout.SegmentLiteral {
 				w = len(seg.Text)
 			} else {
-				w = defaultFieldWidth(seg.Name)
+				w = DefaultFieldWidth
 			}
 			if w > max {
 				max = w
@@ -98,19 +103,7 @@ func DefaultAnchorWidth(a gridlayout.Anchor) int {
 		}
 		return max
 	}
-	return defaultFieldWidth(a.Name)
-}
-
-func defaultFieldWidth(name string) int {
-	switch name {
-	case "tags", "dependsOn", "depends":
-		return 24
-	case "createdAt", "updatedAt", "due":
-		return 18
-	case "title":
-		return 30
-	}
-	return 12
+	return DefaultFieldWidth
 }
 
 // SolveGridLayout resolves the layout grid against the live terminal

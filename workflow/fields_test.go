@@ -6,6 +6,17 @@ import (
 	"github.com/boolean-maybe/ruki/keyword"
 )
 
+func TestFieldDef_DisplayCaption(t *testing.T) {
+	withCaption := FieldDef{Name: "status", Caption: "Status:"}
+	if got := withCaption.DisplayCaption(); got != "Status:" {
+		t.Errorf("DisplayCaption with caption = %q, want %q", got, "Status:")
+	}
+	noCaption := FieldDef{Name: "status"}
+	if got := noCaption.DisplayCaption(); got != "status" {
+		t.Errorf("DisplayCaption without caption = %q, want %q (field name)", got, "status")
+	}
+}
+
 func TestSystemField(t *testing.T) {
 	tests := []struct {
 		name   string

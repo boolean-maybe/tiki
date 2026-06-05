@@ -137,7 +137,7 @@ func TestConfigurableDetail_RendersConfiguredMetadata(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Detail"), params)
 	ta.Draw()
 
-	for _, want := range []string{"Detail Title", "Status:", "Type:", "Priority:"} {
+	for _, want := range []string{"Detail Title", "Status", "Type", "Priority"} {
 		found, _, _ := ta.FindText(want)
 		if !found {
 			ta.DumpScreen()

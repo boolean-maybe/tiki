@@ -9,7 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/theme"
 )
 
-var cellNameRe = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_-]*)(?:\.(label|visual))?(?::(\d+))?$`)
+var cellNameRe = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_-]*)(?:\.(label|visual|caption))?(?::(\d+))?$`)
 var cellRolePrefixRe = regexp.MustCompile(`^<([a-z][a-z.]*)>(.+)$`)
 var literalSegmentRe = regexp.MustCompile(`^"(.*)"$`)
 
@@ -157,8 +157,11 @@ func TokenizeCell(s string) (Cell, error) {
 }
 
 func parseDisplayMode(s string) DisplayMode {
-	if s == "visual" {
+	switch s {
+	case "visual":
 		return DisplayVisual
+	case "caption":
+		return DisplayCaption
 	}
 	return DisplayLabel
 }
@@ -200,7 +203,6 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 	}
 
 	var anchors []Anchor
-	seen := make(map[string]struct{})
 
 	for r := 0; r < rows; r++ {
 		for c := 0; c < cols; c++ {
@@ -209,11 +211,6 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 			}
 			switch cell := cells[r][c].(type) {
 			case FieldCell:
-				if _, dup := seen[cell.Name]; dup {
-					return GridSpec{}, fmt.Errorf("row %d, col %d: field %q appears more than once", r, c, cell.Name)
-				}
-				seen[cell.Name] = struct{}{}
-
 				colSpan, rowSpan := computeSpans(cells, r, c, rows, cols)
 				idx := len(anchors)
 				anchors = append(anchors, Anchor{
@@ -253,12 +250,6 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 						fieldNames[seg.Name] = struct{}{}
 					}
 					totalWidth += seg.WantedWidth
-				}
-				for name := range fieldNames {
-					if _, dup := seen[name]; dup {
-						return GridSpec{}, fmt.Errorf("row %d, col %d: field %q appears more than once", r, c, name)
-					}
-					seen[name] = struct{}{}
 				}
 				anchorName := ""
 				if len(fieldNames) == 1 {

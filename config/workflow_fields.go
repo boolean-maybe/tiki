@@ -17,6 +17,7 @@ import (
 type customFieldYAML struct {
 	Name    string          `yaml:"name"`
 	Type    string          `yaml:"type"`
+	Caption string          `yaml:"caption,omitempty"` // optional display caption; defaults to Name
 	Values  []enumValueYAML `yaml:"values,omitempty"`  // enum only
 	Default interface{}     `yaml:"default,omitempty"` // creation default for non-enum
 }
@@ -241,9 +242,10 @@ func convertWorkflowFieldDef(def customFieldYAML) (workflow.FieldDef, error) {
 		return workflow.FieldDef{}, err
 	}
 	fd := workflow.FieldDef{
-		Name:   def.Name,
-		Type:   vt,
-		Custom: true,
+		Name:    def.Name,
+		Type:    vt,
+		Custom:  true,
+		Caption: def.Caption,
 	}
 
 	if vt == workflow.TypeEnum {

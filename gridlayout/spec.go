@@ -13,6 +13,7 @@
 //
 //	name                 field, value-only (no caption), system-default width
 //	name:N               field, preferred + minimum width of N chars
+//	name.caption         field's caption text (label), rendered as a static label
 //	"any text"           literal text, default role text.primary
 //	<role>"any text"     literal text painted with the given role
 //	<role.mod>"any text" literal text with role + modifier (e.g. .accent)
@@ -21,11 +22,18 @@
 //	_                    empty cell
 //	<->                  horizontal stretcher (absorbs remaining space)
 //
-// Fields are rendered value-only. Captions are placed by the layout
-// author as literal cells.
+// Fields are rendered value-only. Captions may be authored as literal cells,
+// or — for fields that carry a caption: in workflow.yaml — referenced via
+// `name.caption`, which renders the field's declared caption (falling back to
+// the field name). A field may appear more than once in a layout (e.g. a
+// `name.caption` cell plus a value cell); the parser does not reject duplicates.
 //
 // The package is parser + solver only — it has no tview or config
 // dependencies, so plugin/ and view/ can both import it without cycles.
+//
+// HideFields produces a per-render copy of a parsed spec in which the named
+// field anchors (and every cell they cover) become empty cells — the supported
+// way to omit a field together with its caption for a specific document.
 package gridlayout
 
 // Cell is one parsed grid cell.
@@ -37,8 +45,9 @@ type Cell interface{ isCell() }
 type DisplayMode int
 
 const (
-	DisplayLabel  DisplayMode = iota // default: show Label
-	DisplayVisual                    // show Visual
+	DisplayLabel   DisplayMode = iota // default: show Label
+	DisplayVisual                     // show Visual
+	DisplayCaption                    // show the field's caption (label text, not value)
 )
 
 // FieldCell is a non-span field anchor cell. WantedWidth is 0 when the

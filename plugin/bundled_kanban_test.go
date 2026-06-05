@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/ruki"
+	"github.com/boolean-maybe/tiki/gridlayout"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -51,7 +52,7 @@ func TestBundledKanban_HasDetailViewAndEnterAction(t *testing.T) {
 	wantAnchors := map[string]bool{
 		"status": true, "type": true, "priority": true, "points": true,
 		"assignee": true, "createdBy": true, "createdAt": true, "updatedAt": true,
-		"due": true, "recurrence": true, "tags": true,
+		"due": true, "recurrence": true, "tags": true, "dependsOn": true,
 	}
 	gotAnchors := detail.Layout.AnchorNames()
 	for _, n := range gotAnchors {
@@ -281,4 +282,48 @@ func idList(tikis []*tikipkg.Tiki) []string {
 		out = append(out, t.ID())
 	}
 	return out
+}
+
+// TestBundledKanban_DetailUsesFieldCaptions asserts the Detail view's layout
+// references field-owned captions: the priority field appears as exactly one
+// caption anchor (DisplayCaption) and one value anchor. (priority has a plain
+// value cell; status's value lives inside a composite, so it isn't a standalone
+// AnchorField — priority is the clean case to assert on.)
+func TestBundledKanban_DetailUsesFieldCaptions(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	src := filepath.Join(filepath.Dir(wd), "config", "workflows", "kanban.yaml")
+	if _, err := os.Stat(src); err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+	var detail *DetailPlugin
+	for _, p := range plugins {
+		if dp, ok := p.(*DetailPlugin); ok && dp.Name == "Detail" {
+			detail = dp
+			break
+		}
+	}
+	if detail == nil {
+		t.Fatal("bundled kanban does not contain a Detail view")
+	}
+
+	var captionAnchors, valueAnchors int
+	for _, a := range detail.Layout.Anchors {
+		if a.Kind == gridlayout.AnchorField && a.Name == "priority" {
+			if a.Display == gridlayout.DisplayCaption {
+				captionAnchors++
+			} else {
+				valueAnchors++
+			}
+		}
+	}
+	if captionAnchors != 1 || valueAnchors != 1 {
+		t.Errorf("priority: caption anchors=%d value anchors=%d, want 1 and 1", captionAnchors, valueAnchors)
+	}
 }

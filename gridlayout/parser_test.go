@@ -186,13 +186,17 @@ func TestParseGrid_StretcherMix(t *testing.T) {
 	}
 }
 
-func TestParseGrid_DuplicateField(t *testing.T) {
-	_, err := ParseGrid([][]string{
-		{"status"},
-		{"status"},
+func TestParseGrid_DuplicateFieldAllowed(t *testing.T) {
+	// A field may appear more than once (e.g. a caption cell + a value cell,
+	// or the same value rendered twice). The DSL trusts the layout author.
+	spec, err := ParseGrid([][]string{
+		{"status.caption", "status"},
 	})
-	if err == nil || !strings.Contains(err.Error(), "more than once") {
-		t.Errorf("want duplicate-field error, got %v", err)
+	if err != nil {
+		t.Fatalf("duplicate field should be allowed, got error: %v", err)
+	}
+	if len(spec.Anchors) != 2 {
+		t.Errorf("want 2 anchors (caption + value), got %d", len(spec.Anchors))
 	}
 }
 
@@ -504,13 +508,14 @@ func TestParseGrid_CompositeMultiField(t *testing.T) {
 	}
 }
 
-func TestParseGrid_CompositeDuplicateFieldRejected(t *testing.T) {
-	// "status" appears both in the composite AND as a standalone cell
+func TestParseGrid_CompositeDuplicateFieldAllowed(t *testing.T) {
+	// "status" appears both in the composite AND as a standalone cell — allowed:
+	// the DSL no longer rejects a field appearing more than once.
 	_, err := ParseGrid([][]string{
 		{`status.visual + " " + status.label`, "status"},
 	})
-	if err == nil || !strings.Contains(err.Error(), "more than once") {
-		t.Errorf("want duplicate-field error, got %v", err)
+	if err != nil {
+		t.Fatalf("duplicate field in composite + standalone should be allowed, got: %v", err)
 	}
 }
 
@@ -692,5 +697,33 @@ func TestTokenizeCell_CompositeWithRoledLiterals(t *testing.T) {
 	}
 	if cc.Segments[1].Kind != SegmentField || cc.Segments[1].Name != "status" {
 		t.Errorf("seg[1] = %+v, want field status", cc.Segments[1])
+	}
+}
+
+func TestTokenizeCell_CaptionDisplayMode(t *testing.T) {
+	cell, err := TokenizeCell("status.caption")
+	if err != nil {
+		t.Fatalf("tokenize: %v", err)
+	}
+	fc, ok := cell.(FieldCell)
+	if !ok {
+		t.Fatalf("got %T, want FieldCell", cell)
+	}
+	if fc.Name != "status" {
+		t.Errorf("Name = %q, want %q", fc.Name, "status")
+	}
+	if fc.Display != DisplayCaption {
+		t.Errorf("Display = %v, want DisplayCaption", fc.Display)
+	}
+}
+
+func TestTokenizeCell_CaptionWithRole(t *testing.T) {
+	cell, err := TokenizeCell(`<text.label>status.caption`)
+	if err != nil {
+		t.Fatalf("tokenize: %v", err)
+	}
+	fc, ok := cell.(FieldCell)
+	if !ok || fc.Display != DisplayCaption || fc.Role != "text.label" {
+		t.Fatalf("got %+v, want FieldCell{status, DisplayCaption, role=text.label}", cell)
 	}
 }

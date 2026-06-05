@@ -49,24 +49,24 @@ func TestTikiDetailView_RenderMetadata(t *testing.T) {
 	}
 
 	// Verify status label is visible
-	foundStatus, _, _ := ta.FindText("Status:")
+	foundStatus, _, _ := ta.FindText("Status")
 	if !foundStatus {
 		ta.DumpScreen()
-		t.Errorf("'Status:' label not found in tiki detail view")
+		t.Errorf("'Status' label not found in tiki detail view")
 	}
 
 	// Verify type label is visible
-	foundType, _, _ := ta.FindText("Type:")
+	foundType, _, _ := ta.FindText("Type")
 	if !foundType {
 		ta.DumpScreen()
-		t.Errorf("'Type:' label not found in tiki detail view")
+		t.Errorf("'Type' label not found in tiki detail view")
 	}
 
 	// Verify priority label is visible
-	foundPriority, _, _ := ta.FindText("Priority:")
+	foundPriority, _, _ := ta.FindText("Priority")
 	if !foundPriority {
 		ta.DumpScreen()
-		t.Errorf("'Priority:' label not found in tiki detail view")
+		t.Errorf("'Priority' label not found in tiki detail view")
 	}
 }
 
@@ -211,7 +211,7 @@ func TestTikiDetailView_EmptyDescription(t *testing.T) {
 	}
 
 	// Verify Status label is still visible
-	foundStatus, _, _ := ta.FindText("Status:")
+	foundStatus, _, _ := ta.FindText("Status")
 	if !foundStatus {
 		ta.DumpScreen()
 		t.Errorf("metadata should be visible even with empty description")
@@ -357,7 +357,7 @@ func TestTikiDetailView_AllTypes(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify Type label is visible
-	found, _, _ := ta.FindText("Type:")
+	found, _, _ := ta.FindText("Type")
 	if !found {
 		ta.DumpScreen()
 		t.Errorf("Type label should be visible in tiki detail")

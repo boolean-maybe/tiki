@@ -6,13 +6,16 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/controller"
+	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -336,6 +339,76 @@ func TestConfigurableDetailView_RendersConfiguredMetadata(t *testing.T) {
 	}
 }
 
+// TestConfigurableDetailView_RendersDependsOnColumn pins that a tiki with
+// declared dependencies surfaces them in the detail view: the resolved
+// dependency IDs must appear in the rendered output. Guards the kanban
+// layout change that added a `dependsOn` column beside Tags — without a
+// grid cell referencing the field, RenderDependsOnColumn is never reached.
+func TestConfigurableDetailView_RendersDependsOnColumn(t *testing.T) {
+	s := store.NewInMemoryStore()
+
+	dep1 := tikipkg.New()
+	dep1.SetID("AAAAAA")
+	dep1.SetTitle("first dep")
+	dep2 := tikipkg.New()
+	dep2.SetID("BBBBBB")
+	dep2.SetTitle("second dep")
+	parent := newTestViewTiki("PARENT")
+	parent.Set(tikipkg.FieldDependsOn, []string{"AAAAAA", "BBBBBB"})
+	for _, tk := range []*tikipkg.Tiki{dep1, dep2, parent} {
+		if err := s.CreateTiki(tk); err != nil {
+			t.Fatalf("CreateTiki(%s): %v", tk.ID(), err)
+		}
+	}
+
+	// the deps list is height-bound by the metadata box (spec.Rows + overhead).
+	// declare enough sibling fields that the box is at least as tall as the
+	// dependency count, matching the 4-row span the real kanban layout gives
+	// the dependsOn column — otherwise the box clips trailing deps.
+	cv := NewConfigurableDetailView(
+		s,
+		parent.ID(),
+		detailPluginFromFields([]string{"dependsOn", "status", "type", "priority"}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+
+	rendered := drawPrimitive(t, cv.GetPrimitive(), 80, 12)
+	for _, want := range []string{"AAAAAA", "BBBBBB"} {
+		if !strings.Contains(rendered, want) {
+			t.Errorf("rendered detail view missing dependency id %q:\n%s", want, rendered)
+		}
+	}
+}
+
+// drawPrimitive renders p onto a simulation screen of the given size and
+// returns the on-screen text, newline-joined per row. Mirrors the
+// SimulationScreen pattern used in composite_render_test.go.
+func drawPrimitive(t *testing.T, p tview.Primitive, width, height int) string {
+	t.Helper()
+	screen := tcell.NewSimulationScreen("UTF-8")
+	if err := screen.Init(); err != nil {
+		t.Fatalf("init simulation screen: %v", err)
+	}
+	defer screen.Fini()
+	screen.SetSize(width, height)
+	p.SetRect(0, 0, width, height)
+	p.Draw(screen)
+
+	var b strings.Builder
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			r, _, _, _ := screen.GetContent(x, y)
+			if r == 0 {
+				r = ' '
+			}
+			b.WriteRune(r)
+		}
+		b.WriteRune('\n')
+	}
+	return b.String()
+}
+
 // TestConfigurableDetailView_HandlesMissingTiki verifies the placeholder path
 // when the tiki id can't be resolved (e.g. stale selection after delete).
 func TestConfigurableDetailView_HandlesMissingTiki(t *testing.T) {
@@ -439,5 +512,150 @@ func TestTypeRegistry_AllStubsHaveRenderer(t *testing.T) {
 				t.Errorf("type %q has nil Render", sem)
 			}
 		})
+	}
+}
+
+func TestEmptyListFieldNames(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "deps", Type: workflow.TypeListRef, Custom: true},
+		{Name: "labels", Type: workflow.TypeListString, Custom: true},
+		{Name: "owner", Type: workflow.TypeString, Custom: true},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	defer teststatuses.Init()
+
+	tk := tikipkg.New()
+	tk.Set("labels", []string{"x"}) // non-empty list
+	tk.Set("owner", "")             // empty scalar — must NOT be hidden
+
+	got := emptyListFieldNames(tk, []string{"deps", "labels", "owner", "nonexistent"})
+	// deps is an empty list -> hidden; labels non-empty -> shown; owner scalar -> never.
+	if len(got) != 1 || got[0] != "deps" {
+		t.Errorf("emptyListFieldNames = %v, want [deps]", got)
+	}
+}
+
+// TestConfigurableDetailView_HidesEmptyListFieldAndCaption is an end-to-end
+// render assertion: a tiki with an empty list-ref field must hide both the
+// field value cell AND its caption cell; a tiki with a populated list-ref
+// must render the caption and the referenced ID.
+//
+// We use a custom list-ref field "deps" (not the built-in dependsOn) because
+// teststatuses.CanonicalFields already declares dependsOn, and re-declaring it
+// via InitWith would trip RegisterWorkflowFields' case-insensitive
+// duplicate-name guard. The custom field carries Caption: "Deps", which the
+// caption cell resolves through workflow.Field("deps").DisplayCaption().
+func TestConfigurableDetailView_HidesEmptyListFieldAndCaption(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "deps", Type: workflow.TypeListRef, Custom: true, Caption: "Deps"},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	defer teststatuses.Init()
+
+	spec, err := gridlayout.ParseGrid([][]string{
+		{`<text.label>deps.caption`, "deps"},
+	})
+	if err != nil {
+		t.Fatalf("parse layout: %v", err)
+	}
+	plug := &plugin.DetailPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "Detail", Kind: plugin.KindDetail},
+		Layout:     spec,
+	}
+
+	// empty deps: caption "Deps" must NOT render.
+	sEmpty := store.NewInMemoryStore()
+	empty := newTestViewTiki("EMPTY1")
+	if err := sEmpty.CreateTiki(empty); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	cvEmpty := NewConfigurableDetailView(sEmpty, empty.ID(), plug, controller.DetailViewActions(), nil, nil)
+	emptyOut := drawPrimitive(t, cvEmpty.GetPrimitive(), 60, 8)
+	if strings.Contains(emptyOut, "Deps") {
+		t.Errorf("empty deps should hide caption, but %q contains \"Deps\":\n%s", "Deps", emptyOut)
+	}
+
+	// non-empty deps: caption AND dep id must render.
+	sFull := store.NewInMemoryStore()
+	dep := tikipkg.New()
+	dep.SetID("AAAAAA")
+	dep.SetTitle("a dep")
+	full := newTestViewTiki("FULL01")
+	full.Set("deps", []string{"AAAAAA"})
+	for _, tk := range []*tikipkg.Tiki{dep, full} {
+		if err := sFull.CreateTiki(tk); err != nil {
+			t.Fatalf("create: %v", err)
+		}
+	}
+	cvFull := NewConfigurableDetailView(sFull, full.ID(), plug, controller.DetailViewActions(), nil, nil)
+	fullOut := drawPrimitive(t, cvFull.GetPrimitive(), 60, 8)
+	if !strings.Contains(fullOut, "Deps") {
+		t.Errorf("non-empty deps should show caption %q:\n%s", "Deps", fullOut)
+	}
+	if !strings.Contains(fullOut, "AAAAAA") {
+		t.Errorf("non-empty deps should show dep id, got:\n%s", fullOut)
+	}
+}
+
+// TestConfigurableDetailView_HiddenEmptyListFieldNotEditTraversable guards the
+// edit-mode Tab-traversal contract: a field hidden from the metadata grid by
+// the per-tiki empty-list rule must NOT be a traversal target. tags is a
+// built-in editable stringList; when it is empty it is hidden in view mode, so
+// it must also be skipped in edit mode. When non-empty it renders and is
+// traversable as usual.
+func TestConfigurableDetailView_HiddenEmptyListFieldNotEditTraversable(t *testing.T) {
+	plug := detailPluginFromFields([]string{"status", "tags"})
+
+	// empty tags -> hidden -> not edit-traversable.
+	sEmpty := store.NewInMemoryStore()
+	empty := newTestViewTiki("EMPTYT")
+	if err := sEmpty.CreateTiki(empty); err != nil {
+		t.Fatalf("create empty: %v", err)
+	}
+	cvEmpty := NewConfigurableDetailView(sEmpty, empty.ID(), plug, controller.DetailViewActions(), nil, nil)
+	cvEmpty.SetEditModeRegistry(controller.DetailEditModeActions())
+	if !cvEmpty.EnterEditMode() {
+		t.Fatal("EnterEditMode (empty)")
+	}
+	if cvEmpty.isEditableLayoutField("tags") {
+		t.Error("empty tags is hidden in the grid; it must not be edit-traversable")
+	}
+
+	// non-empty tags -> shown -> traversable as a sanity baseline.
+	sFull := store.NewInMemoryStore()
+	full := newTestViewTiki("FULLTG")
+	full.Set(tikipkg.FieldTags, []string{"frontend"})
+	if err := sFull.CreateTiki(full); err != nil {
+		t.Fatalf("create full: %v", err)
+	}
+	cvFull := NewConfigurableDetailView(sFull, full.ID(), plug, controller.DetailViewActions(), nil, nil)
+	cvFull.SetEditModeRegistry(controller.DetailEditModeActions())
+	if !cvFull.EnterEditMode() {
+		t.Fatal("EnterEditMode (full)")
+	}
+	if !cvFull.isEditableLayoutField("tags") {
+		t.Error("non-empty tags should remain edit-traversable")
+	}
+}
+
+func TestRenderViewModeAnchor_CaptionRendersFieldCaption(t *testing.T) {
+	// register a workflow field that carries a caption
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "myfield", Type: workflow.TypeString, Custom: true, Caption: "My Caption:"},
+	}); err != nil {
+		t.Fatalf("register field: %v", err)
+	}
+	defer teststatuses.Init()
+
+	a := gridlayout.Anchor{Kind: gridlayout.AnchorField, Name: "myfield", Display: gridlayout.DisplayCaption, Role: "text.label"}
+	tk := tikipkg.New()
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
+
+	prim := RenderViewModeAnchor(a, tk, ctx)
+	got := extractTextView(prim, true)
+	if !strings.Contains(got, "My Caption:") {
+		t.Errorf("caption anchor rendered %q, want it to contain %q", got, "My Caption:")
 	}
 }

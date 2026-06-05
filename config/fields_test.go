@@ -465,3 +465,16 @@ fields:
 		t.Errorf("low.Visual = %q, want %q", low.Visual, ".")
 	}
 }
+
+func TestConvertWorkflowFieldDef_Caption(t *testing.T) {
+	def, err := convertWorkflowFieldDef(customFieldYAML{Name: "dependsOn", Type: "tikiIdList", Caption: "Deps:"})
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	if def.Caption != "Deps:" {
+		t.Errorf("Caption = %q, want %q", def.Caption, "Deps:")
+	}
+	if def.DisplayCaption() != "Deps:" {
+		t.Errorf("DisplayCaption = %q, want %q", def.DisplayCaption(), "Deps:")
+	}
+}
