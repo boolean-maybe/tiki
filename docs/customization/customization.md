@@ -279,8 +279,14 @@ actions:
 
 `layout:` is a list of rows; each row is a list of cells. Cells can be field names, literal
 captions (quoted strings), role-annotated fields (`<highlight>title`), composites
-(`"priority " + priority.visual`), spans (`--`, `^`/`|`), stretchers (`<->`), or empty placeholders
-(`_`). The same syntax is shared by board/list and detail views.
+(`"priority " + priority.visual`), spans (`--`, `^`/`|`), or empty placeholders (`_`). The same
+syntax is shared by board/list and detail views.
+
+A bare field name sizes to its content. Add a sizing suffix to control width: `:N` pins a fixed
+width, `:fr` lets the column grow to absorb extra space (`2fr` grows twice as fast as `1fr`), and
+`:MIN..MAX` clamps any mode. A trailing `?` (e.g. `tags?`) hides the field and its caption when the
+tiki has no value for it. See [workflow-format.md](../workflow-format.md) for the full cell
+vocabulary and the ascending-floor shedding rule.
 
 Any field declared in `workflow.yaml fields:` — plus the audit fields `createdBy`, `createdAt`,
 `updatedAt` — may appear in `layout:`. Fields with typed editors (`status`, `type`, and `priority`
@@ -296,8 +302,7 @@ Validation rules — workflow load fails when:
   view chrome, not as layout rows. `title` IS allowed and renders as a regular grid field.
 - For `kind: detail`, an entry is `filepath` or `path` — those values live on the tiki struct
   rather than in Fields and have no typed renderer yet.
-- The grid has shape errors (ragged rows, orphan span markers, mixed stretcher columns, duplicate
-  anchors).
+- The grid has shape errors (ragged rows, orphan span markers) or a malformed sizing suffix.
 
 Audit fields (`createdBy`, `createdAt`, `updatedAt`) are accepted and render as read-only rows;
 the bundled kanban workflow includes them in its `layout:` grid.

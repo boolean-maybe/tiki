@@ -71,8 +71,9 @@ func tikiBoxItemHeight(spec gridlayout.GridSpec) int {
 // field on a `kind: detail` view instead.
 func CreateTikiBox(tk *tikipkg.Tiki, spec gridlayout.GridSpec, selected bool, roles *theme.Theme) tview.Primitive {
 	primitives := buildTikiBoxPrimitives(spec, tk, roles)
-	heightOf := func(string, int) int { return 1 }
-	container := gridbox.NewContainer(spec, primitives, heightOf)
+	heightOf := func(gridlayout.Anchor, int) int { return 1 }
+	measure := tikiBoxMeasure(tk, roles)
+	container := gridbox.NewContainer(spec, primitives, measure, heightOf)
 	if spec.Rows == 1 {
 		applyBorderlessStyle(container, selected, roles)
 		return container
@@ -81,6 +82,16 @@ func CreateTikiBox(tk *tikipkg.Tiki, spec gridlayout.GridSpec, selected bool, ro
 	frame.SetBorder(true)
 	applyFrameStyle(frame, selected, roles)
 	return frame
+}
+
+// tikiBoxMeasure builds the content-measure callback for a card's grid solve,
+// reusing the shared tikidetail.MeasureAnchor so cards and the detail box size
+// columns by the same rule.
+func tikiBoxMeasure(tk *tikipkg.Tiki, roles *theme.Theme) func(a gridlayout.Anchor) int {
+	ctx := tikidetail.FieldRenderContext{Mode: tikidetail.RenderModeView, Roles: roles}
+	return func(a gridlayout.Anchor) int {
+		return tikidetail.MeasureAnchor(a, tk, ctx)
+	}
 }
 
 // buildTikiBoxPrimitives walks the layout anchors and produces one

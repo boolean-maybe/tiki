@@ -27,8 +27,8 @@ func TestNewWordList(t *testing.T) {
 		t.Errorf("Expected fg color %s, got %s", roles.TextSecondary().Hex(), wl.fgColor.Hex())
 	}
 
-	if wl.bgColor.Hex() != roles.SurfaceSelection().Hex() {
-		t.Errorf("Expected bg color %s, got %s", roles.SurfaceSelection().Hex(), wl.bgColor.Hex())
+	if wl.bgColor.Hex() != roles.SurfaceCanvas().Hex() {
+		t.Errorf("Expected bg color %s, got %s", roles.SurfaceCanvas().Hex(), wl.bgColor.Hex())
 	}
 }
 

@@ -22,11 +22,10 @@ func singleColumnSpec(names []string) gridlayout.GridSpec {
 		cells[i] = []gridlayout.Cell{gridlayout.FieldCell{Name: n}}
 	}
 	return gridlayout.GridSpec{
-		Rows:      len(names),
-		Cols:      1,
-		Anchors:   anchors,
-		Stretcher: []bool{false},
-		Cells:     cells,
+		Rows:    len(names),
+		Cols:    1,
+		Anchors: anchors,
+		Cells:   cells,
 	}
 }
 

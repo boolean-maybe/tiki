@@ -3,13 +3,12 @@ package gridlayout
 import (
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/boolean-maybe/tiki/theme"
 )
 
-var cellNameRe = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_-]*)(?:\.(label|visual|caption))?(?::(\d+))?$`)
+var cellNameRe = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_-]*)(\?)?(?:\.(label|visual|caption))?(?::([A-Za-z0-9.]+))?$`)
 var cellRolePrefixRe = regexp.MustCompile(`^<([a-z][a-z.]*)>(.+)$`)
 var literalSegmentRe = regexp.MustCompile(`^"(.*)"$`)
 
@@ -42,21 +41,19 @@ func parseSegment(raw string) (Segment, error) {
 	if m == nil {
 		return Segment{}, fmt.Errorf("invalid segment %q in composite cell (not a field ref or \"quoted\" literal)", raw)
 	}
-	seg := Segment{
+	sz, err := ParseSizing(m[4])
+	if err != nil {
+		return Segment{}, fmt.Errorf("invalid sizing in composite segment %q: %w", raw, err)
+	}
+	// composites ignore the `?` hide suffix (group 2): they do not hide.
+	return Segment{
 		Kind:     SegmentField,
 		Name:     m[1],
 		Role:     role,
 		Modifier: modifier,
-		Display:  parseDisplayMode(m[2]),
-	}
-	if m[3] != "" {
-		w, err := strconv.Atoi(m[3])
-		if err != nil || w <= 0 {
-			return Segment{}, fmt.Errorf("invalid width in composite segment %q", raw)
-		}
-		seg.WantedWidth = w
-	}
-	return seg, nil
+		Display:  parseDisplayMode(m[3]),
+		Sizing:   sz,
+	}, nil
 }
 
 func tryParseComposite(s string) (Cell, bool, error) {
@@ -79,9 +76,16 @@ func tryParseComposite(s string) (Cell, bool, error) {
 //
 // The classification is content-based, in this order:
 //  1. Empty → error.
-//  2. Bare marker (--, ^, _, <->) → corresponding span/empty/stretcher cell.
-//  3. Identifier shape (letter, then letters/digits/underscores/hyphens, optional :N) → FieldCell.
+//  2. Bare marker (--, ^, _) → corresponding span/empty cell.
+//  3. Identifier shape (letter, then letters/digits/underscores/hyphens,
+//     optional `?` hide suffix, optional `.label`/`.visual`/`.caption` display
+//     suffix, optional `:[mode][min..max]` sizing suffix) → FieldCell.
 //  4. Anything else → LiteralCell.
+//
+// Sizing grammar (after the `:`): "auto" (default, content-sized) | "<int>"
+// (fixed) | "[<weight>]fr" (grows by weight), with optional "min..max" bounds
+// on any mode. A trailing `?` (before any display/sizing suffix) marks the
+// field hide-when-empty.
 //
 // Authoring caveat: identifier-shaped typos (e.g. `staus` instead of `status`)
 // reach FieldCell and trip schema validation at workflow-load time, surfacing
@@ -115,7 +119,7 @@ func TokenizeCell(s string) (Cell, error) {
 
 	// bare markers may not carry a role prefix
 	switch remainder {
-	case "--", "^", "_", "<->":
+	case "--", "^", "_":
 		if role != "" {
 			return nil, fmt.Errorf("role prefix not allowed on bare marker %q", remainder)
 		}
@@ -126,8 +130,6 @@ func TokenizeCell(s string) (Cell, error) {
 			return RowSpanCell{}, nil
 		case "_":
 			return EmptyCell{}, nil
-		case "<->":
-			return StretcherCell{}, nil
 		}
 	}
 
@@ -138,15 +140,18 @@ func TokenizeCell(s string) (Cell, error) {
 
 	// field reference
 	if m := cellNameRe.FindStringSubmatch(remainder); m != nil {
-		fc := FieldCell{Name: m[1], Role: role, Modifier: modifier, Display: parseDisplayMode(m[2])}
-		if m[3] != "" {
-			w, err := strconv.Atoi(m[3])
-			if err != nil || w <= 0 {
-				return nil, fmt.Errorf("invalid width in cell %q (want positive integer)", t)
-			}
-			fc.WantedWidth = w
+		sz, err := ParseSizing(m[4])
+		if err != nil {
+			return nil, fmt.Errorf("invalid sizing in cell %q: %w", t, err)
 		}
-		return fc, nil
+		return FieldCell{
+			Name:          m[1],
+			Role:          role,
+			Modifier:      modifier,
+			Display:       parseDisplayMode(m[3]),
+			Sizing:        sz,
+			HideWhenEmpty: m[2] == "?",
+		}, nil
 	}
 
 	// last-resort fallback: treat the (possibly role-stripped) remainder as
@@ -214,16 +219,17 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 				colSpan, rowSpan := computeSpans(cells, r, c, rows, cols)
 				idx := len(anchors)
 				anchors = append(anchors, Anchor{
-					Kind:        AnchorField,
-					Name:        cell.Name,
-					Role:        cell.Role,
-					Modifier:    cell.Modifier,
-					Display:     cell.Display,
-					Row:         r,
-					Col:         c,
-					RowSpan:     rowSpan,
-					ColSpan:     colSpan,
-					WantedWidth: cell.WantedWidth,
+					Kind:          AnchorField,
+					Name:          cell.Name,
+					Role:          cell.Role,
+					Modifier:      cell.Modifier,
+					Display:       cell.Display,
+					Row:           r,
+					Col:           c,
+					RowSpan:       rowSpan,
+					ColSpan:       colSpan,
+					Sizing:        cell.Sizing,
+					HideWhenEmpty: cell.HideWhenEmpty,
 				})
 				markOccupancy(occupancy, idx, r, c, rowSpan, colSpan)
 
@@ -249,7 +255,7 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 					if seg.Kind == SegmentField {
 						fieldNames[seg.Name] = struct{}{}
 					}
-					totalWidth += seg.WantedWidth
+					totalWidth += seg.Sizing.Min
 				}
 				anchorName := ""
 				if len(fieldNames) == 1 {
@@ -259,15 +265,22 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 				}
 				colSpan, rowSpan := computeSpans(cells, r, c, rows, cols)
 				idx := len(anchors)
+				// composites size to their rendered content (auto); any explicit
+				// segment :N widths sum into a floor so a pinned segment still
+				// reserves room. Composites never hide.
+				sizing := Sizing{Mode: SizeAuto}
+				if totalWidth > 0 {
+					sizing.Min, sizing.MinSet = totalWidth, true
+				}
 				anchors = append(anchors, Anchor{
-					Kind:        AnchorComposite,
-					Name:        anchorName,
-					Segments:    cell.Segments,
-					Row:         r,
-					Col:         c,
-					RowSpan:     rowSpan,
-					ColSpan:     colSpan,
-					WantedWidth: totalWidth,
+					Kind:     AnchorComposite,
+					Name:     anchorName,
+					Segments: cell.Segments,
+					Row:      r,
+					Col:      c,
+					RowSpan:  rowSpan,
+					ColSpan:  colSpan,
+					Sizing:   sizing,
 				})
 				markOccupancy(occupancy, idx, r, c, rowSpan, colSpan)
 
@@ -275,41 +288,17 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 				return GridSpec{}, fmt.Errorf("row %d, col %d: orphan '--' (no anchor to the left to extend)", r, c)
 			case RowSpanCell:
 				return GridSpec{}, fmt.Errorf("row %d, col %d: orphan row-span (no anchor above to extend); written as '^'", r, c)
-			case EmptyCell, StretcherCell:
-				// occupancy stays -1; stretcher consistency checked below
+			case EmptyCell:
+				// occupancy stays -1
 			}
 		}
-	}
-
-	stretcher := make([]bool, cols)
-	for c := 0; c < cols; c++ {
-		hasStretcher := false
-		hasIncompatible := false
-		for r := 0; r < rows; r++ {
-			switch cells[r][c].(type) {
-			case StretcherCell:
-				hasStretcher = true
-			case EmptyCell, ColSpanCell:
-				// neutral. ColSpanCell here is a pass-through from an
-				// anchor in a column to the left, so a column may be
-				// stretcher even if a wider anchor (e.g. a title that
-				// spans the whole row) crosses it.
-			case FieldCell, LiteralCell, RowSpanCell, CompositeCell:
-				hasIncompatible = true
-			}
-		}
-		if hasStretcher && hasIncompatible {
-			return GridSpec{}, fmt.Errorf("col %d: '<->' must not be mixed with anchored or row-spanned cells in the same column", c)
-		}
-		stretcher[c] = hasStretcher
 	}
 
 	return GridSpec{
-		Rows:      rows,
-		Cols:      cols,
-		Anchors:   anchors,
-		Stretcher: stretcher,
-		Cells:     cells,
+		Rows:    rows,
+		Cols:    cols,
+		Anchors: anchors,
+		Cells:   cells,
 	}, nil
 }
 

@@ -4,15 +4,19 @@
 // with one row per line and cells separated by `|`:
 //
 //	layout: |
-//	  title                  | --       | --  | --      | --
-//	  <text.label>"Status:"  | status   | <-> | tags:30 | depends:25
-//	  <text.label>"Type:"    | type     | <-> | ^       | ^
-//	  <text.label>"Priority:"| priority | <-> | _       | _
+//	  title                  | --       | title:fr | --      | --
+//	  <text.label>"Status:"  | status   | tags:fr  | tags:30 | depends:25
+//	  <text.label>"Type:"    | type     | _        | ^       | ^
+//	  <text.label>"Priority:"| priority | _        | _       | _
 //
 // Cell vocabulary:
 //
-//	name                 field, value-only (no caption), system-default width
-//	name:N               field, preferred + minimum width of N chars
+//	name                 field, value-only (no caption), sized to its content (auto, uncapped)
+//	name:N               field, fixed width of exactly N character cells
+//	name:auto            field, size to content; name:auto..N caps at N (then truncates with …)
+//	name:fr              field, grows to absorb residual width; name:Wfr takes weight W (default 1)
+//	name:MIN..MAX        bounds on any mode (e.g. :8.., :..20, :8..20)
+//	name?                hide this field (and its .caption) when the tiki has no value for it
 //	name.caption         field's caption text (label), rendered as a static label
 //	"any text"           literal text, default role text.primary
 //	<role>"any text"     literal text painted with the given role
@@ -20,7 +24,6 @@
 //	--                   column span (continue the anchor to the left)
 //	^                    row span (continue the anchor above)
 //	_                    empty cell
-//	<->                  horizontal stretcher (absorbs remaining space)
 //
 // Fields are rendered value-only. Captions may be authored as literal cells,
 // or — for fields that carry a caption: in workflow.yaml — referenced via
@@ -50,17 +53,18 @@ const (
 	DisplayCaption                    // show the field's caption (label text, not value)
 )
 
-// FieldCell is a non-span field anchor cell. WantedWidth is 0 when the
-// user did not write `:N`; otherwise it is the explicit preferred + minimum
-// width in character cells. Role is the semantic color role from `<role>`
+// FieldCell is a non-span field anchor cell. Sizing carries the parsed
+// `:[mode][min..max]` width spec (zero value = auto, uncapped). HideWhenEmpty
+// is set by the `?` suffix. Role is the semantic color role from `<role>`
 // prefix markup; empty when no role was declared. Display controls the
 // enum rendering mode (`.label` or `.visual` suffix); zero value = label.
 type FieldCell struct {
-	Name        string
-	Role        string
-	Modifier    string // optional; one of theme.KnownModifierNames or ""
-	Display     DisplayMode
-	WantedWidth int
+	Name          string
+	Role          string
+	Modifier      string // optional; one of theme.KnownModifierNames or ""
+	Display       DisplayMode
+	Sizing        Sizing
+	HideWhenEmpty bool // `?` suffix: collapse this cell (and its .caption) when the field has no value
 }
 
 // LiteralCell is a static-text cell. Text is the literal string as it was
@@ -85,16 +89,11 @@ type RowSpanCell struct{}
 // EmptyCell renders nothing and contributes no width hint.
 type EmptyCell struct{}
 
-// StretcherCell marks a column whose width is computed from residual space
-// after every fixed-width column has been satisfied.
-type StretcherCell struct{}
-
-func (FieldCell) isCell()     {}
-func (LiteralCell) isCell()   {}
-func (ColSpanCell) isCell()   {}
-func (RowSpanCell) isCell()   {}
-func (EmptyCell) isCell()     {}
-func (StretcherCell) isCell() {}
+func (FieldCell) isCell()   {}
+func (LiteralCell) isCell() {}
+func (ColSpanCell) isCell() {}
+func (RowSpanCell) isCell() {}
+func (EmptyCell) isCell()   {}
 
 // SegmentKind distinguishes field-reference segments from literal-text segments
 // within a CompositeCell.
@@ -106,16 +105,17 @@ const (
 )
 
 // Segment is one part of a CompositeCell — either a field reference or a
-// literal string. Field segments carry optional Role, Display, and WantedWidth
-// (same semantics as FieldCell). Literal segments carry Text only.
+// literal string. Field segments carry optional Role, Display, and Sizing
+// (same semantics as FieldCell). Literal segments carry Text only. Composites
+// do not hide, so there is no HideWhenEmpty here.
 type Segment struct {
-	Kind        SegmentKind
-	Name        string
-	Text        string
-	Role        string
-	Modifier    string // optional; one of theme.KnownModifierNames or ""
-	Display     DisplayMode
-	WantedWidth int
+	Kind     SegmentKind
+	Name     string
+	Text     string
+	Role     string
+	Modifier string // optional; one of theme.KnownModifierNames or ""
+	Display  DisplayMode
+	Sizing   Sizing
 }
 
 // CompositeCell concatenates multiple segments (field refs and/or literals)
@@ -139,25 +139,26 @@ const (
 
 // Anchor is one placed cell-with-content in the grid: a field anchor or a
 // literal text anchor. Row/Col is the top-left corner; RowSpan/ColSpan
-// describe its extent. WantedWidth carries the user's :N hint (0 when
-// absent), applied across the spanned columns by the solver.
+// describe its extent. Sizing carries the parsed width spec, applied across
+// the spanned columns by the solver. HideWhenEmpty propagates the `?` suffix.
 //
 // For Kind == AnchorField, Name holds the field name; Text is empty.
 // For Kind == AnchorLiteral, Text holds the literal string; Name is empty
 // (callers must use Kind to distinguish, not Name presence — a future
 // feature could allow naming literals).
 type Anchor struct {
-	Kind        AnchorKind
-	Name        string
-	Text        string
-	Role        string      // semantic color role propagated from FieldCell; empty = default
-	Modifier    string      // optional; one of theme.KnownModifierNames or ""
-	Display     DisplayMode // enum display mode propagated from FieldCell; zero = label
-	Segments    []Segment   // populated only for AnchorComposite
-	Row, Col    int
-	RowSpan     int
-	ColSpan     int
-	WantedWidth int
+	Kind          AnchorKind
+	Name          string
+	Text          string
+	Role          string      // semantic color role propagated from FieldCell; empty = default
+	Modifier      string      // optional; one of theme.KnownModifierNames or ""
+	Display       DisplayMode // enum display mode propagated from FieldCell; zero = label
+	Segments      []Segment   // populated only for AnchorComposite
+	Row, Col      int
+	RowSpan       int
+	ColSpan       int
+	Sizing        Sizing
+	HideWhenEmpty bool
 }
 
 // GridSpec is the parsed, validated grid. Anchors are emitted in
@@ -166,7 +167,6 @@ type Anchor struct {
 type GridSpec struct {
 	Rows, Cols int
 	Anchors    []Anchor
-	Stretcher  []bool // len == Cols; true for stretcher columns
 	Cells      [][]Cell
 }
 

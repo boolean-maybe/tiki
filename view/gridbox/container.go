@@ -6,9 +6,9 @@
 // What lives here vs. in tikidetail:
 //
 //   - This package owns the layout primitive (Container) and the
-//     layout-solver adapter (SolveGridLayout, DefaultAnchorWidth,
-//     overhead constants). Nothing in this package knows about field
-//     names, render context, themes, or any per-field logic.
+//     layout-solver adapter (SolveGridLayout, MeasureAnchorText, overhead
+//     constants). Nothing in this package knows about field names, render
+//     context, themes, or any per-field logic.
 //   - Package view/tikidetail owns the view-mode field renderers
 //     (RenderViewModeAnchor and the underlying renderConfiguredField,
 //     renderCompositePrimitive, renderLiteralCaption, etc.). The tiki
@@ -51,24 +51,35 @@ import (
 type Container struct {
 	*tview.Flex
 	spec           gridlayout.GridSpec
+	grow           []bool            // per-column: true for residual-absorbing (SizeGrow) columns
 	primitives     []tview.Primitive // indexed by anchor position in spec.Anchors
-	heightOf       func(name string, width int) int
+	measure        func(a gridlayout.Anchor) int
+	heightOf       func(a gridlayout.Anchor, width int) int
 	lastWidth      int
 	selectionBg    tcell.Color
 	selectionBgSet bool
 }
 
-// NewContainer wires the parsed grid spec, the per-anchor primitives,
-// and a height-resolver into a horizontal Flex wrapper. The first Draw
-// call computes the layout against the live width.
+// NewContainer wires the parsed grid spec, the per-anchor primitives, a
+// content-measure callback, and a height-resolver into a horizontal Flex
+// wrapper. The first Draw call computes the layout against the live width.
+//
+// measure reports the content width of an anchor (field anchors read the
+// rendered value; non-field anchors should defer to MeasureAnchorText). The
+// grow safety nets (single-column, prose-block) are applied once here so the
+// stored spec and its derived grow flags stay consistent with what the solver
+// sees on every rebuild.
 //
 // primitives is indexed by anchor position (same order as spec.Anchors)
 // so both field and literal anchors can be addressed uniformly.
-func NewContainer(spec gridlayout.GridSpec, primitives []tview.Primitive, heightOf func(name string, width int) int) *Container {
+func NewContainer(spec gridlayout.GridSpec, primitives []tview.Primitive, measure func(a gridlayout.Anchor) int, heightOf func(a gridlayout.Anchor, width int) int) *Container {
+	promoted := promoteForGrowth(spec)
 	g := &Container{
 		Flex:       tview.NewFlex().SetDirection(tview.FlexRow),
-		spec:       spec,
+		spec:       promoted,
+		grow:       gridlayout.GrowColumns(promoted),
 		primitives: primitives,
+		measure:    measure,
 		heightOf:   heightOf,
 		lastWidth:  -1,
 	}
@@ -202,7 +213,9 @@ func (g *Container) InputHandler() func(event *tcell.EventKey, setFocus func(p t
 func (g *Container) rebuild(width int) {
 	g.lastWidth = width
 	g.Flex.Clear()
-	plan := SolveGridLayout(width, g.spec, g.heightOf)
+	// g.spec is already promoted in NewContainer; solve directly to avoid
+	// re-running the (idempotent) promotion on every width change.
+	plan := gridlayout.SolveLayout(g.spec, width, InterColumnGap, g.measure, g.heightOf)
 	if plan.Cols == 0 || plan.Rows == 0 {
 		return
 	}
@@ -306,7 +319,7 @@ func (g *Container) addSpanningBand(start, end int, plan gridlayout.Plan, anchor
 		// usually 1, but bumped when col `c` is an h-span owner.
 		hSpanCols := 1
 		colWidth := plan.ColumnWidths[c]
-		hasStretcher := g.spec.Stretcher[c]
+		hasStretcher := g.grow[c]
 		if idx, ok := anchorAt[start*plan.Cols+c]; ok {
 			a := g.spec.Anchors[idx]
 			if a.ColSpan > 1 {
@@ -323,7 +336,7 @@ func (g *Container) addSpanningBand(start, end int, plan gridlayout.Plan, anchor
 			if idx, ok := anchorAt[r*plan.Cols+c]; ok {
 				a := g.spec.Anchors[idx]
 				prim := g.primitives[idx]
-				if prim == nil {
+				if prim == nil || plan.SuppressedAnchorAt(g.spec, a.Name, a.Row, a.Col) {
 					prim = g.newSpacer()
 				}
 				h := g.anchorPlacementHeight(a, plan)
@@ -382,7 +395,7 @@ func (g *Container) addPackedBand(start, end int, plan gridlayout.Plan, anchorAt
 			if idx, ok := anchorAt[r*plan.Cols+c]; ok {
 				a := g.spec.Anchors[idx]
 				prim := g.primitives[idx]
-				if prim == nil {
+				if prim == nil || plan.SuppressedAnchorAt(g.spec, a.Name, a.Row, a.Col) {
 					prim = g.newSpacer()
 				}
 				h := g.anchorPlacementHeight(a, plan)
@@ -397,7 +410,7 @@ func (g *Container) addPackedBand(start, end int, plan gridlayout.Plan, anchorAt
 
 		colWidth := plan.ColumnWidths[c]
 		proportion := 0
-		if g.spec.Stretcher[c] {
+		if g.grow[c] {
 			proportion = 1
 			colWidth = 0
 		}
@@ -411,7 +424,7 @@ func (g *Container) addPackedBand(start, end int, plan gridlayout.Plan, anchorAt
 
 // spanWidth returns the total character width of an anchor's column span
 // (including inter-column gaps between visible spanned columns) and
-// whether any spanned column is a stretcher.
+// whether any spanned column grows.
 func (g *Container) spanWidth(a gridlayout.Anchor, plan gridlayout.Plan) (int, bool) {
 	totalWidth := 0
 	visible := 0
@@ -422,7 +435,7 @@ func (g *Container) spanWidth(a gridlayout.Anchor, plan gridlayout.Plan) (int, b
 		}
 		visible++
 		totalWidth += plan.ColumnWidths[cc]
-		if g.spec.Stretcher[cc] {
+		if g.grow[cc] {
 			hasStretcher = true
 		}
 	}
@@ -466,7 +479,13 @@ func (g *Container) anchorPlacementHeight(a gridlayout.Anchor, plan gridlayout.P
 	if visible > 1 {
 		totalWidth += (visible - 1) * InterColumnGap
 	}
-	h := g.heightOf(a.Name, totalWidth)
+	// A `.caption` field anchor is a single line of label text, never the
+	// field's wrapped value — match the solver's anchorHeight rule so the
+	// caption cell occupies exactly one row and sits flush above its value.
+	if a.Display == gridlayout.DisplayCaption {
+		return 1
+	}
+	h := g.heightOf(a, totalWidth)
 	if h < 1 {
 		h = 1
 	}

@@ -649,6 +649,9 @@ renders. The grid uses the same syntax as detail views — each row is a list of
 cells, and cells can be field names, literal captions, or composites. Card
 height is derived from the row count plus borders + padding.
 
+A bare field sizes to its content; add `:fr` to let a column absorb extra width,
+`:N` to pin a fixed width, or `?` (e.g. `tags?`) to hide a field when it is empty.
+
 ```yaml
   - name: Roadmap
     kind: board

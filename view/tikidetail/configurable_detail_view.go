@@ -52,12 +52,8 @@ type ConfigurableDetailView struct {
 	spec   gridlayout.GridSpec // parsed layout grid (alias of pluginDef.Layout, kept for hot-path reads)
 	layout []string            // flat anchor names in declaration order (edit traversal)
 
-	// fieldAnchorNames is the deduped, in-order list of AnchorField names in
-	// spec — the immutable candidate set tested against each tiki to decide
-	// which list-fields to hide. Computed once at construction (see below).
-	fieldAnchorNames []string
-	navMarkdown      *markdown.NavigableMarkdown
-	listenerID       int
+	navMarkdown *markdown.NavigableMarkdown
+	listenerID  int
 
 	// edit-mode state
 	editMode          bool
@@ -145,23 +141,6 @@ func NewConfigurableDetailView(
 		focusedIdx:        -1,
 		editors:           make(map[string]FieldEditorWidget),
 		onEditFieldChange: make(map[string]func(string)),
-	}
-
-	// deduped AnchorField names, in declaration order — the immutable
-	// candidate set for specForTiki. Not GridSpec.AnchorNames() because that
-	// also includes AnchorComposite names and does not dedup, whereas we need
-	// only AnchorField names, deduped, to match HideFields (which acts only on
-	// AnchorField).
-	seen := make(map[string]struct{})
-	for _, a := range cv.spec.Anchors {
-		if a.Kind != gridlayout.AnchorField {
-			continue
-		}
-		if _, dup := seen[a.Name]; dup {
-			continue
-		}
-		seen[a.Name] = struct{}{}
-		cv.fieldAnchorNames = append(cv.fieldAnchorNames, a.Name)
 	}
 
 	cv.build()
@@ -365,34 +344,27 @@ func (cv *ConfigurableDetailView) focusActiveEditor() {
 	}
 }
 
-// emptyListFieldNames returns the names of list-type fields (TypeListRef /
-// TypeListString, i.e. tikiIdList / stringList in workflow.yaml) among
-// candidates whose value is empty for tk. Scalar fields and
-// non-empty lists are excluded. Used to hide empty list fields (and their
-// captions) from the metadata grid per tiki.
-func emptyListFieldNames(tk *tikipkg.Tiki, candidates []string) []string {
-	var out []string
-	for _, name := range candidates {
-		fd, ok := workflow.Field(name)
-		if !ok {
-			continue
-		}
-		if fd.Type != workflow.TypeListString && fd.Type != workflow.TypeListRef {
-			continue
-		}
-		if vals, _, _ := tk.StringSliceField(name); len(vals) == 0 {
-			out = append(out, name)
-		}
+// fieldHasValue reports whether tk carries a non-empty value for the named
+// field. Emptiness is defined by the same value-formatting path the view
+// renders (genericFieldValueString), so a field hidden via the `?` suffix is
+// hidden exactly when it would otherwise render its empty placeholder. Unknown
+// fields are treated as having no value.
+func fieldHasValue(tk *tikipkg.Tiki, name string) bool {
+	fd, ok := workflow.Field(name)
+	if !ok {
+		return false
 	}
-	return out
+	// "—" is the empty placeholder genericFieldValueString emits for every type.
+	return genericFieldValueString(fd, tk, FieldRenderContext{}) != "—"
 }
 
 // specForTiki returns the layout spec to render for tk: the parsed template
-// with empty list-fields (and their field.caption cells) hidden. Candidate
-// names come from the template's field anchors so we only test fields the
-// layout actually references.
+// with `?`-marked empty fields (and their field.caption cells) hidden. The
+// HideWhenEmpty trait drives hiding, so any field type may opt in — replacing
+// the former hardcoded list-type special-case.
 func (cv *ConfigurableDetailView) specForTiki(tk *tikipkg.Tiki) gridlayout.GridSpec {
-	hidden := emptyListFieldNames(tk, cv.fieldAnchorNames)
+	has := func(name string) bool { return fieldHasValue(tk, name) }
+	hidden := gridlayout.EmptyFieldNames(cv.spec, has)
 	return gridlayout.HideFields(cv.spec, hidden)
 }
 
@@ -415,10 +387,11 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 
 	spec := cv.specForTiki(tk)
 	primitives := cv.buildAnchorPrimitivesForSpec(spec, tk, ctx)
-	heightOf := func(name string, w int) int { return FieldHeight(name, tk, w) }
+	heightOf := func(a gridlayout.Anchor, w int) int { return FieldHeight(a.Name, tk, w) }
+	measure := func(a gridlayout.Anchor) int { return MeasureAnchor(a, tk, ctx) }
 
 	container := tview.NewFlex().SetDirection(tview.FlexRow)
-	container.AddItem(gridbox.NewContainer(spec, primitives, heightOf), spec.Rows, 0, false)
+	container.AddItem(gridbox.NewContainer(spec, primitives, measure, heightOf), spec.Rows, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
@@ -593,18 +566,31 @@ func renderLiteralCaption(text, role, modifier string, roles *theme.Theme) tview
 	return tv
 }
 
-// renderCaptionAnchor renders a field anchor's caption text as a static label —
-// the field-owned equivalent of a literal caption cell. Resolution order:
-// workflow FieldDef.DisplayCaption(), then the typed registry Label, then the
-// bare field name.
-func renderCaptionAnchor(a gridlayout.Anchor, roles *theme.Theme) tview.Primitive {
-	caption := a.Name
-	if wfd, ok := workflow.Field(a.Name); ok {
-		caption = wfd.DisplayCaption()
-	} else if fd, ok := LookupField(a.Name); ok && fd.Label != "" {
-		caption = fd.Label
+// fieldCaptionText resolves the caption text for a `.caption` field anchor.
+// Resolution order: an explicit workflow `caption:`, then the typed registry
+// Label, then the bare field name. The registry Label is preferred over the
+// workflow field's name-fallback so system fields without a declared caption
+// (createdBy/createdAt/updatedAt) render their human labels ("Author"/
+// "Created"/"Updated") instead of the raw field name. Shared by the renderer
+// and the solver's content measurer so a caption column is sized to the text
+// it actually shows.
+func fieldCaptionText(name string) string {
+	if wfd, ok := workflow.Field(name); ok && wfd.Caption != "" {
+		return wfd.Caption
 	}
-	return renderLiteralCaption(caption, a.Role, a.Modifier, roles)
+	if fd, ok := LookupField(name); ok && fd.Label != "" {
+		return fd.Label
+	}
+	if wfd, ok := workflow.Field(name); ok {
+		return wfd.DisplayCaption()
+	}
+	return name
+}
+
+// renderCaptionAnchor renders a field anchor's caption text as a static label —
+// the field-owned equivalent of a literal caption cell.
+func renderCaptionAnchor(a gridlayout.Anchor, roles *theme.Theme) tview.Primitive {
+	return renderLiteralCaption(fieldCaptionText(a.Name), a.Role, a.Modifier, roles)
 }
 
 // renderLiteralAnchor dispatches a literal anchor to the appropriate
@@ -1131,14 +1117,20 @@ func (cv *ConfigurableDetailView) isEditableLayoutField(name string) bool {
 }
 
 // isHiddenForCurrentTiki reports whether name is hidden from the metadata grid
-// for the tiki being viewed (an empty list-type field). Hidden fields are
-// skipped in edit-mode traversal too — a field skipped in view mode is skipped
-// in edit mode. The tiki source mirrors what specForTiki/buildMetadataBox
+// for the tiki being viewed (a `?`-marked field with no value). Hidden fields
+// are skipped in edit-mode traversal too — a field skipped in view mode is
+// skipped in edit mode. The tiki source mirrors what specForTiki/buildMetadataBox
 // actually render (getTiki prefers the in-flight editing copy in edit mode).
 func (cv *ConfigurableDetailView) isHiddenForCurrentTiki(name string) bool {
 	tk := cv.getTiki()
 	if tk == nil {
 		return false
 	}
-	return len(emptyListFieldNames(tk, []string{name})) > 0
+	has := func(n string) bool { return fieldHasValue(tk, n) }
+	for _, hidden := range gridlayout.EmptyFieldNames(cv.spec, has) {
+		if hidden == name {
+			return true
+		}
+	}
+	return false
 }

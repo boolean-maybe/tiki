@@ -173,31 +173,27 @@ func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext, role, modifier st
 	return titleBox
 }
 
-// RenderTagsColumn renders the tags as a value-only word-wrapped list. The
-// caption (if wanted) is placed by the layout author as a literal cell.
-func RenderTagsColumn(tk *tikipkg.Tiki) tview.Primitive {
-	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
-	if len(tags) == 0 {
-		return tview.NewBox()
-	}
+// wordListColumn wraps a WordList of the given words in the standard list
+// column frame (1-cell left/right padding). It is the generic primitive for a
+// stringList field's value — a plain word-wrapping text column, no selection
+// background, no per-row chrome. The padding is mirrored by listColumnPadding
+// in the width measure, keeping measure and render in lockstep.
+func wordListColumn(words []string) tview.Primitive {
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
 	col.SetBorderPadding(0, 0, 1, 1)
-	col.AddItem(component.NewWordList(tags), 0, 1, false)
+	col.AddItem(component.NewWordList(words), 0, 1, false)
 	return col
 }
 
-// RenderDependsOnColumn renders the upstream dependencies as a value-only
-// tiki list. Returns nil when the tiki has no dependencies. Unresolved IDs
-// (declared but not in the store) render as placeholder rows carrying the
-// raw ID as a synthetic tiki — keeps the rendered row count in lockstep
-// with the height contract so the grid algorithm doesn't reserve dead rows.
-func RenderDependsOnColumn(tk *tikipkg.Tiki, tikiStore store.Store) tview.Primitive {
-	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
-	if len(deps) == 0 {
-		return nil
-	}
-	rendered := make([]*tikipkg.Tiki, 0, len(deps))
-	for _, id := range deps {
+// tikiIDListColumn is the generic primitive for a tikiIdList field's value: a
+// column of "ID title" rows, one per declared id. Each id is resolved against
+// the store; unresolved ids render as a placeholder row so the rendered row
+// count stays in lockstep with the height contract and the grid algorithm does
+// not reserve dead rows. Driven purely by the id slice and store, with no
+// reference to any particular field — any tikiIdList field uses it.
+func tikiIDListColumn(ids []string, tikiStore store.Store) tview.Primitive {
+	rendered := make([]*tikipkg.Tiki, 0, len(ids))
+	for _, id := range ids {
 		if dep := tikiStore.GetTiki(id); dep != nil {
 			rendered = append(rendered, dep)
 			continue
@@ -210,7 +206,11 @@ func RenderDependsOnColumn(tk *tikipkg.Tiki, tikiStore store.Store) tview.Primit
 
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
 	col.SetBorderPadding(0, 0, 1, 1)
-	col.AddItem(component.NewTikiList(config.TikiListMetadataMaxRows).SetTikis(rendered), 0, 1, false)
+	// SetSelectable(false): a metadata-grid value is static, not an interactive
+	// list — without this the list highlights row 0 by default, painting a
+	// stray selection background behind the first entry.
+	list := component.NewTikiList(config.TikiListMetadataMaxRows).SetSelectable(false).SetTikis(rendered)
+	col.AddItem(list, 0, 1, false)
 	return col
 }
 

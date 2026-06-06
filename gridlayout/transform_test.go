@@ -104,3 +104,17 @@ func TestHideFields_DoesNotMutateInput(t *testing.T) {
 		t.Errorf("input spec mutated: anchors %d -> %d", before, len(spec.Anchors))
 	}
 }
+
+func TestEmptyFieldNames(t *testing.T) {
+	spec, err := ParseGrid([][]string{{"tags?", "status", "deps?"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// has reports whether a field has a value for the current tiki.
+	has := func(name string) bool { return name == "tags" } // tags present; deps empty
+	got := EmptyFieldNames(spec, has)
+	// only deps? is marked hide AND empty -> hidden. tags? present -> kept. status not marked.
+	if len(got) != 1 || got[0] != "deps" {
+		t.Errorf("EmptyFieldNames = %v, want [deps]", got)
+	}
+}

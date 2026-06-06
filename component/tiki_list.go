@@ -90,9 +90,14 @@ type TikiList struct {
 	selectionBgColor   theme.Color // background color for selected row highlight
 	statusDoneColor    theme.Color // color for done status indicator
 	statusPendingColor theme.Color // color for pending status indicator
+	selectable         bool        // when false, no row is ever drawn highlighted
 }
 
 // NewTikiList creates a new TikiList with the given maximum visible row count.
+// Lists are selectable by default (the interactive palette relies on a
+// highlighted row); callers that display a static, non-interactive list — such
+// as a metadata-grid value cell — call SetSelectable(false) so no row carries
+// the selection background.
 func NewTikiList(maxVisibleRows int) *TikiList {
 	colors := DefaultTikiRowColors()
 	return &TikiList{
@@ -104,7 +109,17 @@ func NewTikiList(maxVisibleRows int) *TikiList {
 		selectionBgColor:   colors.SelectionBg,
 		statusDoneColor:    colors.StatusDoneColor,
 		statusPendingColor: colors.StatusPendingColor,
+		selectable:         true,
 	}
+}
+
+// SetSelectable controls whether the list highlights a selected row. A
+// non-selectable list (e.g. a read-only metadata-grid value) draws every row
+// in plain text — no selection background — matching the surrounding value
+// cells. Returns self for chaining.
+func (tl *TikiList) SetSelectable(selectable bool) *TikiList {
+	tl.selectable = selectable
+	return tl
 }
 
 // SetTikis replaces the tiki data, recomputes the ID column width, and clamps scroll/selection.
@@ -185,7 +200,8 @@ func (tl *TikiList) Draw(screen tcell.Screen) {
 		}
 
 		tk := tl.tikis[itemIndex]
-		row := tl.buildRow(tk, itemIndex == tl.selectionIndex, width)
+		selected := tl.selectable && itemIndex == tl.selectionIndex
+		row := tl.buildRow(tk, selected, width)
 		tview.Print(screen, row, x, y+i, width, tview.AlignLeft, theme.Roles().SurfaceTransparent().TCell())
 	}
 }

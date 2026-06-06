@@ -21,18 +21,13 @@ func longestWordWidth(s string) int {
 
 // helpers.go is the layout-solver adapter shared by all gridbox callers.
 // Width/height solving lives in gridlayout.SolveLayout; this file owns the
-// per-field default-width hint and the inter-column gap used as a visual
+// content-measure callback wiring and the inter-column gap used as a visual
 // separator.
 
 // InterColumnGap is the cell count between adjacent columns in a layout
 // box. Kept here (not in gridlayout) because it is a UI-layer constant
 // tied to the visual style of the box.
 const InterColumnGap = 2
-
-// DefaultFieldWidth is the fallback minimum width (in cells) for a field
-// anchor that did not declare a `:N` width in the layout. Authors set an
-// explicit `:N` when a field needs more room.
-const DefaultFieldWidth = 12
 
 // TikiBoxOverhead is the fixed vertical cost a tiki-card frame adds
 // beyond the grid body: 1 top border + 1 bottom border. Tiki cards have
@@ -48,134 +43,138 @@ const TikiBoxOverhead = 2
 // Used by ConfigurableDetailView.
 const DetailBoxOverhead = 4
 
-// DefaultAnchorWidth returns the wanted-width hint for an anchor that did
-// not declare a `:N` width in the layout grid. Kept conservative so
-// stretcher columns absorb generous slack without crowding fixed columns.
+// MeasureAnchorText is the content-width measurer for non-field anchors
+// (literals and composites). Field anchors are measured by a caller-supplied
+// callback that reads the rendered field value; everything else is measured
+// from its declared text.
 //
-// Field anchors get a per-name table lookup; literal anchors get a width
-// based on their text length so short captions like "Status:" don't crowd
-// out adjacent value columns. Row-spanned literals (RowSpan > 1) are
-// rendered as wrapping prose blocks by renderLiteralAnchor, so their
-// minimum useful width is the longest word — not the full text. Otherwise
-// a long row-spanned literal would demand the full text length as a column
-// width and get dropped on narrower terminals.
-func DefaultAnchorWidth(a gridlayout.Anchor) int {
-	if a.Kind == gridlayout.AnchorLiteral {
+// Single-row literals measure as their text length (+1 padding). Row-spanned
+// literals and composites are wrapping prose blocks, so their minimum useful
+// width is the longest word — not the full text — otherwise a long block would
+// demand the full text length as a column width and get dropped on narrow
+// terminals. Single-row composites take the widest single segment (sum
+// overestimates "minimum useful" width for expression-like cells such as
+// `visual + id`).
+func MeasureAnchorText(a gridlayout.Anchor) int {
+	switch a.Kind {
+	case gridlayout.AnchorLiteral:
 		if a.RowSpan > 1 {
 			return longestWordWidth(a.Text)
 		}
 		return len(a.Text) + 1
+	case gridlayout.AnchorComposite:
+		return measureComposite(a)
 	}
-	if a.Kind == gridlayout.AnchorComposite {
-		// Row-spanned composites are prose blocks (multi-segment paragraph
-		// that wraps via renderCompositePrimitive). Their minimum useful
-		// width is the longest word across all literal segments — same rule
-		// as row-spanned literals — so they fit narrow lanes by wrapping.
-		if a.RowSpan > 1 {
-			max := 1
-			for _, seg := range a.Segments {
-				if seg.Kind != gridlayout.SegmentLiteral {
-					continue
-				}
-				if w := longestWordWidth(seg.Text); w > max {
-					max = w
-				}
-			}
-			return max
-		}
-		// Composite default width is a hint, not a hard requirement. We
-		// take the maximum *single segment*'s default width rather than
-		// the sum — composites in tiki cards are expression-like (visual
-		// + id, label + value) and the sum vastly overestimates the
-		// "minimum useful" width. With a sum, narrow lanes drop the only
-		// column entirely because no column ever fits.
+	return 1
+}
+
+func measureComposite(a gridlayout.Anchor) int {
+	if a.RowSpan > 1 {
 		max := 1
 		for _, seg := range a.Segments {
-			w := 0
-			if seg.Kind == gridlayout.SegmentLiteral {
-				w = len(seg.Text)
-			} else {
-				w = DefaultFieldWidth
+			if seg.Kind != gridlayout.SegmentLiteral {
+				continue
 			}
-			if w > max {
+			if w := longestWordWidth(seg.Text); w > max {
 				max = w
 			}
 		}
 		return max
 	}
-	return DefaultFieldWidth
+	max := 1
+	for _, seg := range a.Segments {
+		w := 1
+		if seg.Kind == gridlayout.SegmentLiteral {
+			w = len(seg.Text)
+		}
+		if w > max {
+			max = w
+		}
+	}
+	return max
 }
 
-// SolveGridLayout resolves the layout grid against the live terminal
-// width. heightOf is the callback the solver uses to ask each field for
-// its natural height at the resolved column width.
+// SolveGridLayout resolves the layout grid against the live terminal width.
+// measure reports the content width of an anchor (field anchors read the
+// rendered value; non-field anchors should defer to MeasureAnchorText).
+// heightOf is the callback the solver uses to ask each field for its natural
+// height at the resolved column width.
 //
 // As a single-column safety net (relevant to tiki cards on narrow lanes),
-// when the spec has exactly one column it is treated as a stretcher
-// regardless of how it was declared. Without this, a tiki card whose only
-// column's content has a default width wider than the available lane
-// width would have its column shed by the solver — leaving an empty
-// frame. Single-column layouts can't shed anything anyway, so promoting
-// them to stretcher is always the right call.
+// when the spec has exactly one column it is promoted to grow regardless of
+// how it was declared. Without this, a tiki card whose only column's content
+// is wider than the available lane width would have its column shed by the
+// solver — leaving an empty frame. Single-column layouts can't shed anything
+// anyway, so promoting them to grow is always the right call.
 //
 // As a prose-block safety net, columns occupied by a row-spanned literal
-// anchor (RowSpan > 1) are promoted to stretcher when the spec declares
-// no stretcher elsewhere. Row-spanned literals are wrapping prose blocks
-// (rendered by view/tikidetail.renderLiteralAnchor); without slack flowing
-// to their columns, extra terminal width becomes whitespace instead of
-// giving the prose more room to wrap. Promotion is gated on the spec
-// having no other stretcher so explicit author choices win — if a layout
-// already has `<->` somewhere, the author already directed where slack
-// should go and we do not override that.
-func SolveGridLayout(width int, spec gridlayout.GridSpec, heightOf func(name string, width int) int) gridlayout.Plan {
-	if spec.Cols == 1 && len(spec.Stretcher) > 0 && !spec.Stretcher[0] {
-		stretched := spec
-		stretched.Stretcher = []bool{true}
-		spec = stretched
-	}
-	if !hasStretcher(spec) {
-		spec = promoteRowSpannedLiteralColumns(spec)
-	}
-	return gridlayout.SolveLayout(spec, width, InterColumnGap, DefaultAnchorWidth, heightOf)
+// anchor (RowSpan > 1) are promoted to grow when the spec declares no grow
+// column elsewhere. Row-spanned literals are wrapping prose blocks; without
+// slack flowing to their columns, extra terminal width becomes whitespace
+// instead of giving the prose more room to wrap. Promotion is gated on the
+// spec having no other grow column so explicit author `:fr` choices win.
+func SolveGridLayout(width int, spec gridlayout.GridSpec, measure func(a gridlayout.Anchor) int, heightOf func(a gridlayout.Anchor, width int) int) gridlayout.Plan {
+	return gridlayout.SolveLayout(promoteForGrowth(spec), width, InterColumnGap, measure, heightOf)
 }
 
-func hasStretcher(spec gridlayout.GridSpec) bool {
-	for _, s := range spec.Stretcher {
-		if s {
+// promoteForGrowth applies the single-column and prose-block grow safety nets,
+// returning a (possibly copied) spec whose anchors carry the promoted SizeGrow
+// mode. The original spec is never mutated.
+func promoteForGrowth(spec gridlayout.GridSpec) gridlayout.GridSpec {
+	if spec.Cols == 1 {
+		return promoteSingleColumn(spec)
+	}
+	if !hasGrow(spec) {
+		return promoteRowSpannedLiteralColumns(spec)
+	}
+	return spec
+}
+
+func hasGrow(spec gridlayout.GridSpec) bool {
+	for _, g := range gridlayout.GrowColumns(spec) {
+		if g {
 			return true
 		}
 	}
 	return false
 }
 
+// promoteSingleColumn makes the sole column grow by setting its single-column
+// anchors to SizeGrow (only if no anchor already grows).
+func promoteSingleColumn(spec gridlayout.GridSpec) gridlayout.GridSpec {
+	if hasGrow(spec) {
+		return spec
+	}
+	out := spec
+	out.Anchors = append([]gridlayout.Anchor(nil), spec.Anchors...)
+	for i := range out.Anchors {
+		if out.Anchors[i].ColSpan == 1 {
+			out.Anchors[i].Sizing = gridlayout.Sizing{Mode: gridlayout.SizeGrow, Weight: 1}
+		}
+	}
+	return out
+}
+
+// promoteRowSpannedLiteralColumns sets row-spanned prose anchors to SizeGrow so
+// column slack flows into them. Returns the original spec if nothing promoted.
 func promoteRowSpannedLiteralColumns(spec gridlayout.GridSpec) gridlayout.GridSpec {
+	out := spec
+	out.Anchors = append([]gridlayout.Anchor(nil), spec.Anchors...)
 	promoted := false
-	stretcher := append([]bool(nil), spec.Stretcher...)
-	for _, a := range spec.Anchors {
-		if a.RowSpan <= 1 {
+	for i := range out.Anchors {
+		a := out.Anchors[i]
+		// Only row-spanned single-column prose anchors are promoted: a grow
+		// column comes from a single-column SizeGrow anchor (see gridlayout
+		// GrowColumns), so promoting a multi-column anchor would have no effect.
+		if a.RowSpan <= 1 || a.ColSpan != 1 || !isProseAnchor(a) {
 			continue
 		}
-		// Promote both row-spanned literal anchors and row-spanned composite
-		// anchors whose textual content reads as prose (multiple words). Both
-		// kinds render as wrapping prose blocks; both need column slack to
-		// flow into them rather than turning into empty whitespace. Short
-		// row-spanned captions ("Tags:") and field anchors are skipped — they
-		// don't wrap and shouldn't absorb stretch.
-		if !isProseAnchor(a) {
-			continue
-		}
-		for cc := a.Col; cc < a.Col+a.ColSpan && cc < len(stretcher); cc++ {
-			if !stretcher[cc] {
-				stretcher[cc] = true
-				promoted = true
-			}
-		}
+		out.Anchors[i].Sizing = gridlayout.Sizing{Mode: gridlayout.SizeGrow, Weight: 1}
+		promoted = true
 	}
 	if !promoted {
 		return spec
 	}
-	out := spec
-	out.Stretcher = stretcher
 	return out
 }
 

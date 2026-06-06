@@ -343,7 +343,7 @@ func TestConfigurableDetailView_RendersConfiguredMetadata(t *testing.T) {
 // declared dependencies surfaces them in the detail view: the resolved
 // dependency IDs must appear in the rendered output. Guards the kanban
 // layout change that added a `dependsOn` column beside Tags — without a
-// grid cell referencing the field, RenderDependsOnColumn is never reached.
+// grid cell referencing the field, the tikiIdList renderer is never reached.
 func TestConfigurableDetailView_RendersDependsOnColumn(t *testing.T) {
 	s := store.NewInMemoryStore()
 
@@ -515,7 +515,7 @@ func TestTypeRegistry_AllStubsHaveRenderer(t *testing.T) {
 	}
 }
 
-func TestEmptyListFieldNames(t *testing.T) {
+func TestFieldHasValue(t *testing.T) {
 	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{Name: "deps", Type: workflow.TypeListRef, Custom: true},
 		{Name: "labels", Type: workflow.TypeListString, Custom: true},
@@ -527,12 +527,20 @@ func TestEmptyListFieldNames(t *testing.T) {
 
 	tk := tikipkg.New()
 	tk.Set("labels", []string{"x"}) // non-empty list
-	tk.Set("owner", "")             // empty scalar — must NOT be hidden
+	tk.Set("owner", "alice")        // non-empty scalar
+	// deps left empty.
 
-	got := emptyListFieldNames(tk, []string{"deps", "labels", "owner", "nonexistent"})
-	// deps is an empty list -> hidden; labels non-empty -> shown; owner scalar -> never.
-	if len(got) != 1 || got[0] != "deps" {
-		t.Errorf("emptyListFieldNames = %v, want [deps]", got)
+	if fieldHasValue(tk, "deps") {
+		t.Error("empty list deps should report no value")
+	}
+	if !fieldHasValue(tk, "labels") {
+		t.Error("non-empty list labels should report a value")
+	}
+	if !fieldHasValue(tk, "owner") {
+		t.Error("non-empty scalar owner should report a value")
+	}
+	if fieldHasValue(tk, "nonexistent") {
+		t.Error("unknown field should report no value")
 	}
 }
 
@@ -554,8 +562,10 @@ func TestConfigurableDetailView_HidesEmptyListFieldAndCaption(t *testing.T) {
 	}
 	defer teststatuses.Init()
 
+	// deps? marks the field hide-when-empty; its .caption pairs by name and
+	// hides with it.
 	spec, err := gridlayout.ParseGrid([][]string{
-		{`<text.label>deps.caption`, "deps"},
+		{`<text.label>deps.caption`, "deps?"},
 	})
 	if err != nil {
 		t.Fatalf("parse layout: %v", err)
@@ -600,13 +610,19 @@ func TestConfigurableDetailView_HidesEmptyListFieldAndCaption(t *testing.T) {
 }
 
 // TestConfigurableDetailView_HiddenEmptyListFieldNotEditTraversable guards the
-// edit-mode Tab-traversal contract: a field hidden from the metadata grid by
-// the per-tiki empty-list rule must NOT be a traversal target. tags is a
-// built-in editable stringList; when it is empty it is hidden in view mode, so
-// it must also be skipped in edit mode. When non-empty it renders and is
-// traversable as usual.
+// edit-mode Tab-traversal contract: a `?`-marked field hidden from the metadata
+// grid because it is empty must NOT be a traversal target. tags? is hidden when
+// empty in view mode, so it must also be skipped in edit mode. When non-empty it
+// renders and is traversable as usual.
 func TestConfigurableDetailView_HiddenEmptyListFieldNotEditTraversable(t *testing.T) {
-	plug := detailPluginFromFields([]string{"status", "tags"})
+	layout, err := gridlayout.ParseGrid([][]string{{"status", "tags?"}})
+	if err != nil {
+		t.Fatalf("parse layout: %v", err)
+	}
+	plug := &plugin.DetailPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "Detail", Kind: plugin.KindDetail},
+		Layout:     layout,
+	}
 
 	// empty tags -> hidden -> not edit-traversable.
 	sEmpty := store.NewInMemoryStore()

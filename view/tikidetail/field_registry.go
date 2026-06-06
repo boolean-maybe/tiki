@@ -11,8 +11,10 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/view/gridbox"
 	"github.com/boolean-maybe/tiki/workflow"
 	"github.com/boolean-maybe/tiki/workflow/value"
 
@@ -146,6 +148,120 @@ func FieldHeight(name string, tk *tikipkg.Tiki, width int) int {
 		return 1
 	}
 	return ui.HeightFn(tk, width)
+}
+
+// listColumnPadding is the horizontal chrome (BorderPadding(0,0,1,1) = 1 left +
+// 1 right) that the list-value column primitives (wordListColumn /
+// tikiIDListColumn) wrap around a list value. The width measure adds it back so
+// the solver reserves room for it — the symmetric counterpart of
+// stringListHeight subtracting it before wrapping.
+const listColumnPadding = 2
+
+// MeasureFieldValue returns the visible content width (in cells) of a field's
+// rendered value for tk, used by the grid solver to size `auto` columns. It
+// reuses genericFieldValueString — the same value-formatting path the view
+// renders — so the measured width matches what is drawn. Color/markup tags do
+// not count toward the width. Unknown fields measure 0 (the solver floors at 1).
+//
+// The two list types measure differently because they render differently:
+//   - stringList (e.g. tags) renders as a word-wrapping column, so its useful
+//     width is the longest single token — the comma-joined length would
+//     massively over-reserve and wrongly squeeze neighbours.
+//   - tikiIdList (e.g. dependsOn) renders one non-wrapping "ID title" row per
+//     id, so its useful width is the widest such row. Measuring only the id
+//     token here under-reserved the column and the rendered title clipped
+//     against the box frame — the measure must see what tikiIDListColumn draws.
+//
+// Both add listColumnPadding for the column container's BorderPadding(0,0,1,1).
+func MeasureFieldValue(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) int {
+	fd, ok := workflow.Field(name)
+	if !ok {
+		return 0
+	}
+	switch fd.Type {
+	case workflow.TypeListString:
+		return measureStringListField(name, tk) + listColumnPadding
+	case workflow.TypeListRef:
+		return measureTikiIDListField(name, tk, ctx.Store) + listColumnPadding
+	}
+	return tview.TaggedStringWidth(genericFieldValueString(fd, tk, ctx))
+}
+
+// measureStringListField returns the longest single token width across a string
+// list field's values, mirroring the wordListColumn renderer (which wraps per
+// word). Returns at least 1 so an empty/placeholder list still reserves a cell.
+func measureStringListField(name string, tk *tikipkg.Tiki) int {
+	vals, _, _ := tk.StringSliceField(name)
+	maxWord := 1
+	for _, v := range vals {
+		if w := tview.TaggedStringWidth(v); w > maxWord {
+			maxWord = w
+		}
+	}
+	return maxWord
+}
+
+// measureTikiIDListField returns the width of the widest "ID title" row a
+// tikiIdList field renders via tikiIDListColumn, so the solver reserves enough
+// room for the resolved titles instead of clipping them. Each id contributes
+// idColumnWidth + 1 + titleWidth (resolved title, or "(unresolved)" when the id
+// is not in the store, or the bare id when no store is available — mirroring
+// the renderer). Returns at least 1 for an empty list.
+func measureTikiIDListField(name string, tk *tikipkg.Tiki, tikiStore store.Store) int {
+	ids, _, _ := tk.StringSliceField(name)
+	if len(ids) == 0 {
+		return 1
+	}
+	idColumnWidth := 0
+	for _, id := range ids {
+		if w := len([]rune(id)); w > idColumnWidth {
+			idColumnWidth = w
+		}
+	}
+	widest := 1
+	for _, id := range ids {
+		title := ""
+		switch {
+		case tikiStore == nil:
+			// no store: renderer shows the bare id only.
+		default:
+			if dep := tikiStore.GetTiki(id); dep != nil {
+				title = dep.Title()
+			} else {
+				title = "(unresolved)"
+			}
+		}
+		row := idColumnWidth // padded id column
+		if title != "" {
+			row += 1 + len([]rune(title)) // single space + title
+		}
+		if row > widest {
+			widest = row
+		}
+	}
+	return widest
+}
+
+// MeasureAnchor is the content-measure callback both grid surfaces (detail box
+// and tiki card) pass to the solver. Literal/composite anchors defer to the
+// text-based measurer. A `.caption` field anchor renders its caption text, so
+// it is measured by that text — not the field value. Other field anchors
+// measure their rendered value; the anchor's Display mode is threaded in so an
+// enum rendered as `.visual` measures its glyph, not its label.
+func MeasureAnchor(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) int {
+	switch a.Kind {
+	case gridlayout.AnchorComposite:
+		// composites render a concatenated string of segment values/literals;
+		// measure that rendered string (visible width, tags excluded).
+		return tview.TaggedStringWidth(buildCompositeText(a, tk, ctx))
+	case gridlayout.AnchorLiteral:
+		return gridbox.MeasureAnchorText(a)
+	}
+	if a.Display == gridlayout.DisplayCaption {
+		return len([]rune(fieldCaptionText(a.Name))) + 1
+	}
+	ctx.Display = a.Display
+	return MeasureFieldValue(a.Name, tk, ctx)
 }
 
 // registerBuiltinFields wires the workflow-declared fields into the registry.
@@ -318,7 +434,7 @@ func singleRowHeight(_ *tikipkg.Tiki, _ int) int { return 1 }
 
 // stringListHeight uses WordList wrap to compute the wrapped row count.
 // Subtracts 2 from width to account for the BorderPadding(0,0,1,1) on the
-// column container (RenderTagsColumn). Returns 1 for empty tags so the
+// list-value column (wordListColumn). Returns 1 for empty tags so the
 // "(none)" placeholder still gets a row.
 func stringListHeight(tk *tikipkg.Tiki, width int) int {
 	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
@@ -410,6 +526,15 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRe
 			rendered[i] = expandFieldText(s, ctx.Roles)
 		}
 		return strings.Join(rendered, ", ")
+	case workflow.TypeRecurrence:
+		// recurrence renders as its human display ("Weekly on Monday"), not the
+		// raw cron — so the width measure (which routes here) matches what
+		// renderRecurrenceValue draws. Without this the measure saw the shorter
+		// cron string and the rendered display truncated in a tight column.
+		if s, ok := raw.(string); ok && s != "" {
+			return recurrence.RecurrenceDisplay(recurrence.Recurrence(s))
+		}
+		return "—"
 	case workflow.TypeBool:
 		if b, ok := raw.(bool); ok {
 			if b {
@@ -537,7 +662,12 @@ func renderDateValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 		return placeholderRow("(unknown)")
 	}
 	t, _, _ := tk.TimeField(fd.Name)
-	value := "None"
+	// "—" (not "None") for an empty date: matches the canonical empty
+	// placeholder genericFieldValueString emits and the emptiness test in
+	// fieldHasValue, so a `?`-hidden date hides exactly when this would show
+	// empty, and a non-hidden empty date reads consistently with every other
+	// field instead of a stray "None" that truncates to "N" in a tight column.
+	value := "—"
 	if !t.IsZero() {
 		value = t.Format("2006-01-02")
 	}
@@ -673,32 +803,33 @@ func editEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 	}
 }
 
-// renderStringListValue renders the tags as a value-only word-wrapped list.
-// Non-empty → multi-row RenderTagsColumn; empty → "(none)" placeholder so
-// the grid's height contract (always ≥ 1 row) holds.
+// renderStringListValue renders a string-list field's value as a word-wrapped
+// column. The field is read by ctx.FieldName so any stringList field renders
+// correctly — not just the canonical tags field. Empty → "(none)" placeholder
+// so the grid's height contract (always ≥ 1 row) holds.
 func renderStringListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
-	if len(tags) == 0 {
+	values, _, _ := tk.StringSliceField(ctx.FieldName)
+	if len(values) == 0 {
 		return valueOnlyLine("(none)", ctx.Roles)
 	}
-	return RenderTagsColumn(tk)
+	return wordListColumn(values)
 }
 
-// renderTikiIDListValue renders the depends-on column as value-only. Non-empty
-// → multi-row RenderDependsOnColumn (which emits placeholder rows for
-// unresolved IDs so its row count matches tikiIDListHeight); empty → "(none)".
+// renderTikiIDListValue renders a tiki-id-list field's value as a column of
+// "ID title" rows. The field is read by ctx.FieldName so any tikiIdList field
+// renders correctly — not just the canonical dependsOn field. Each declared ID
+// is resolved against the store; unresolved IDs render as a placeholder row so
+// the rendered row count matches the height contract. Empty → "(none)"; no
+// store → comma-joined IDs as a safe fallback.
 func renderTikiIDListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
-	if len(deps) == 0 {
+	ids, _, _ := tk.StringSliceField(ctx.FieldName)
+	if len(ids) == 0 {
 		return valueOnlyLine("(none)", ctx.Roles)
 	}
 	if ctx.Store == nil {
-		return valueOnlyLine(strings.Join(deps, ", "), ctx.Roles)
+		return valueOnlyLine(strings.Join(ids, ", "), ctx.Roles)
 	}
-	if col := RenderDependsOnColumn(tk, ctx.Store); col != nil {
-		return col
-	}
-	return valueOnlyLine(strings.Join(deps, ", "), ctx.Roles)
+	return tikiIDListColumn(ids, ctx.Store)
 }
 
 // --- editor factories ---

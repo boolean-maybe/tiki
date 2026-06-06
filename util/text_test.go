@@ -25,13 +25,19 @@ func TestTruncateText(t *testing.T) {
 			name:     "text needs truncation",
 			text:     "hello world",
 			maxWidth: 8,
-			expected: "hello...",
+			expected: "hello w…",
 		},
 		{
 			name:     "very small width",
 			text:     "hello",
 			maxWidth: 3,
-			expected: "hel",
+			expected: "he…",
+		},
+		{
+			name:     "single-cell ellipsis glyph, not three dots",
+			text:     "abcdefghij",
+			maxWidth: 5,
+			expected: "abcd…",
 		},
 	}
 
@@ -62,7 +68,7 @@ func TestTruncateTextWithColors(t *testing.T) {
 			name:     "no color codes - truncate",
 			text:     "hello world",
 			maxWidth: 8,
-			expected: "hello...",
+			expected: "hello w…",
 		},
 		{
 			name:     "with color codes - fits",
@@ -74,19 +80,19 @@ func TestTruncateTextWithColors(t *testing.T) {
 			name:     "with color codes - truncate",
 			text:     "[#ff0000]hello world[-]",
 			maxWidth: 8,
-			expected: "[#ff0000]hello...",
+			expected: "[#ff0000]hello w…",
 		},
 		{
 			name:     "multiple color codes",
 			text:     "[red]hello[blue] world[-]",
 			maxWidth: 8,
-			expected: "[red]hello[blue]...",
+			expected: "[red]hello[blue] w…",
 		},
 		{
 			name:     "color at end",
 			text:     "hello [#00ff00]world[-]",
 			maxWidth: 8,
-			expected: "hello...",
+			expected: "hello [#00ff00]w…",
 		},
 		{
 			name:     "small width floor — returns unchanged",

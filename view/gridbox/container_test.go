@@ -8,7 +8,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-func unitHeight(string, int) int { return 1 }
+func unitHeight(gridlayout.Anchor, int) int { return 1 }
 
 // singleColumnSpecForTest synthesizes a 1-column grid from a name list.
 // Mirrors the test helper that previously lived in package tikidetail.
@@ -25,11 +25,10 @@ func singleColumnSpecForTest(names []string) gridlayout.GridSpec {
 		cells[i] = []gridlayout.Cell{gridlayout.FieldCell{Name: n}}
 	}
 	return gridlayout.GridSpec{
-		Rows:      len(names),
-		Cols:      1,
-		Anchors:   anchors,
-		Stretcher: []bool{false},
-		Cells:     cells,
+		Rows:    len(names),
+		Cols:    1,
+		Anchors: anchors,
+		Cells:   cells,
 	}
 }
 
@@ -39,7 +38,7 @@ func TestContainer_RebuildOnWidthChange(t *testing.T) {
 		tview.NewTextView(),
 		tview.NewTextView(),
 	}
-	g := NewContainer(spec, primitives, unitHeight)
+	g := NewContainer(spec, primitives, measureOne, unitHeight)
 
 	g.rebuild(120)
 	if g.lastWidth != 120 {
@@ -57,7 +56,7 @@ func TestContainer_RebuildOnWidthChange(t *testing.T) {
 }
 
 func TestContainer_EmptySpec(t *testing.T) {
-	g := NewContainer(singleColumnSpecForTest(nil), nil, unitHeight)
+	g := NewContainer(singleColumnSpecForTest(nil), nil, measureOne, unitHeight)
 	g.rebuild(80)
 	// No panic, lastWidth tracked.
 	if g.lastWidth != 80 {
@@ -80,7 +79,7 @@ func TestContainer_EmptySpec(t *testing.T) {
 func TestContainer_HasFocusBeforeFirstDraw(t *testing.T) {
 	spec := singleColumnSpecForTest([]string{"title"})
 	input := tview.NewInputField()
-	g := NewContainer(spec, []tview.Primitive{input}, unitHeight)
+	g := NewContainer(spec, []tview.Primitive{input}, measureOne, unitHeight)
 
 	// Simulate Application.SetFocus on the inner primitive without
 	// having drawn the container yet. tview's SetFocus marks the
@@ -99,7 +98,7 @@ func TestContainer_HasFocusBeforeFirstDraw(t *testing.T) {
 func TestContainer_InputHandlerForwardsBeforeFirstDraw(t *testing.T) {
 	spec := singleColumnSpecForTest([]string{"title"})
 	input := tview.NewInputField()
-	g := NewContainer(spec, []tview.Primitive{input}, unitHeight)
+	g := NewContainer(spec, []tview.Primitive{input}, measureOne, unitHeight)
 
 	input.Focus(func(p tview.Primitive) {})
 
@@ -131,12 +130,11 @@ func TestContainer_AnchorPlacementHeight_RowSpannedLiteral(t *testing.T) {
 		ColSpan: 1,
 	}
 	spec := gridlayout.GridSpec{
-		Rows:      5,
-		Cols:      1,
-		Anchors:   []gridlayout.Anchor{a},
-		Stretcher: []bool{false},
+		Rows:    5,
+		Cols:    1,
+		Anchors: []gridlayout.Anchor{a},
 	}
-	g := NewContainer(spec, []tview.Primitive{tview.NewTextView()}, unitHeight)
+	g := NewContainer(spec, []tview.Primitive{tview.NewTextView()}, measureOne, unitHeight)
 	plan := gridlayout.Plan{
 		Rows:         5,
 		Cols:         1,
@@ -161,12 +159,11 @@ func TestContainer_AnchorPlacementHeight_SingleRowLiteral(t *testing.T) {
 		ColSpan: 1,
 	}
 	spec := gridlayout.GridSpec{
-		Rows:      1,
-		Cols:      1,
-		Anchors:   []gridlayout.Anchor{a},
-		Stretcher: []bool{false},
+		Rows:    1,
+		Cols:    1,
+		Anchors: []gridlayout.Anchor{a},
 	}
-	g := NewContainer(spec, []tview.Primitive{tview.NewTextView()}, unitHeight)
+	g := NewContainer(spec, []tview.Primitive{tview.NewTextView()}, measureOne, unitHeight)
 	plan := gridlayout.Plan{
 		Rows: 1, Cols: 1,
 		ColumnWidths: []int{20},
@@ -226,8 +223,8 @@ func TestContainer_SpanningRowHonorsRowSpan(t *testing.T) {
 	for i := range prims {
 		prims[i] = tview.NewTextView()
 	}
-	g := NewContainer(spec, prims, unitHeight)
-	plan := SolveGridLayout(120, spec, unitHeight)
+	g := NewContainer(spec, prims, measureOne, unitHeight)
+	plan := SolveGridLayout(120, spec, measureOne, unitHeight)
 
 	// The placement-height for the literal must be its RowSpan, not 1.
 	got := g.anchorPlacementHeight(*lit, plan)
@@ -274,14 +271,14 @@ func TestContainer_AnchorPlacementHeight(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	heightOf := func(name string, w int) int {
-		if name == "tags" {
+	heightOf := func(a gridlayout.Anchor, w int) int {
+		if a.Name == "tags" {
 			return 3
 		}
 		return 1
 	}
-	g := NewContainer(spec, make([]tview.Primitive, len(spec.Anchors)), heightOf)
-	plan := SolveGridLayout(120, spec, heightOf)
+	g := NewContainer(spec, make([]tview.Primitive, len(spec.Anchors)), measureOne, heightOf)
+	plan := SolveGridLayout(120, spec, measureOne, heightOf)
 
 	cases := []struct {
 		idx        int

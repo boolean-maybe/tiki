@@ -27,20 +27,21 @@ func TestTokenizeCell(t *testing.T) {
 			}
 		}},
 		{in: "<->", check: func(t *testing.T, c Cell) {
-			if _, ok := c.(StretcherCell); !ok {
-				t.Errorf("want StretcherCell, got %T", c)
+			// retired marker: falls through to literal text now.
+			if _, ok := c.(LiteralCell); !ok {
+				t.Errorf("want LiteralCell (<-> retired), got %T", c)
 			}
 		}},
 		{in: "status", check: func(t *testing.T, c Cell) {
 			fc, ok := c.(FieldCell)
-			if !ok || fc.Name != "status" || fc.WantedWidth != 0 {
-				t.Errorf("want FieldCell{status,0}, got %+v", c)
+			if !ok || fc.Name != "status" || fc.Sizing != (Sizing{Mode: SizeAuto}) {
+				t.Errorf("want FieldCell{status,auto}, got %+v", c)
 			}
 		}},
 		{in: "tags:30", check: func(t *testing.T, c Cell) {
 			fc, ok := c.(FieldCell)
-			if !ok || fc.Name != "tags" || fc.WantedWidth != 30 {
-				t.Errorf("want FieldCell{tags,30}, got %+v", c)
+			if !ok || fc.Name != "tags" || fc.Sizing != (Sizing{Mode: SizeFixed, Min: 30, Max: 30}) {
+				t.Errorf("want FieldCell{tags,fixed30}, got %+v", c)
 			}
 		}},
 		{in: "createdAt", check: func(t *testing.T, c Cell) {
@@ -98,14 +99,14 @@ func TestTokenizeCell(t *testing.T) {
 		}},
 		{in: "<highlight>title", check: func(t *testing.T, c Cell) {
 			fc, ok := c.(FieldCell)
-			if !ok || fc.Name != "title" || fc.Role != "highlight" || fc.WantedWidth != 0 {
-				t.Errorf("want FieldCell{title, highlight, 0}, got %+v", c)
+			if !ok || fc.Name != "title" || fc.Role != "highlight" || fc.Sizing != (Sizing{Mode: SizeAuto}) {
+				t.Errorf("want FieldCell{title, highlight, auto}, got %+v", c)
 			}
 		}},
 		{in: "<accent>status:20", check: func(t *testing.T, c Cell) {
 			fc, ok := c.(FieldCell)
-			if !ok || fc.Name != "status" || fc.Role != "accent" || fc.WantedWidth != 20 {
-				t.Errorf("want FieldCell{status, accent, 20}, got %+v", c)
+			if !ok || fc.Name != "status" || fc.Role != "accent" || fc.Sizing != (Sizing{Mode: SizeFixed, Min: 20, Max: 20}) {
+				t.Errorf("want FieldCell{status, accent, fixed20}, got %+v", c)
 			}
 		}},
 		{in: "<highlight>Status:", check: func(t *testing.T, c Cell) {
@@ -176,16 +177,6 @@ func TestParseGrid_OrphanRowSpan(t *testing.T) {
 	}
 }
 
-func TestParseGrid_StretcherMix(t *testing.T) {
-	_, err := ParseGrid([][]string{
-		{"status", "<->"},
-		{"type", "tags"},
-	})
-	if err == nil || !strings.Contains(err.Error(), "<->") {
-		t.Errorf("want stretcher-mix error, got %v", err)
-	}
-}
-
 func TestParseGrid_DuplicateFieldAllowed(t *testing.T) {
 	// A field may appear more than once (e.g. a caption cell + a value cell,
 	// or the same value rendered twice). The DSL trusts the layout author.
@@ -203,10 +194,10 @@ func TestParseGrid_DuplicateFieldAllowed(t *testing.T) {
 func TestParseGrid_CanonicalExample(t *testing.T) {
 	spec, err := ParseGrid([][]string{
 		{"title", "--", "--", "--", "--"},
-		{"status", "assignee", "<->", "tags:30", "depends:25"},
-		{"type", "createdBy", "<->", "^", "^"},
-		{"priority", "createdAt", "<->", "_", "_"},
-		{"points", "updatedAt", "<->", "_", "_"},
+		{"status", "assignee", "_", "tags:30", "depends:25"},
+		{"type", "createdBy", "_", "^", "^"},
+		{"priority", "createdAt", "_", "_", "_"},
+		{"points", "updatedAt", "_", "_", "_"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
@@ -214,40 +205,32 @@ func TestParseGrid_CanonicalExample(t *testing.T) {
 	if spec.Rows != 5 || spec.Cols != 5 {
 		t.Errorf("dimensions: got rows=%d cols=%d, want 5x5", spec.Rows, spec.Cols)
 	}
+	auto := Sizing{Mode: SizeAuto}
 	want := []struct {
-		Name       string
-		Row, Col   int
-		RS, CS, WW int
+		Name     string
+		Row, Col int
+		RS, CS   int
+		SZ       Sizing
 	}{
-		{"title", 0, 0, 1, 5, 0},
-		{"status", 1, 0, 1, 1, 0},
-		{"assignee", 1, 1, 1, 1, 0},
-		{"tags", 1, 3, 2, 1, 30},
-		{"depends", 1, 4, 2, 1, 25},
-		{"type", 2, 0, 1, 1, 0},
-		{"createdBy", 2, 1, 1, 1, 0},
-		{"priority", 3, 0, 1, 1, 0},
-		{"createdAt", 3, 1, 1, 1, 0},
-		{"points", 4, 0, 1, 1, 0},
-		{"updatedAt", 4, 1, 1, 1, 0},
+		{"title", 0, 0, 1, 5, auto},
+		{"status", 1, 0, 1, 1, auto},
+		{"assignee", 1, 1, 1, 1, auto},
+		{"tags", 1, 3, 2, 1, Sizing{Mode: SizeFixed, Min: 30, Max: 30}},
+		{"depends", 1, 4, 2, 1, Sizing{Mode: SizeFixed, Min: 25, Max: 25}},
+		{"type", 2, 0, 1, 1, auto},
+		{"createdBy", 2, 1, 1, 1, auto},
+		{"priority", 3, 0, 1, 1, auto},
+		{"createdAt", 3, 1, 1, 1, auto},
+		{"points", 4, 0, 1, 1, auto},
+		{"updatedAt", 4, 1, 1, 1, auto},
 	}
 	if len(spec.Anchors) != len(want) {
 		t.Fatalf("anchor count: got %d, want %d (anchors=%+v)", len(spec.Anchors), len(want), spec.Anchors)
 	}
 	for i, w := range want {
 		a := spec.Anchors[i]
-		if a.Name != w.Name || a.Row != w.Row || a.Col != w.Col || a.RowSpan != w.RS || a.ColSpan != w.CS || a.WantedWidth != w.WW {
-			t.Errorf("anchor[%d]: got %+v, want name=%s row=%d col=%d rs=%d cs=%d ww=%d", i, a, w.Name, w.Row, w.Col, w.RS, w.CS, w.WW)
-		}
-	}
-	// Stretcher column is col 2.
-	wantStretch := []bool{false, false, true, false, false}
-	if len(spec.Stretcher) != 5 {
-		t.Fatalf("stretcher len: got %d, want 5", len(spec.Stretcher))
-	}
-	for c, s := range wantStretch {
-		if spec.Stretcher[c] != s {
-			t.Errorf("stretcher[%d]: got %v, want %v", c, spec.Stretcher[c], s)
+		if a.Name != w.Name || a.Row != w.Row || a.Col != w.Col || a.RowSpan != w.RS || a.ColSpan != w.CS || a.Sizing != w.SZ {
+			t.Errorf("anchor[%d]: got %+v, want name=%s row=%d col=%d rs=%d cs=%d sz=%+v", i, a, w.Name, w.Row, w.Col, w.RS, w.CS, w.SZ)
 		}
 	}
 }
@@ -317,17 +300,17 @@ func TestParseGrid_CaretRowSpan(t *testing.T) {
 	}
 }
 
-// TestYAML_BareMarkers verifies the unquoted-marker contract: --, _, ^, <->
-// are bare-legal in YAML flow context, while bare `|` is rejected (it is
-// YAML's block-scalar indicator). This test pins both halves of the
-// contract end-to-end: YAML → tokenizer.
+// TestYAML_BareMarkers verifies the unquoted-marker contract: --, _, ^ are
+// bare-legal in YAML flow context, while bare `|` is rejected (it is YAML's
+// block-scalar indicator). This test pins both halves of the contract
+// end-to-end: YAML → tokenizer.
 func TestYAML_BareMarkers(t *testing.T) {
-	// Round-trip a grid with all four bare markers in valid positions:
-	//   row 0: title spans columns 0-1 via `--`; status is a separate anchor; <-> marks a stretcher column
-	//   row 1: title continues into col 0-1 via `^`; status takes col 2; col 3 is `_` (empty)
+	// Round-trip a grid with the bare markers in valid positions:
+	//   row 0: title spans columns 0-1 via `--`; status is a separate anchor; col 3 is `_` (empty)
+	//   row 1: title continues into col 0-1 via `^`; col 2 is `_` (empty); col 3 is `_` (empty)
 	src := `m:
-  - [title, --, status, <->]
-  - [^,     ^,  _,      <->]
+  - [title, --, status, _]
+  - [^,     ^,  _,      _]
 `
 	var out struct {
 		M [][]string `yaml:"m"`
@@ -342,8 +325,8 @@ func TestYAML_BareMarkers(t *testing.T) {
 	// Per-cell expected types — the bare YAML tokens have to round-trip
 	// to these struct types, otherwise the contract is broken.
 	wantCells := [][]Cell{
-		{FieldCell{Name: "title"}, ColSpanCell{}, FieldCell{Name: "status"}, StretcherCell{}},
-		{RowSpanCell{}, RowSpanCell{}, EmptyCell{}, StretcherCell{}},
+		{FieldCell{Name: "title"}, ColSpanCell{}, FieldCell{Name: "status"}, EmptyCell{}},
+		{RowSpanCell{}, RowSpanCell{}, EmptyCell{}, EmptyCell{}},
 	}
 	for r, row := range wantCells {
 		for c, want := range row {
@@ -435,8 +418,8 @@ func TestTokenizeCell_Composite(t *testing.T) {
 			in:       `status:15 + " " + status.visual`,
 			segments: 3,
 			check: func(t *testing.T, c CompositeCell) {
-				if c.Segments[0].WantedWidth != 15 {
-					t.Errorf("seg[0] width: got %d, want 15", c.Segments[0].WantedWidth)
+				if c.Segments[0].Sizing != (Sizing{Mode: SizeFixed, Min: 15, Max: 15}) {
+					t.Errorf("seg[0] sizing: got %+v, want fixed15", c.Segments[0].Sizing)
 				}
 			},
 		},
@@ -725,5 +708,53 @@ func TestTokenizeCell_CaptionWithRole(t *testing.T) {
 	fc, ok := cell.(FieldCell)
 	if !ok || fc.Display != DisplayCaption || fc.Role != "text.label" {
 		t.Fatalf("got %+v, want FieldCell{status, DisplayCaption, role=text.label}", cell)
+	}
+}
+
+func TestTokenizeCell_Sizing(t *testing.T) {
+	cases := []struct {
+		in   string
+		name string
+		want Sizing
+		hide bool
+	}{
+		{in: "status", name: "status", want: Sizing{Mode: SizeAuto}},
+		{in: "tags:fr", name: "tags", want: Sizing{Mode: SizeGrow, Weight: 1}},
+		{in: "title:2fr..40", name: "title", want: Sizing{Mode: SizeGrow, Weight: 2, Max: 40}},
+		{in: "assignee:auto..20", name: "assignee", want: Sizing{Mode: SizeAuto, Max: 20}},
+		{in: "id:6", name: "id", want: Sizing{Mode: SizeFixed, Min: 6, Max: 6}},
+		{in: "dependsOn?", name: "dependsOn", want: Sizing{Mode: SizeAuto}, hide: true},
+		{in: "tags?:fr", name: "tags", want: Sizing{Mode: SizeGrow, Weight: 1}, hide: true},
+	}
+	for _, c := range cases {
+		cell, err := TokenizeCell(c.in)
+		if err != nil {
+			t.Errorf("TokenizeCell(%q): %v", c.in, err)
+			continue
+		}
+		fc, ok := cell.(FieldCell)
+		if !ok {
+			t.Errorf("TokenizeCell(%q): not a FieldCell: %T", c.in, cell)
+			continue
+		}
+		if fc.Name != c.name || fc.Sizing != c.want || fc.HideWhenEmpty != c.hide {
+			t.Errorf("TokenizeCell(%q) = name %q sizing %+v hide %v; want %q %+v %v",
+				c.in, fc.Name, fc.Sizing, fc.HideWhenEmpty, c.name, c.want, c.hide)
+		}
+	}
+}
+
+func TestTokenizeCell_StretcherTokenRetired(t *testing.T) {
+	// "<->" is no longer a special marker; grow behavior comes from :fr.
+	cell, err := TokenizeCell("col:fr")
+	if err != nil {
+		t.Fatalf("col:fr: %v", err)
+	}
+	fc, ok := cell.(FieldCell)
+	if !ok {
+		t.Fatalf("col:fr: not a FieldCell: %T", cell)
+	}
+	if fc.Sizing.Mode != SizeGrow {
+		t.Errorf("col:fr mode = %v, want SizeGrow", fc.Sizing.Mode)
 	}
 }

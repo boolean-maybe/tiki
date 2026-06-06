@@ -327,3 +327,51 @@ func TestBundledKanban_DetailUsesFieldCaptions(t *testing.T) {
 		t.Errorf("priority: caption anchors=%d value anchors=%d, want 1 and 1", captionAnchors, valueAnchors)
 	}
 }
+
+// TestBundledKanban_SizingGrammarMigration guards the column-sizing-grammar
+// migration: the retired "<->" stretcher token must not appear anywhere in the
+// bundled workflow, and the Detail view's list fields (tags, dependsOn) must be
+// marked hide-when-empty via the `?` suffix (replacing the old list-type
+// auto-hide).
+func TestBundledKanban_SizingGrammarMigration(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	src := filepath.Join(filepath.Dir(wd), "config", "workflows", "kanban.yaml")
+	raw, err := os.ReadFile(src)
+	if err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+	if strings.Contains(string(raw), "<->") {
+		t.Error("bundled kanban still contains retired <-> token; migrate to :fr")
+	}
+
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+	var detail *DetailPlugin
+	for _, p := range plugins {
+		if dp, ok := p.(*DetailPlugin); ok && dp.Name == "Detail" {
+			detail = dp
+			break
+		}
+	}
+	if detail == nil {
+		t.Fatal("bundled kanban does not contain a Detail view")
+	}
+	wantHide := map[string]bool{"tags": false, "dependsOn": false}
+	for _, a := range detail.Layout.Anchors {
+		if a.Kind == gridlayout.AnchorField && a.HideWhenEmpty {
+			if _, ok := wantHide[a.Name]; ok {
+				wantHide[a.Name] = true
+			}
+		}
+	}
+	for name, ok := range wantHide {
+		if !ok {
+			t.Errorf("Detail layout field %q is not marked hide-when-empty (`?`)", name)
+		}
+	}
+}

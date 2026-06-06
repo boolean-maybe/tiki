@@ -9,8 +9,7 @@ package gridlayout
 //
 // Only plain field anchors (AnchorField) are hidden; single-field composite
 // anchors that happen to name a hidden field are left intact (out of scope —
-// this transform is used only for list-type fields, which never render as
-// composites).
+// composites concatenate multiple refs/literals and have no single empty state).
 func HideFields(spec GridSpec, names []string) GridSpec {
 	if len(names) == 0 {
 		return spec
@@ -40,6 +39,28 @@ func HideFields(spec GridSpec, names []string) GridSpec {
 	out := spec
 	out.Anchors = kept
 	out.Cells = cells
+	return out
+}
+
+// EmptyFieldNames returns the field names of anchors marked HideWhenEmpty whose
+// field currently has no value (has(name) == false). The result is suitable as
+// the names argument to HideFields. Replaces the former list-type special-case:
+// any field type may opt in via the `?` cell suffix.
+func EmptyFieldNames(spec GridSpec, has func(name string) bool) []string {
+	var out []string
+	seen := make(map[string]struct{})
+	for _, a := range spec.Anchors {
+		if a.Kind != AnchorField || !a.HideWhenEmpty {
+			continue
+		}
+		if _, dup := seen[a.Name]; dup {
+			continue
+		}
+		if !has(a.Name) {
+			seen[a.Name] = struct{}{}
+			out = append(out, a.Name)
+		}
+	}
 	return out
 }
 

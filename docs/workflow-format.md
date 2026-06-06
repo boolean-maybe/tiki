@@ -129,23 +129,28 @@ Cell vocabulary:
 
 | Cell              | Meaning                                                                  |
 | ----------------- | ------------------------------------------------------------------------ |
-| `name`            | field, value-only — no built-in caption                                  |
-| `name:N`          | field, preferred + minimum width of N character cells                    |
+| `name`            | field, value-only — sizes to its content (auto), uncapped                |
+| `name:N`          | field, fixed width of exactly N character cells                          |
+| `name:auto`       | field, size to content; `name:auto..N` caps at N then truncates with `…` |
+| `name:fr`         | field, grows to absorb residual width; `name:Wfr` takes weight W (def 1) |
+| `name:MIN..MAX`   | bounds on any mode: `:8..`, `:..20`, `:8..20`. A plain `:fr` floors at    |
+|                   | its content (min-content); an explicit `:0..` floor lets it shrink to 0. |
+| `name?`           | hide this field (and its `.caption`) when the tiki has no value for it.   |
+|                   | Composes with sizing: `tags?:fr`, `assignee?:auto..20`.                  |
 | `name.visual`     | field, show the visual indicator (emoji/icon) instead of the label       |
 | `<role>name`      | field with semantic color role — replaces default styling for text       |
 |                   | fields (title, custom strings). Structured fields ignore the role.       |
 |                   | Bare-legal in YAML (no quoting needed).                                  |
 | `a + " " + b`    | composite cell — concatenates field refs and/or `"quoted"` literals.     |
 |                   | At least one segment must be a field ref. Segments support `.visual`,    |
-|                   | `:N`, and `<role>` individually. Single-field composites are editable;   |
-|                   | multi-field composites render read-only.                                 |
+|                   | `:N`, and `<role>` individually; the cell sizes to its rendered content. |
+|                   | Single-field composites are editable; multi-field render read-only.      |
 | `"any text"`      | literal caption — any quoted YAML string that is not a bare marker or a  |
 |                   | valid identifier. Used to label adjacent fields. Width defaults to the   |
 |                   | text length + 1.                                                         |
 | `--`              | column span — continue the anchor immediately to the left                |
 | `^`               | row span — continue the anchor immediately above                         |
 | `_`               | empty cell                                                               |
-| `<->`             | horizontal stretcher — absorbs residual width                            |
 
 Fields render value-only — there is no automatic `Status:` prefix in the value cell anymore.
 Place captions explicitly in the grid using literal strings (e.g. `"Status:"`) wherever you
@@ -173,21 +178,37 @@ intentionally share a color in every theme: `<info>` and `<warn>` both resolve t
 design after the InfoLabelColor → WarnColor and StatuslineOk → OkColor merges.
 
 Cell delimiter and quoting: `|` separates cells within a row. To include a literal `|` in a
-caption, wrap the caption in double quotes (e.g. `"a | b"`). Markers `--`, `_`, `^`, and `<->`
-are written as-is — no YAML quoting is needed because the block scalar is one big string. Lines
+caption, wrap the caption in double quotes (e.g. `"a | b"`). Markers `--`, `_`, and `^` are
+written as-is — no YAML quoting is needed because the block scalar is one big string. Lines
 starting with `#` are treated as comments and skipped; to start a caption with `#`, quote it
 (e.g. `"#tag"`).
 
 Width and shedding semantics:
 
-- A column's resolved width is the **maximum** `:N` declared in that column.
-- Columns without a `:N` use a per-field default (small for single-row fields, wider for tags /
-  dependsOn / dates). Stretcher columns split residual width equally.
-- If the available terminal width can't fit the sum of column minimums plus inter-column gaps,
-  the **rightmost** non-stretcher column is dropped, and the layout retries. Repeats until it
-  fits or only stretcher columns remain. Authors should put the most-droppable content rightmost.
-- Anchors that span multiple columns distribute their `:N` evenly across those columns; the
-  rightmost spanned column absorbs the remainder.
+- A bare field name sizes to its content (max-content), uncapped. The flat per-field default
+  width is gone.
+- `:fr` columns split the residual width left after fixed/content columns are sized, in
+  proportion to their weights (`2fr` gets twice a `1fr`). This replaces the old `<->` stretcher.
+- Bounds (`:MIN..MAX`) clamp any mode. An `auto` value longer than `MAX` is truncated with a
+  single-cell `…`.
+- A `:fr` column will not shrink below its content (min-content) unless given an explicit `:0..`
+  floor. A `:fr` column may also be given a usable **grow floor** (e.g. `:16..fr`): the solver
+  counts that floor toward required width, so a grow column that can't be granted its floor is shed
+  (or forces a neighbour to shed) instead of shrinking to a useless sliver. This lets one grow
+  column both absorb slack at wide widths and shed cleanly when narrow. A plain `:fr` (no floor)
+  keeps absorbing whatever residual remains and never forces a shed.
+- If the terminal can't fit the row, the column with the **lowest floor** is dropped; ties break
+  right-to-left. Drop order therefore follows ascending floor — a column survives longer the higher
+  its floor. Mark a column droppable with a low (or `0`) floor; pin one by giving it a high floor or
+  a fixed `:N`.
+- **A field's value and its `.caption` always shed together.** Caption and value may sit in
+  different columns (caption-beside-value layouts); when either is dropped by the width algorithm,
+  the other is dropped too, so a label never survives with no value beside or beneath it. The
+  pairing is by field name, so use `field.caption` cells (not literal-string captions) for any field
+  whose caption must shed with its value. Literal-string captions have no field identity and do not
+  participate in co-shedding.
+- A multi-column (`--`) span contributes only a content minimum to its columns; it never sets a
+  column's sizing mode. A column's mode comes from the single-column cells that occupy it.
 
 Layout traversal and edit order:
 
@@ -214,8 +235,8 @@ Validation rules for `layout:` on `kind: detail`:
   If omitted from the grid, no title is displayed. Accepts optional `<role>` annotation.
 - Path fields (`filepath`, `path`) — values live on the tiki struct rather than in Fields and have
   no typed renderer; rejected.
-- Grid-shape errors (ragged rows, orphan `--` or `^`, mixed stretcher columns, duplicate
-  field names) fail workflow load with `row,col` coordinates.
+- Grid-shape errors (ragged rows, orphan `--` or `^`) fail workflow load with `row,col`
+  coordinates.
 - Board/list-only fields (`lanes:`) and wiki-only fields (`path:`, `document:`) are rejected.
 - Per-view `actions:` are allowed and surface alongside the built-in detail actions.
 - `require:` is honored as the navigation gate (typically `["selection:one"]`).
@@ -231,13 +252,6 @@ Anti-pattern examples (each fails workflow load):
 # orphan column span — no anchor to the left
 layout: |
   -- | status
-```
-
-```yaml
-# stretcher column mixed with a field in another row
-layout: |
-  status | <->
-  type   | tags
 ```
 
 ```yaml
@@ -397,8 +411,7 @@ Users upgrading will see one of these messages; each names the legacy field and 
 - `layout: row N has M cells, expected K` — the grid has a ragged row
 - ``layout: row N, col M: orphan '--'`` — no anchor to the left of the column-span marker
 - ``layout: row N, col M: orphan row-span '^'`` — no anchor above the row-span marker
-- ``layout: col N: '<->' must not be mixed with anchored or row-spanned cells in the same column`` — stretcher columns can only contain `<->`, `_`, or pass-through `--`
-- `layout: row N, col M: field "X" appears more than once` — each anchor name must be unique in the grid
+- ``cell "X": invalid sizing …`` — a malformed `:[mode][min..max]` sizing suffix (e.g. `:0`, `:garbage`)
 
 Loading is fail-closed: any one of these errors (or any lane/action/require parse failure) refuses the whole
 workflow rather than silently loading only the views that parsed. A partial workflow would diverge from what you

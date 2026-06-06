@@ -27,7 +27,11 @@ func NewWordList(words []string) *WordList {
 		Box:     box,
 		words:   words,
 		fgColor: roles.TextSecondary(),
-		bgColor: roles.SurfaceSelection(),
+		// canvas background (not SurfaceSelection): a metadata-grid list value
+		// must look like every other plain-text field. A selection-colored band
+		// behind tags/deps reads as a stuck-selection rendering glitch and breaks
+		// visual consistency with neighbouring value cells.
+		bgColor: roles.SurfaceCanvas(),
 	}
 }
 
