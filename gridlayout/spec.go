@@ -105,9 +105,10 @@ const (
 )
 
 // Segment is one part of a CompositeCell — either a field reference or a
-// literal string. Field segments carry optional Role, Display, and Sizing
-// (same semantics as FieldCell). Literal segments carry Text only. Composites
-// do not hide, so there is no HideWhenEmpty here.
+// literal string. Field segments carry optional Role and Display. Literal
+// segments carry Text only. Composites do not hide, so there is no
+// HideWhenEmpty here. Sizing belongs on the cell, not a segment — see
+// CompositeCell.Sizing.
 type Segment struct {
 	Kind     SegmentKind
 	Name     string
@@ -115,14 +116,16 @@ type Segment struct {
 	Role     string
 	Modifier string // optional; one of theme.KnownModifierNames or ""
 	Display  DisplayMode
-	Sizing   Sizing
 }
 
 // CompositeCell concatenates multiple segments (field refs and/or literals)
 // separated by ` + ` in the DSL. At least one segment must be a field ref;
 // an all-literal composite falls through to LiteralCell for backwards compat.
+// Sizing is the optional cell-level width spec, authored by wrapping the
+// composite in parens with a suffix: `(a + b):16..`. Zero value is auto.
 type CompositeCell struct {
 	Segments []Segment
+	Sizing   Sizing
 }
 
 func (CompositeCell) isCell() {}

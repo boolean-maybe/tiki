@@ -41,9 +41,8 @@ func parseSegment(raw string) (Segment, error) {
 	if m == nil {
 		return Segment{}, fmt.Errorf("invalid segment %q in composite cell (not a field ref or \"quoted\" literal)", raw)
 	}
-	sz, err := ParseSizing(m[4])
-	if err != nil {
-		return Segment{}, fmt.Errorf("invalid sizing in composite segment %q: %w", raw, err)
+	if m[4] != "" {
+		return Segment{}, fmt.Errorf("sizing not allowed on composite segment %q; put it on the cell: (a + b):N", raw)
 	}
 	// composites ignore the `?` hide suffix (group 2): they do not hide.
 	return Segment{
@@ -52,15 +51,69 @@ func parseSegment(raw string) (Segment, error) {
 		Role:     role,
 		Modifier: modifier,
 		Display:  parseDisplayMode(m[3]),
-		Sizing:   sz,
 	}, nil
 }
 
+// peelCompositeSizing extracts an optional cell-level sizing suffix from a
+// parenthesized composite. Input forms:
+//
+//	"(a + b):16.."  → body "a + b", sizing "16..", true, nil
+//	"(a + b)"       → body "a + b", sizing "",      true, nil
+//	"a + b"         → body "a + b", sizing "",      false, nil  (no parens)
+//	"(a + b"        → error (unbalanced)
+//
+// The scan is quote-aware: a '(' or ')' inside a "..." region is literal text
+// and does not open/close the wrapper. Returns hadParens=false (not an error)
+// when the cell does not start with '(' — that is the legacy bare composite.
+func peelCompositeSizing(s string) (body, sizing string, hadParens bool, err error) {
+	s = strings.TrimSpace(s)
+	if !strings.HasPrefix(s, "(") {
+		return s, "", false, nil
+	}
+	inQuote := false
+	depth := 0
+	for i, r := range s {
+		switch {
+		case r == '"':
+			inQuote = !inQuote
+		case r == '(' && !inQuote:
+			depth++
+		case r == ')' && !inQuote:
+			depth--
+			if depth == 0 {
+				body = strings.TrimSpace(s[1:i])
+				rest := strings.TrimSpace(s[i+1:])
+				if rest == "" {
+					return body, "", true, nil
+				}
+				if !strings.HasPrefix(rest, ":") {
+					return "", "", true, fmt.Errorf("unexpected %q after composite ')'; sizing must follow as \":N\"", rest)
+				}
+				return body, rest[1:], true, nil
+			}
+		}
+	}
+	return "", "", true, fmt.Errorf("unbalanced '(' in composite cell %q", s)
+}
+
 func tryParseComposite(s string) (Cell, bool, error) {
-	if !strings.Contains(s, " + ") {
+	body, sizingStr, _, err := peelCompositeSizing(s)
+	if err != nil {
+		return nil, true, err
+	}
+	if !strings.Contains(body, " + ") {
+		// not a composite. A leading '(' with no " + " inside is not our cell;
+		// let the caller's later branches classify it (likely a literal).
 		return nil, false, nil
 	}
-	parts := strings.Split(s, " + ")
+	var sizing Sizing
+	if sizingStr != "" {
+		sizing, err = ParseSizing(sizingStr)
+		if err != nil {
+			return nil, true, fmt.Errorf("invalid composite sizing %q: %w", sizingStr, err)
+		}
+	}
+	parts := strings.Split(body, " + ")
 	segments := make([]Segment, 0, len(parts))
 	for _, p := range parts {
 		seg, err := parseSegment(p)
@@ -69,7 +122,7 @@ func tryParseComposite(s string) (Cell, bool, error) {
 		}
 		segments = append(segments, seg)
 	}
-	return CompositeCell{Segments: segments}, true, nil
+	return CompositeCell{Segments: segments, Sizing: sizing}, true, nil
 }
 
 // TokenizeCell parses a single grid cell string. Whitespace is trimmed.
@@ -250,12 +303,10 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 
 			case CompositeCell:
 				fieldNames := make(map[string]struct{})
-				var totalWidth int
 				for _, seg := range cell.Segments {
 					if seg.Kind == SegmentField {
 						fieldNames[seg.Name] = struct{}{}
 					}
-					totalWidth += seg.Sizing.Min
 				}
 				anchorName := ""
 				if len(fieldNames) == 1 {
@@ -265,12 +316,11 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 				}
 				colSpan, rowSpan := computeSpans(cells, r, c, rows, cols)
 				idx := len(anchors)
-				// composites size to their rendered content (auto); any explicit
-				// segment :N widths sum into a floor so a pinned segment still
-				// reserves room. Composites never hide.
-				sizing := Sizing{Mode: SizeAuto}
-				if totalWidth > 0 {
-					sizing.Min, sizing.MinSet = totalWidth, true
+				// a composite sizes to its rendered content (auto) unless the
+				// author attached a cell-level suffix via parens: (a + b):N.
+				sizing := cell.Sizing
+				if sizing == (Sizing{}) {
+					sizing = Sizing{Mode: SizeAuto}
 				}
 				anchors = append(anchors, Anchor{
 					Kind:     AnchorComposite,

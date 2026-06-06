@@ -300,3 +300,27 @@ func TestSolveLayout_CaptionAnchorHeightIsOne(t *testing.T) {
 		t.Errorf("caption row height = %d, want 1 (caption is always one line)", plan.RowHeights[0])
 	}
 }
+
+func TestSolveLayout_CompositeColumnFloor(t *testing.T) {
+	spec := mustParse(t, [][]string{
+		{"<text.label>status.caption", `(status.label + " " + status.visual):16..`},
+		{"<text.label>priority.caption", "priority"},
+	})
+	heightOf := func(a Anchor, w int) int { return 1 }
+	// vary the composite's rendered width: Done (7), Ready (8), In Progress + emoji (14).
+	for _, statusWidth := range []int{7, 8, 14} {
+		measure := func(a Anchor) int {
+			if a.Display == DisplayCaption {
+				return len([]rune(a.Name)) + 1
+			}
+			if a.Kind == AnchorComposite {
+				return statusWidth
+			}
+			return len("Medium")
+		}
+		plan := SolveLayout(spec, 200, 1, measure, heightOf)
+		if plan.ColumnWidths[1] < 16 {
+			t.Errorf("statusWidth=%d: value column = %d, want >=16 (no jump)", statusWidth, plan.ColumnWidths[1])
+		}
+	}
+}

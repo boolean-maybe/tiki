@@ -264,37 +264,24 @@ views:
     kind: detail
     description: "View and edit selected task"
     require: ["selection:one"]
-    # Layout shape: four caption+value pairs (status/type/priority/points;
-    # assignee/author/created/updated; due/recurrence) plus two stacked list
-    # columns (Tags, then Deps). Every field carries its caption via the
-    # `.caption` cell so the solver's caption↔value co-shedding rule pairs them:
-    # a field's caption and value always shed together — a value column never
-    # drops while its caption survives (no orphaned label at any width). The
-    # list columns stack caption-over-value as one shedding unit; both carry `?`
-    # so an empty tags/deps collapses entirely (caption included). The Deps
-    # value grows (`:0..fr`) to absorb residual width at wide terminals (no dead
-    # gap) and can shrink to nothing to shed first when space runs out; its long
-    # "ID title" rows truncate only once the column is genuinely full. Tags has
-    # a soft min (`:18..`) so its handful of words wrap to a few lines rather
-    # than one-per-row.
     layout: |
-      <highlight>title           | --                                 | --                            | --        | --                       | --      | --                       | --
-      _                           | _                                  | _                             | _         | _                        | _       | _                        | _
-      <text.label>status.caption  | status.label + " " + status.visual | <text.label>assignee.caption  | assignee  | <text.label>due.caption  | due?    | <text.label>tags.caption | <text.label>dependsOn.caption
-      <text.label>type.caption    | type.label + " " + type.visual     | <text.muted>createdBy.caption | createdBy | <text.label>recurrence.caption | recurrence? | tags?:18..        | dependsOn?:16..fr
-      <text.label>priority.caption| priority                           | <text.muted>createdAt.caption | createdAt | _                        | _       | ^                        | ^
-      <text.label>points.caption  | points                             | <text.muted>updatedAt.caption | updatedAt | _                        | _       | ^                        | ^
+      <highlight>title             | --                                        | --                            | --            | --                             | --          | --                       | --
+      _                            | _                                         | _                             | _             | _                              | _           | _                        | _
+      <text.label>status.caption   | (status.label + " " + status.visual):16.. | <text.label>assignee.caption  | assignee:18.. | <text.label>due.caption        | due?:12..   | <text.label>tags.caption | <text.label>dependsOn.caption
+      <text.label>type.caption     | type.label + " " + type.visual            | <text.muted>createdBy.caption | createdBy     | <text.label>recurrence.caption | recurrence? | tags?:18..               | dependsOn?:16..fr
+      <text.label>priority.caption | priority                                  | <text.muted>createdAt.caption | createdAt     | _                              | _           | ^                        | ^
+      <text.label>points.caption   | points                                    | <text.muted>updatedAt.caption | updatedAt     | _                              | _           | ^                        | ^
 
   - name: Project
     kind: detail
     description: "View and edit selected project"
     require: ["selection:one"]
     layout: |
-      <highlight>title | --                                 | --         | --        | --      | --   | --                                                                                                                        | --
-      _                | _                                  | _          | _         | _       | _    | _                                                                                                                         | _
-      <text.label>status.caption    | status.label + " " + status.visual | <text.label>"Author"  | createdBy | <text.label>tags.caption | tags? | <text.muted>"Projects gather related tasks — stories, bugs, and spikes — into a single unit of planning. Press " + <status.warn>"<L>" + <text.muted>" to see every task linked to this project. Move it across Now, Next, and Later as priorities shift; it auto-completes when all its tasks are done." | --
-      <text.label>priority.caption  | priority                           | <text.label>"Created" | createdAt | ^       | ^    | ^                                                                                                                                                                                                                                                                                          | ^
-      <text.label>points.caption    | points                             | <text.label>"Updated" | updatedAt | ^       | ^    | ^                                                                                                                                                                                                                                                                                          | ^
+      <highlight>title             | --                                 | --                    | --        | --                       | --    | -- | --
+      _                            | _                                  | _                     | _         | _                        | _     | _  | _
+      <text.label>status.caption   | status.label + " " + status.visual | <text.label>"Author"  | createdBy | <text.label>tags.caption | tags? | <text.muted>"Projects gather related tasks — stories, bugs, and spikes — into a single unit of planning. Press " + <status.warn>"<L>" + <text.muted>" to see every task linked to this project. Move it across Now, Next, and Later as priorities shift; it auto-completes when all its tasks are done." | --
+      <text.label>priority.caption | priority                           | <text.label>"Created" | createdAt | ^                        | ^     | ^  | ^
+      <text.label>points.caption   | points                             | <text.label>"Updated" | updatedAt | ^                        | ^     | ^  | ^
     actions:
       - key: "L"
         label: "List tasks"

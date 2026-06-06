@@ -415,11 +415,73 @@ func TestTokenizeCell_Composite(t *testing.T) {
 			},
 		},
 		{
-			in:       `status:15 + " " + status.visual`,
+			// segment-level sizing is rejected; sizing belongs on the cell.
+			in:      `status:15 + " " + status.visual`,
+			wantErr: true,
+		},
+		{
+			// bare trailing sizing (no parens) is also rejected.
+			in:      `status.label + " " + status.visual:16..`,
+			wantErr: true,
+		},
+		{
+			in:       `(status.label + " " + status.visual):16..`,
 			segments: 3,
 			check: func(t *testing.T, c CompositeCell) {
-				if c.Segments[0].Sizing != (Sizing{Mode: SizeFixed, Min: 15, Max: 15}) {
-					t.Errorf("seg[0] sizing: got %+v, want fixed15", c.Segments[0].Sizing)
+				want := Sizing{Mode: SizeAuto, Min: 16, MinSet: true}
+				if c.Sizing != want {
+					t.Errorf("cell sizing: got %+v, want %+v", c.Sizing, want)
+				}
+				if c.Segments[0].Name != "status" || c.Segments[0].Display != DisplayLabel {
+					t.Errorf("seg[0]: got %+v", c.Segments[0])
+				}
+			},
+		},
+		{
+			in:       `(createdBy + " on " + createdAt):fr`,
+			segments: 3,
+			check: func(t *testing.T, c CompositeCell) {
+				want := Sizing{Mode: SizeGrow, Weight: 1}
+				if c.Sizing != want {
+					t.Errorf("cell sizing: got %+v, want %+v", c.Sizing, want)
+				}
+			},
+		},
+		{
+			in:       `(status.label + " " + status.visual):24`,
+			segments: 3,
+			check: func(t *testing.T, c CompositeCell) {
+				want := Sizing{Mode: SizeFixed, Min: 24, Max: 24}
+				if c.Sizing != want {
+					t.Errorf("cell sizing: got %+v, want %+v", c.Sizing, want)
+				}
+			},
+		},
+		{
+			// bare parens with no suffix → auto (inert), still a composite.
+			in:       `(status.label + " " + status.visual)`,
+			segments: 3,
+			check: func(t *testing.T, c CompositeCell) {
+				if c.Sizing != (Sizing{Mode: SizeAuto}) {
+					t.Errorf("cell sizing: got %+v, want auto", c.Sizing)
+				}
+			},
+		},
+		{
+			// unbalanced parens → error.
+			in:      `(status.label + " " + status.visual`,
+			wantErr: true,
+		},
+		{
+			// a quoted literal containing parens/colon must not trip the peel.
+			in:       `status.label + " (x:y) " + status.visual`,
+			segments: 3,
+			check: func(t *testing.T, c CompositeCell) {
+				if c.Segments[1].Kind != SegmentLiteral || c.Segments[1].Text != " (x:y) " {
+					t.Errorf("seg[1]: got %+v", c.Segments[1])
+				}
+				if c.Sizing != (Sizing{Mode: SizeAuto}) {
+					t.Errorf("cell sizing: got %+v, want auto", c.Sizing)
 				}
 			},
 		},
@@ -472,6 +534,23 @@ func TestParseGrid_CompositeAnchor(t *testing.T) {
 	}
 	if len(a.Segments) != 3 {
 		t.Errorf("want 3 segments, got %d", len(a.Segments))
+	}
+}
+
+func TestParseGrid_CompositeCellSizing(t *testing.T) {
+	spec, err := ParseGrid([][]string{
+		{`(status.label + " " + status.visual):16..`},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	a := spec.Anchors[0]
+	if a.Kind != AnchorComposite {
+		t.Fatalf("want AnchorComposite, got %v", a.Kind)
+	}
+	want := Sizing{Mode: SizeAuto, Min: 16, MinSet: true}
+	if a.Sizing != want {
+		t.Errorf("anchor sizing: got %+v, want %+v", a.Sizing, want)
 	}
 }
 

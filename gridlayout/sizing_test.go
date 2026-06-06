@@ -44,13 +44,13 @@ func TestSpecTypesHaveSizing(t *testing.T) {
 	var fc FieldCell
 	fc.Sizing = Sizing{Mode: SizeFixed, Min: 5, Max: 5}
 	fc.HideWhenEmpty = true
-	var seg Segment
-	seg.Sizing = Sizing{Mode: SizeGrow, Weight: 1}
+	var cc CompositeCell
+	cc.Sizing = Sizing{Mode: SizeGrow, Weight: 1}
 	var a Anchor
 	a.Sizing = Sizing{Mode: SizeAuto}
 	a.HideWhenEmpty = true
 	if fc.Sizing.Min != 5 || !fc.HideWhenEmpty || a.Sizing.Mode != SizeAuto ||
-		seg.Sizing.Mode != SizeGrow || !a.HideWhenEmpty {
+		cc.Sizing.Mode != SizeGrow || !a.HideWhenEmpty {
 		t.Fatal("field wiring sanity check failed")
 	}
 }
