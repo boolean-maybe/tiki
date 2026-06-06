@@ -7,6 +7,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
@@ -330,6 +331,76 @@ func TestConfigurableDetailView_TabTraversesCustomEnumField(t *testing.T) {
 	for i, name := range want {
 		if visited[i] != name {
 			t.Errorf("visited[%d] = %q, want %q (workflow-only enum must be reachable)", i, visited[i], name)
+		}
+	}
+}
+
+// captionThenValueSpec builds a grid where each field appears twice in
+// declaration order: first as a display-only `.caption` anchor, then as
+// its editable value anchor — mirroring the bundled kanban Detail layout
+// (every field carries a `field.caption` cell). The synthetic
+// detailPluginFromFields helper only emits value anchors, so it cannot
+// reproduce the bundled layout's caption-before-value ordering; this
+// builder does.
+func captionThenValueSpec(names []string) gridlayout.GridSpec {
+	var anchors []gridlayout.Anchor
+	var cells [][]gridlayout.Cell
+	for _, n := range names {
+		row := len(anchors)
+		anchors = append(anchors, gridlayout.Anchor{
+			Kind: gridlayout.AnchorField, Name: n, Display: gridlayout.DisplayCaption,
+			Row: row, Col: 0, RowSpan: 1, ColSpan: 1,
+		})
+		cells = append(cells, []gridlayout.Cell{gridlayout.FieldCell{Name: n, Display: gridlayout.DisplayCaption}})
+		row = len(anchors)
+		anchors = append(anchors, gridlayout.Anchor{
+			Kind: gridlayout.AnchorField, Name: n,
+			Row: row, Col: 1, RowSpan: 1, ColSpan: 1,
+		})
+		cells = append(cells, []gridlayout.Cell{gridlayout.FieldCell{Name: n}})
+	}
+	return gridlayout.GridSpec{Rows: len(anchors), Cols: 2, Anchors: anchors, Cells: cells}
+}
+
+// TestConfigurableDetailView_CaptionAnchorsAreNotTabStops reproduces the
+// reported bug: in the bundled Detail layout every field has a display-only
+// `.caption` anchor preceding its value anchor, and Tab traversal keyed on
+// field name alone treated the caption anchor as a stop — so a single Tab
+// landed on the caption (no visible change) and a second Tab was needed to
+// reach the next field's value. Caption anchors must never be Tab stops.
+func TestConfigurableDetailView_CaptionAnchorsAreNotTabStops(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI109")
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID(),
+		&plugin.DetailPlugin{
+			BasePlugin: plugin.BasePlugin{Name: "Detail", Kind: plugin.KindDetail},
+			Layout:     captionThenValueSpec([]string{"status", "type", "priority"}),
+		},
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+
+	if !cv.EnterEditMode() {
+		t.Fatal("EnterEditMode failed")
+	}
+	visited := []string{cv.GetFocusedFieldName()}
+	for cv.FocusNextField() {
+		visited = append(visited, cv.GetFocusedFieldName())
+	}
+	// Each field should be visited exactly once (its value anchor), then the
+	// description editor — caption anchors contribute no extra stops.
+	want := []string{"status", "type", "priority", "description"}
+	if len(visited) != len(want) {
+		t.Fatalf("visited %v, want %v (caption anchors leaking as Tab stops?)", visited, want)
+	}
+	for i, name := range want {
+		if visited[i] != name {
+			t.Errorf("visited[%d] = %q, want %q", i, visited[i], name)
 		}
 	}
 }

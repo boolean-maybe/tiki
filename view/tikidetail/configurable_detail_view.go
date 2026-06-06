@@ -52,6 +52,15 @@ type ConfigurableDetailView struct {
 	spec   gridlayout.GridSpec // parsed layout grid (alias of pluginDef.Layout, kept for hot-path reads)
 	layout []string            // flat anchor names in declaration order (edit traversal)
 
+	// layoutDisplays is positionally aligned with layout: layoutDisplays[i] is
+	// the DisplayMode of the anchor that produced layout[i]. Caption anchors
+	// (DisplayCaption) carry a field name but render the field's label, not its
+	// value — they are display-only and must never be edit-traversal stops.
+	// Without this, a field with both a `.caption` cell and a value cell (the
+	// bundled Detail layout has one per field) appears twice in layout, and Tab
+	// stops on the caption first, requiring a second press to reach the value.
+	layoutDisplays []gridlayout.DisplayMode
+
 	navMarkdown *markdown.NavigableMarkdown
 	listenerID  int
 
@@ -138,6 +147,7 @@ func NewConfigurableDetailView(
 		pluginDef:         pluginDef,
 		spec:              pluginDef.Layout,
 		layout:            pluginDef.Layout.AnchorNames(),
+		layoutDisplays:    pluginDef.Layout.AnchorDisplays(),
 		focusedIdx:        -1,
 		editors:           make(map[string]FieldEditorWidget),
 		onEditFieldChange: make(map[string]func(string)),
@@ -842,7 +852,7 @@ func (cv *ConfigurableDetailView) indexOfEditableField(name string) int {
 		return len(cv.layout)
 	}
 	for i, layoutName := range cv.layout {
-		if layoutName == name && cv.isEditableLayoutField(layoutName) {
+		if layoutName == name && cv.isEditableLayoutPosition(i) {
 			return i
 		}
 	}
@@ -940,11 +950,28 @@ func (cv *ConfigurableDetailView) IsEditFieldFocused() bool {
 	return false
 }
 
+// isEditableLayoutPosition reports whether the layout position i is an
+// edit-traversal stop. It is the position-aware companion to
+// isEditableLayoutField: in addition to the field being editable, the anchor
+// at i must render the field's value, not its caption. Caption anchors
+// (DisplayCaption) carry a field name but are display-only, so a field that
+// has both a `.caption` cell and a value cell appears twice in layout — only
+// the value position is a stop.
+func (cv *ConfigurableDetailView) isEditableLayoutPosition(i int) bool {
+	if i < 0 || i >= len(cv.layout) {
+		return false
+	}
+	if i < len(cv.layoutDisplays) && cv.layoutDisplays[i] == gridlayout.DisplayCaption {
+		return false
+	}
+	return cv.isEditableLayoutField(cv.layout[i])
+}
+
 // firstEditableIndex returns the metadata position of the first field
 // with an implemented editor and a traversable descriptor, or -1.
 func (cv *ConfigurableDetailView) firstEditableIndex() int {
-	for i, name := range cv.layout {
-		if cv.isEditableLayoutField(name) {
+	for i := range cv.layout {
+		if cv.isEditableLayoutPosition(i) {
 			return i
 		}
 	}
@@ -959,7 +986,7 @@ func (cv *ConfigurableDetailView) firstEditableIndex() int {
 // CLAUDE.md ("Tab cycles through all metadata fields → Description").
 func (cv *ConfigurableDetailView) nextEditableIndex(current int) int {
 	for i := current + 1; i < len(cv.layout); i++ {
-		if cv.isEditableLayoutField(cv.layout[i]) {
+		if cv.isEditableLayoutPosition(i) {
 			return i
 		}
 	}
@@ -977,7 +1004,7 @@ func (cv *ConfigurableDetailView) prevEditableIndex(current int) int {
 		current = len(cv.layout)
 	}
 	for i := current - 1; i >= 0; i-- {
-		if i < len(cv.layout) && cv.isEditableLayoutField(cv.layout[i]) {
+		if cv.isEditableLayoutPosition(i) {
 			return i
 		}
 	}

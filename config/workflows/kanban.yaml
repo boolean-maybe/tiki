@@ -281,9 +281,9 @@ views:
       <highlight>title           | --                                 | --                            | --        | --                       | --      | --                       | --
       _                           | _                                  | _                             | _         | _                        | _       | _                        | _
       <text.label>status.caption  | status.label + " " + status.visual | <text.label>assignee.caption  | assignee  | <text.label>due.caption  | due?    | <text.label>tags.caption | <text.label>dependsOn.caption
-      <text.label>type.caption    | type.label + " " + type.visual     | <text.label>createdBy.caption | createdBy | <text.label>recurrence.caption | recurrence? | tags?:18..        | dependsOn?:16..fr
-      <text.label>priority.caption| priority                           | <text.label>createdAt.caption | createdAt | _                        | _       | ^                        | ^
-      <text.label>points.caption  | points                             | <text.label>updatedAt.caption | updatedAt | _                        | _       | ^                        | ^
+      <text.label>type.caption    | type.label + " " + type.visual     | <text.muted>createdBy.caption | createdBy | <text.label>recurrence.caption | recurrence? | tags?:18..        | dependsOn?:16..fr
+      <text.label>priority.caption| priority                           | <text.muted>createdAt.caption | createdAt | _                        | _       | ^                        | ^
+      <text.label>points.caption  | points                             | <text.muted>updatedAt.caption | updatedAt | _                        | _       | ^                        | ^
 
   - name: Project
     kind: detail

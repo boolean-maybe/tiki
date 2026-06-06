@@ -188,6 +188,27 @@ func (s GridSpec) AnchorNames() []string {
 	return out
 }
 
+// AnchorDisplays returns the DisplayMode of each anchor emitted by
+// AnchorNames, in the same order and with the same filtering. The two slices
+// are positionally aligned: AnchorDisplays()[i] is the DisplayMode of the
+// anchor named AnchorNames()[i]. Callers that traverse the flat name list
+// (e.g. edit-mode Tab order) use this to distinguish display-only caption
+// anchors (DisplayCaption) from value anchors of the same field.
+func (s GridSpec) AnchorDisplays() []DisplayMode {
+	out := make([]DisplayMode, 0, len(s.Anchors))
+	for _, a := range s.Anchors {
+		switch a.Kind {
+		case AnchorField:
+			out = append(out, a.Display)
+		case AnchorComposite:
+			if a.Name != "" {
+				out = append(out, a.Display)
+			}
+		}
+	}
+	return out
+}
+
 // IsEmpty reports whether the grid has zero anchors. Useful as a guard for
 // callers falling back to default metadata.
 func (s GridSpec) IsEmpty() bool { return len(s.Anchors) == 0 }

@@ -375,3 +375,64 @@ func TestBundledKanban_SizingGrammarMigration(t *testing.T) {
 		}
 	}
 }
+
+// TestBundledKanban_DetailCaptionAnchorsAlignWithNames pins the precondition
+// of the doubled-Tab bug: the bundled Detail layout carries a display-only
+// `.caption` anchor for every field (so each field name appears more than
+// once in the flat anchor list), and AnchorDisplays must stay positionally
+// aligned with AnchorNames so edit-mode traversal can tell a caption anchor
+// from its value anchor and skip the former. If this layout ever loses its
+// caption anchors the bug can't recur, but the alignment contract is what the
+// view's Tab traversal relies on, so guard it here against the real workflow.
+func TestBundledKanban_DetailCaptionAnchorsAlignWithNames(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	src := filepath.Join(filepath.Dir(wd), "config", "workflows", "kanban.yaml")
+	if _, err := os.Stat(src); err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+	var detail *DetailPlugin
+	for _, p := range plugins {
+		if dp, ok := p.(*DetailPlugin); ok && dp.Name == "Detail" {
+			detail = dp
+			break
+		}
+	}
+	if detail == nil {
+		t.Fatal("bundled kanban does not contain a Detail view")
+	}
+
+	names := detail.Layout.AnchorNames()
+	displays := detail.Layout.AnchorDisplays()
+	if len(names) != len(displays) {
+		t.Fatalf("AnchorNames (%d) and AnchorDisplays (%d) lengths differ — not positionally aligned",
+			len(names), len(displays))
+	}
+
+	captionFields := map[string]bool{}
+	valueFields := map[string]bool{}
+	for i, name := range names {
+		if displays[i] == gridlayout.DisplayCaption {
+			captionFields[name] = true
+		} else {
+			valueFields[name] = true
+		}
+	}
+	if len(captionFields) == 0 {
+		t.Fatal("bundled Detail layout has no caption anchors — bug precondition gone; revisit this guard")
+	}
+	// Every field that has a caption anchor must also have a value anchor, and
+	// thus appear at least twice in the flat list — exactly the shape that made
+	// the caption a stray Tab stop before the fix.
+	for name := range captionFields {
+		if !valueFields[name] && name != "title" {
+			t.Errorf("field %q has a caption anchor but no value anchor in the bundled Detail layout", name)
+		}
+	}
+}
