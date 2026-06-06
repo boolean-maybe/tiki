@@ -3,7 +3,6 @@ package tikidetail
 import (
 	"fmt"
 
-	"github.com/boolean-maybe/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/gridlayout"
@@ -78,50 +77,6 @@ func getDimOrFullColorTag(mode RenderMode, focused bool, fullRole theme.Role, di
 // getFocusMarker returns the focus marker string (arrow + text color) from the active theme
 func getFocusMarker(roles *theme.Theme) string {
 	return roles.Highlight().Tag() + "► " + roles.TextPrimary().Tag()
-}
-
-// RenderAssigneeText renders an assignee field as read-only text. The
-// stored value may contain `<role>` color markup; literal `[...]` content
-// renders verbatim (escape-then-expand order).
-func RenderAssigneeText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldAssignee
-	assignee, _, _ := tk.StringField(tikipkg.FieldAssignee)
-
-	labelTag := getDimOrFullColorTag(ctx.Mode, focused, ctx.Roles.TextLabel(), ctx.Roles.TextMuted())
-	valueTag := getDimOrFullColorTag(ctx.Mode, focused, ctx.Roles.TextValue(), ctx.Roles.TextSecondary())
-
-	focusMarker := ""
-	if focused && ctx.Mode == RenderModeEdit {
-		focusMarker = getFocusMarker(ctx.Roles)
-	}
-
-	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, "Assignee:", valueTag, expandFieldText(defaultString(assignee, "Unassigned"), ctx.Roles))
-	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
-	textView.SetBorderPadding(0, 0, 0, 0)
-
-	return textView
-}
-
-// RenderPointsText renders a points field as read-only text. Points is now
-// a workflow enum (e.g. 1/3/7/11); the stored value is a string key, shown
-// here verbatim alongside the field label.
-func RenderPointsText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldPoints
-	points, _, _ := tk.StringField(tikipkg.FieldPoints)
-
-	labelTag := getDimOrFullColorTag(ctx.Mode, focused, ctx.Roles.TextLabel(), ctx.Roles.TextMuted())
-	valueTag := getDimOrFullColorTag(ctx.Mode, focused, ctx.Roles.TextValue(), ctx.Roles.TextSecondary())
-
-	focusMarker := ""
-	if focused && ctx.Mode == RenderModeEdit {
-		focusMarker = getFocusMarker(ctx.Roles)
-	}
-
-	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, "Points:", valueTag, tview.Escape(points))
-	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
-	textView.SetBorderPadding(0, 0, 0, 0)
-
-	return textView
 }
 
 // RenderTitleText renders a title as read-only text. The stored title may
@@ -263,31 +218,6 @@ func RenderUpdatedText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 	}
 	text := fmt.Sprintf("%s%-10s%s%s",
 		roles.TextMuted().Tag(), "Updated:", roles.TextValue().Tag(), updatedAtStr)
-	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
-	view.SetBorderPadding(0, 0, 0, 0)
-	return view
-}
-
-// RenderDueText renders the due date field
-func RenderDueText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
-	due, _, _ := tk.TimeField(tikipkg.FieldDue)
-	dueDisplay := "None"
-	if !due.IsZero() {
-		dueDisplay = due.Format("2006-01-02")
-	}
-	text := fmt.Sprintf("%s%-12s%s%s",
-		roles.TextMuted().Tag(), "Due:", roles.TextValue().Tag(), dueDisplay)
-	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
-	view.SetBorderPadding(0, 0, 0, 0)
-	return view
-}
-
-// RenderRecurrenceText renders the recurrence field
-func RenderRecurrenceText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
-	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
-	display := recurrence.RecurrenceDisplay(recurrence.Recurrence(recurrenceStr))
-	text := fmt.Sprintf("%s%-12s%s%s",
-		roles.TextMuted().Tag(), "Recurrence:", roles.TextValue().Tag(), display)
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	view.SetBorderPadding(0, 0, 0, 0)
 	return view
