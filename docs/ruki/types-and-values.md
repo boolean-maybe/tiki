@@ -83,6 +83,10 @@ Implemented literal forms:
 | list literal | `["bug", "frontend"]` | usually `list<string>` |
 | empty literal | `empty` | context-sensitive |
 
+Recurrence values have no bare literal form. Construct them with the `daily()`, `weekly("<weekday>")`, and
+`monthly(<day>)` builtins (see [operators-and-builtins.md](operators-and-builtins.md)). The `empty` literal expresses
+"no recurrence".
+
 Qualified and unqualified references are not literals, but they participate in type inference:
 
 - `status` resolves through the schema

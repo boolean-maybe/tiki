@@ -146,6 +146,15 @@ Calculate a date from recurrence:
 create title="x" due=next_date(recurrence)
 ```
 
+Construct a recurrence value with the `daily()` / `weekly()` / `monthly()` builtins:
+
+```sql
+create title="standup" recurrence=daily()
+update where id="ABC123" set recurrence=weekly("monday")
+select where recurrence = monthly(15)
+update where id="ABC123" set recurrence=empty   -- clear recurrence
+```
+
 Add to or remove from a list:
 
 ```sql

@@ -206,6 +206,10 @@ Supported patterns:
 | `0 0 * * SUN` | Weekly on Sunday |
 | `0 0 1 * *` | Monthly |
 
+The cron string above is the on-disk form. In `ruki` (workflow rules and the command bar) you author these values with
+the `daily()`, `weekly("<weekday>")`, and `monthly(<day>)` constructors rather than typing cron by hand — see the ruki
+built-in functions reference.
+
 ```yaml
 recurrence: 0 0 * * MON
 ```

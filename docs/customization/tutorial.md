@@ -854,6 +854,11 @@ triggers:
         where new.status = "done" and old.recurrence is not empty
         create title=old.title priority=old.priority tags=old.tags
                recurrence=old.recurrence due=next_date(old.recurrence) status="backlog"
+  - description: make newly-created standups recur weekly
+    ruki: >
+      after create
+        where new.title = "Standup"
+        update where id = new.id set recurrence=weekly("monday")
 
   # --- Our new triggers ---
   - description: per-person WIP limit of 3

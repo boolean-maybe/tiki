@@ -212,6 +212,9 @@ create title="x" dependsOn=dependsOn + tags
 | `has(...)` | `bool` | exactly 1 | argument must be a bare or qualified field reference (`has(status)`, `has(new.status)`, `has(outer.status)`, `has(target.status)`, `has(targets.status)`); true when the referenced tiki has an explicit value for that field — works on workflow-declared and custom fields alike, used to distinguish "absent" from "present with zero value". See qualifier rules below. |
 | `now()` | `timestamp` | 0 | no additional validation |
 | `next_date(...)` | `date` | exactly 1 | argument must be `recurrence` |
+| `daily()` | `recurrence` | 0 | returns the daily cron `0 0 * * *` |
+| `weekly(...)` | `recurrence` | exactly 1 | argument must be a string weekday name (case-insensitive, e.g. `"monday"`); errors at runtime for an unknown weekday |
+| `monthly(...)` | `recurrence` | exactly 1 | argument must be an int day of month; errors at runtime for a day outside 1..31 |
 | `blocks(...)` | `list<ref>` | exactly 1 | argument must be `id`, `ref`, or string literal |
 | `id()` | `id` | 0 | plugin runtime only; requires exactly one selected tiki |
 | `ids()` | `list<ref>` | 0 | plugin runtime only; returns the full set of selected tiki IDs |
