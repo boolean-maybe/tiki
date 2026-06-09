@@ -231,6 +231,7 @@ Examples:
 ```sql
 select where updatedAt < now()
 create title="x" due=next_date(recurrence)
+update where id = id() set recurrence=daily() due=next_date(daily())
 select where blocks(id) is empty
 select where id() in dependsOn
 select where count(select where assignee = outer.assignee and status = "in progress") >= 3

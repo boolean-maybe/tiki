@@ -245,6 +245,130 @@ func TestBundledKanban_AddToProjectExcludesPlainDocs(t *testing.T) {
 	}
 }
 
+// TestBundledKanban_DetailMakeRecurringSetsRecurrenceAndDue pins the Detail
+// view's "Make recurring" action (key "R"). It must set recurrence to the
+// daily cron and, in the same statement, set due to the next occurrence — the
+// same recurrence/due coupling the edit path (SaveRecurrence) and the
+// recurring-completion trigger produce. The action is authored with ruki's
+// recurrence constructor daily() (added in ruki v0.1.1); a string literal would
+// fail validation because recurrence is a derived-only type.
+func TestBundledKanban_DetailMakeRecurringSetsRecurrenceAndDue(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	src := filepath.Join(filepath.Dir(wd), "config", "workflows", "kanban.yaml")
+	if _, err := os.Stat(src); err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+
+	var detail *DetailPlugin
+	for _, p := range plugins {
+		if dp, ok := p.(*DetailPlugin); ok && dp.Name == "Detail" {
+			detail = dp
+			break
+		}
+	}
+	if detail == nil {
+		t.Fatal("bundled kanban does not contain a Detail view")
+	}
+
+	var action *PluginAction
+	for i := range detail.Actions {
+		if detail.Actions[i].KeyStr == "R" {
+			action = &detail.Actions[i]
+			break
+		}
+	}
+	if action == nil {
+		t.Fatal("Detail view has no \"R\" action")
+	}
+	if action.Kind != ActionKindRuki || action.Action == nil {
+		t.Fatalf("Detail \"R\" action is not a ruki action: kind=%v", action.Kind)
+	}
+	// Must surface in the footer — a detail action with hot:false (ShowInHeader
+	// false) registers and fires but is invisible to the user.
+	if !action.ShowInHeader {
+		t.Error("Detail \"R\" action has ShowInHeader=false; it would be hidden from the footer")
+	}
+
+	tk := tikipkg.New()
+	tk.SetID("TASK01")
+	tk.SetTitle("Real Tiki")
+	tk.Set("type", "story")
+	tk.Set("status", "ready")
+
+	factory := ruki.DocumentFactory(func() ruki.Document { return tikipkg.WrapDoc(tikipkg.New()) })
+	executor := ruki.NewExecutor(testSchema(), factory, nil,
+		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
+	result, err := executor.Execute(action.Action, tikipkg.WrapDocs([]*tikipkg.Tiki{tk}),
+		ruki.NewSingleSelectionInput(tk.ID()))
+	if err != nil {
+		t.Fatalf("execute \"r\" action: %v", err)
+	}
+	if result.Update == nil || len(result.Update.Updated) != 1 {
+		t.Fatalf("expected one updated tiki, got %+v", result.Update)
+	}
+
+	updated := tikipkg.UnwrapDoc(result.Update.Updated[0])
+	gotRecurrence, _, _ := updated.StringField(tikipkg.FieldRecurrence)
+	if gotRecurrence != "0 0 * * *" {
+		t.Errorf("recurrence = %q, want daily cron %q", gotRecurrence, "0 0 * * *")
+	}
+	gotDue, hasDue, _ := updated.TimeField(tikipkg.FieldDue)
+	if !hasDue || gotDue.IsZero() {
+		t.Errorf("due not set to next occurrence: hasDue=%v due=%v", hasDue, gotDue)
+	}
+}
+
+// TestBundledKanban_DetailActionsAvoidBuiltinGlobals guards against a
+// workflow-declared Detail action shadowing a built-in app global. The action
+// registry is last-write-wins by rune (controller.ActionRegistry.Register), so
+// a Detail action keyed "r" silently overrides the global Refresh once the
+// workflow loads — the kind of collision that's invisible until a user can no
+// longer refresh from the detail view. These runes are registered in Go for
+// every detail surface (controller/actions.go + detail_controller.go) and must
+// not be reused by the bundled Detail/Project views.
+func TestBundledKanban_DetailActionsAvoidBuiltinGlobals(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	src := filepath.Join(filepath.Dir(wd), "config", "workflows", "kanban.yaml")
+	if _, err := os.Stat(src); err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+
+	// Built-in detail-surface global runes: r=Refresh, q=Quit, f=Full screen,
+	// s=Edit source, c=Chat, e=Edit. A workflow detail action must not reuse
+	// these.
+	reserved := map[string]string{
+		"r": "Refresh", "q": "Quit", "f": "Full screen",
+		"s": "Edit source", "c": "Chat", "e": "Edit",
+	}
+	for _, p := range plugins {
+		dp, ok := p.(*DetailPlugin)
+		if !ok {
+			continue
+		}
+		for i := range dp.Actions {
+			key := dp.Actions[i].KeyStr
+			if builtin, clash := reserved[key]; clash {
+				t.Errorf("Detail view %q action key=%q (label=%q) collides with built-in global %q",
+					dp.Name, key, dp.Actions[i].Label, builtin)
+			}
+		}
+	}
+}
+
 // findChooseAction locates a choose-bearing PluginAction by view name and key.
 // Works for both board-style WorkflowPlugin views and DetailPlugin views.
 func findChooseAction(t *testing.T, plugins []Plugin, viewName, key string) *PluginAction {

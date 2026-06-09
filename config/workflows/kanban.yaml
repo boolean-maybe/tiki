@@ -267,10 +267,14 @@ views:
     layout: |
       <highlight>title             | --                                        | --                            | --            | --                             | --          | --                       | --
       _                            | _                                         | _                             | _             | _                              | _           | _                        | _
-      <text.label>status.caption   | (status.label + " " + status.visual):16.. | <text.label>assignee.caption  | assignee:18.. | <text.label>due.caption        | due?:12..   | <text.label>tags.caption | <text.label>dependsOn.caption
+      <text.label>status.caption   | (status.label + " " + status.visual):16.. | <text.label>assignee.caption  | assignee:18.. | <text.label>due.caption        | due:12..    | <text.label>tags.caption | <text.label>dependsOn.caption
       <text.label>type.caption     | type.label + " " + type.visual            | <text.muted>createdBy.caption | createdBy     | <text.label>recurrence.caption | recurrence? | tags?:18..               | dependsOn?:16..fr
       <text.label>priority.caption | priority                                  | <text.muted>createdAt.caption | createdAt     | _                              | _           | ^                        | ^
       <text.label>points.caption   | points                                    | <text.muted>updatedAt.caption | updatedAt     | _                              | _           | ^                        | ^
+    actions:
+      - key: "R"
+        label: "Make recurring"
+        action: update where id = id() set recurrence=daily() due=next_date(daily())
 
   - name: Project
     kind: detail
