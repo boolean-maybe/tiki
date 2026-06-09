@@ -1,6 +1,7 @@
 package tikidetail
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -402,6 +403,105 @@ func TestConfigurableDetailView_CaptionAnchorsAreNotTabStops(t *testing.T) {
 		if visited[i] != name {
 			t.Errorf("visited[%d] = %q, want %q", i, visited[i], name)
 		}
+	}
+}
+
+// detailPluginFromGrid parses a 2D grid through the real gridlayout parser and
+// wraps it in a DetailPlugin. Unlike detailPluginFromFields (which only builds
+// 1-column specs), this exercises multi-column layouts so column-major Tab
+// traversal can be observed — in a single column, column-major and row-major
+// orders are identical.
+func detailPluginFromGrid(t *testing.T, grid [][]string) *plugin.DetailPlugin {
+	t.Helper()
+	spec, err := gridlayout.ParseGrid(grid)
+	if err != nil {
+		t.Fatalf("ParseGrid: %v", err)
+	}
+	return &plugin.DetailPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "Detail", Kind: plugin.KindDetail},
+		Layout:     spec,
+	}
+}
+
+// TestConfigurableDetailView_TabTraversesColumnMajor pins the inversion: a
+// 2-column grid is *declared* row-major but Tab must walk down the left column
+// first (status, type, priority), then the right column (due, recurrence,
+// tags), then the inline description editor. Shift-Tab reverses it exactly.
+func TestConfigurableDetailView_TabTraversesColumnMajor(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI120")
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID(),
+		detailPluginFromGrid(t, [][]string{
+			{"status", "due"},
+			{"type", "recurrence"},
+			{"priority", "tags"},
+		}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+
+	if !cv.EnterEditMode() {
+		t.Fatal("EnterEditMode failed")
+	}
+	forward := []string{cv.GetFocusedFieldName()}
+	for cv.FocusNextField() {
+		forward = append(forward, cv.GetFocusedFieldName())
+	}
+	want := []string{"status", "type", "priority", "due", "recurrence", "tags", "description"}
+	if !slices.Equal(forward, want) {
+		t.Fatalf("Tab order = %v, want %v (column-major: down left column, then right)", forward, want)
+	}
+
+	// Shift-Tab symmetry: walking back from description reverses the forward
+	// path exactly (minus the trailing description, which is the start point).
+	backward := []string{cv.GetFocusedFieldName()}
+	for cv.FocusPrevField() {
+		backward = append(backward, cv.GetFocusedFieldName())
+	}
+	wantBack := []string{"description", "tags", "recurrence", "due", "priority", "type", "status"}
+	if !slices.Equal(backward, wantBack) {
+		t.Fatalf("Shift-Tab order = %v, want %v", backward, wantBack)
+	}
+}
+
+// TestConfigurableDetailView_TabColumnMajorSkipsCaptionColumns pins the
+// caption-beside-value variant: each value column is preceded by a `.caption`
+// column. Caption anchors are display-only (never Tab stops), so traversal
+// visits only the value columns — and within them, column-major: status, type
+// (left value column) then due, recurrence (right value column), then
+// description.
+func TestConfigurableDetailView_TabColumnMajorSkipsCaptionColumns(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI121")
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID(),
+		detailPluginFromGrid(t, [][]string{
+			{"status.caption", "status", "due.caption", "due"},
+			{"type.caption", "type", "recurrence.caption", "recurrence"},
+		}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+
+	if !cv.EnterEditMode() {
+		t.Fatal("EnterEditMode failed")
+	}
+	visited := []string{cv.GetFocusedFieldName()}
+	for cv.FocusNextField() {
+		visited = append(visited, cv.GetFocusedFieldName())
+	}
+	want := []string{"status", "type", "due", "recurrence", "description"}
+	if !slices.Equal(visited, want) {
+		t.Fatalf("Tab order = %v, want %v (caption columns skipped, value columns column-major)", visited, want)
 	}
 }
 

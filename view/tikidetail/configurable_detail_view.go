@@ -50,7 +50,7 @@ type ConfigurableDetailView struct {
 	pluginDef *plugin.DetailPlugin // workflow-yaml-derived definition; source of name/description/layout
 
 	spec   gridlayout.GridSpec // parsed layout grid (alias of pluginDef.Layout, kept for hot-path reads)
-	layout []string            // flat anchor names in declaration order (edit traversal)
+	layout []string            // flat anchor names in column-major order (edit traversal)
 
 	// layoutDisplays is positionally aligned with layout: layoutDisplays[i] is
 	// the DisplayMode of the anchor that produced layout[i]. Caption anchors
@@ -146,8 +146,8 @@ func NewConfigurableDetailView(
 		viewRegistry:      registry,
 		pluginDef:         pluginDef,
 		spec:              pluginDef.Layout,
-		layout:            pluginDef.Layout.AnchorNames(),
-		layoutDisplays:    pluginDef.Layout.AnchorDisplays(),
+		layout:            pluginDef.Layout.AnchorNamesColumnMajor(),
+		layoutDisplays:    pluginDef.Layout.AnchorDisplaysColumnMajor(),
 		focusedIdx:        -1,
 		editors:           make(map[string]FieldEditorWidget),
 		onEditFieldChange: make(map[string]func(string)),
@@ -995,7 +995,7 @@ func (cv *ConfigurableDetailView) firstEditableIndex() int {
 }
 
 // nextEditableIndex returns the next editable position (after current),
-// or -1. The traversal walks metadata anchors in declaration order and
+// or -1. The traversal walks metadata anchors in column-major order and
 // then lands on the synthetic description editor at len(layout) before
 // reporting "no further field" — so Tab from the last metadata field
 // takes the user into the description body, matching the contract in
@@ -1040,7 +1040,7 @@ func (cv *ConfigurableDetailView) prevEditableIndex(current int) int {
 // Flush order matters: SaveRecurrence writes Due as a side effect (when
 // recurrence is non-empty), so a stale Due flush after SaveRecurrence
 // would overwrite the auto-computed Due with the user's pre-recurrence
-// text. Iterate cv.layout in declaration order, then flush recurrence
+// text. Iterate cv.layout (column-major order), then flush recurrence
 // last — so any side-effect-producing field always wins over stale
 // per-field cache entries.
 //

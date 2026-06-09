@@ -212,9 +212,10 @@ Width and shedding semantics:
 
 Layout traversal and edit order:
 
-- Anchors are visited top-to-bottom, left-to-right (row-major). This is also the Tab order in
-  in-place edit mode and in TaskEditView. Arrange your grid so the natural Tab order reads top
-  rows first; put the highest-frequency fields on row 1.
+- Layout anchors are *declared* top-to-bottom, left-to-right (row-major) in the grid block, but
+  edit-mode Tab order is **column-major**: focus moves down a column top-to-bottom first, then to
+  the next column left-to-right. Arrange columns so the natural Tab order reads down the
+  highest-frequency column first.
 - Every cell is left-aligned in v1 — no syntax for right/center alignment yet.
 - Caption literals appear in the read-only detail view exactly as written. The full-screen
   TaskEditView (the separate "edit" form, not the in-place editors on the detail view) currently

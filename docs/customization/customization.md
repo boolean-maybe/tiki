@@ -333,9 +333,9 @@ the built-in behavior.
 #### Edit mode
 
 Pressing `Edit` switches the same detail view into edit mode in place — there is no separate edit
-view. `Tab` and `Shift-Tab` traverse the editable layout fields in declaration order. Read-only
-fields render but are skipped during traversal. Save and cancel preserve the current edit-session
-behavior.
+view. `Tab` and `Shift-Tab` traverse the editable layout fields in column-major order — down a
+column top-to-bottom first, then on to the next column left-to-right. Read-only fields render but
+are skipped during traversal. Save and cancel preserve the current edit-session behavior.
 
 Fields whose semantic type has only a stub editor (everything other than `status`, `type`, and
 `priority` today) render in edit mode but are skipped during traversal — pressing Tab walks past

@@ -39,6 +39,8 @@
 // way to omit a field together with its caption for a specific document.
 package gridlayout
 
+import "sort"
+
 // Cell is one parsed grid cell.
 type Cell interface{ isCell() }
 
@@ -165,17 +167,19 @@ type Anchor struct {
 }
 
 // GridSpec is the parsed, validated grid. Anchors are emitted in
-// declaration order (top-to-bottom, left-to-right) which is also the
-// edit-mode traversal order for field anchors.
+// declaration order (top-to-bottom, left-to-right). Edit-mode Tab
+// traversal does not use that order — it uses the column-major order
+// produced by AnchorNamesColumnMajor / AnchorDisplaysColumnMajor.
 type GridSpec struct {
 	Rows, Cols int
 	Anchors    []Anchor
 	Cells      [][]Cell
 }
 
-// AnchorNames returns the field-anchor names in declaration order. Literal
-// anchors are excluded — they are not edit targets and not field references.
-// Useful for callers that need a flat field list (e.g. edit-traversal order).
+// AnchorNames returns the field-anchor names in declaration order
+// (top-to-bottom, left-to-right). Literal anchors are excluded — they are not
+// edit targets and not field references. Useful for callers that need a flat
+// field list. Edit-mode Tab traversal uses AnchorNamesColumnMajor instead.
 func (s GridSpec) AnchorNames() []string {
 	out := make([]string, 0, len(s.Anchors))
 	for _, a := range s.Anchors {
@@ -194,9 +198,9 @@ func (s GridSpec) AnchorNames() []string {
 // AnchorDisplays returns the DisplayMode of each anchor emitted by
 // AnchorNames, in the same order and with the same filtering. The two slices
 // are positionally aligned: AnchorDisplays()[i] is the DisplayMode of the
-// anchor named AnchorNames()[i]. Callers that traverse the flat name list
-// (e.g. edit-mode Tab order) use this to distinguish display-only caption
-// anchors (DisplayCaption) from value anchors of the same field.
+// anchor named AnchorNames()[i]. Callers use this to distinguish display-only
+// caption anchors (DisplayCaption) from value anchors of the same field. The
+// column-major equivalent is AnchorDisplaysColumnMajor.
 func (s GridSpec) AnchorDisplays() []DisplayMode {
 	out := make([]DisplayMode, 0, len(s.Anchors))
 	for _, a := range s.Anchors {
@@ -208,6 +212,59 @@ func (s GridSpec) AnchorDisplays() []DisplayMode {
 				out = append(out, a.Display)
 			}
 		}
+	}
+	return out
+}
+
+// fieldAnchorsColumnMajor collects the field anchors (and named composite
+// anchors) — the same filter AnchorNames applies — then stable-sorts them by
+// top-left cell, column first then row. Two anchors cannot share a top-left
+// cell, so (Col, Row) is a total order: a full-width title at (0,0) sorts
+// first, and a row-spanned (`^`) anchor keys off its top-left corner. The
+// result is the edit-mode Tab order: down a column, then the next column.
+func (s GridSpec) fieldAnchorsColumnMajor() []Anchor {
+	out := make([]Anchor, 0, len(s.Anchors))
+	for _, a := range s.Anchors {
+		switch a.Kind {
+		case AnchorField:
+			out = append(out, a)
+		case AnchorComposite:
+			if a.Name != "" {
+				out = append(out, a)
+			}
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Col != out[j].Col {
+			return out[i].Col < out[j].Col
+		}
+		return out[i].Row < out[j].Row
+	})
+	return out
+}
+
+// AnchorNamesColumnMajor returns the field-anchor names in column-major order
+// (down a column top-to-bottom, then the next column left-to-right). This is
+// the edit-mode Tab traversal order. The declaration-order equivalent is
+// AnchorNames.
+func (s GridSpec) AnchorNamesColumnMajor() []string {
+	anchors := s.fieldAnchorsColumnMajor()
+	out := make([]string, len(anchors))
+	for i, a := range anchors {
+		out[i] = a.Name
+	}
+	return out
+}
+
+// AnchorDisplaysColumnMajor returns the DisplayMode of each anchor emitted by
+// AnchorNamesColumnMajor, positionally aligned by construction (both derive
+// from the same sorted slice): AnchorDisplaysColumnMajor()[i] is the
+// DisplayMode of the anchor named AnchorNamesColumnMajor()[i].
+func (s GridSpec) AnchorDisplaysColumnMajor() []DisplayMode {
+	anchors := s.fieldAnchorsColumnMajor()
+	out := make([]DisplayMode, len(anchors))
+	for i, a := range anchors {
+		out[i] = a.Display
 	}
 	return out
 }

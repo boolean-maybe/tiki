@@ -1,6 +1,7 @@
 package gridlayout
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -594,6 +595,65 @@ func TestParseGrid_AnchorOrderTopLeft(t *testing.T) {
 	for i, n := range want {
 		if got[i] != n {
 			t.Errorf("[%d]: got %q, want %q", i, got[i], n)
+		}
+	}
+}
+
+func TestAnchorNamesColumnMajor(t *testing.T) {
+	// Grid with a col-spanned title on row 0, a name.caption cell, and a `^`
+	// row-span. Declaration (row-major) order interleaves columns; column-major
+	// order must walk each column top-to-bottom before the next column.
+	spec, err := ParseGrid([][]string{
+		{"title", "--", "--"},
+		{"status.caption", "status", "tags"},
+		{"type", "priority", "^"},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	// AnchorNames stays declaration-order (row-major).
+	gotDecl := spec.AnchorNames()
+	wantDecl := []string{"title", "status", "status", "tags", "type", "priority"}
+	if !slices.Equal(gotDecl, wantDecl) {
+		t.Errorf("AnchorNames() = %v, want %v (declaration order must not change)", gotDecl, wantDecl)
+	}
+
+	// AnchorNamesColumnMajor sorts by (Col, Row): col 0 → title(0,0),
+	// status.caption(1,0), type(2,0); col 1 → status(1,1), priority(2,1);
+	// col 2 → tags(1,2).
+	gotCM := spec.AnchorNamesColumnMajor()
+	wantCM := []string{"title", "status", "type", "status", "priority", "tags"}
+	if !slices.Equal(gotCM, wantCM) {
+		t.Errorf("AnchorNamesColumnMajor() = %v, want %v", gotCM, wantCM)
+	}
+}
+
+func TestAnchorDisplaysColumnMajor_AlignedWithNames(t *testing.T) {
+	spec, err := ParseGrid([][]string{
+		{"status.caption", "status"},
+		{"type.caption", "type"},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	names := spec.AnchorNamesColumnMajor()
+	displays := spec.AnchorDisplaysColumnMajor()
+	if len(names) != len(displays) {
+		t.Fatalf("len mismatch: names=%d displays=%d", len(names), len(displays))
+	}
+
+	// Column-major: col 0 is the two .caption cells, col 1 is the two value
+	// cells. The DisplayCaption mode must travel with its name's new position.
+	wantNames := []string{"status", "type", "status", "type"}
+	wantDisplays := []DisplayMode{DisplayCaption, DisplayCaption, DisplayLabel, DisplayLabel}
+	if !slices.Equal(names, wantNames) {
+		t.Fatalf("names = %v, want %v", names, wantNames)
+	}
+	for i := range wantDisplays {
+		if displays[i] != wantDisplays[i] {
+			t.Errorf("displays[%d] = %v, want %v (for name %q)", i, displays[i], wantDisplays[i], names[i])
 		}
 	}
 }
