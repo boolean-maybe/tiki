@@ -401,37 +401,6 @@ func TestTikiDetailViewActions(t *testing.T) {
 	}
 }
 
-func TestCommonFieldNavigationActions(t *testing.T) {
-	registry := CommonFieldNavigationActions()
-	actions := registry.GetActions()
-
-	if len(actions) != 2 {
-		t.Errorf("expected 2 navigation actions, got %d", len(actions))
-	}
-
-	expectedActions := []ActionID{ActionNextField, ActionPrevField}
-	for i, expected := range expectedActions {
-		if i >= len(actions) {
-			t.Errorf("missing action at index %d: want %v", i, expected)
-			continue
-		}
-		if actions[i].ID != expected {
-			t.Errorf("action at index %d: want %v, got %v", i, expected, actions[i].ID)
-		}
-		if !actions[i].ShowInHeader {
-			t.Errorf("navigation action %v should have ShowInHeader=true", expected)
-		}
-	}
-
-	// Verify specific keys
-	if actions[0].Key != tcell.KeyTab {
-		t.Errorf("NextField should use Tab key, got %v", actions[0].Key)
-	}
-	if actions[1].Key != tcell.KeyBacktab {
-		t.Errorf("PrevField should use Backtab key, got %v", actions[1].Key)
-	}
-}
-
 func TestDescOnlyEditActions(t *testing.T) {
 	registry := DescOnlyEditActions()
 	actions := registry.GetActions()
@@ -972,9 +941,7 @@ func TestNoCallbackBasedEnablement(t *testing.T) {
 		DefaultGlobalActions(),
 		TikiDetailViewActions(),
 		PluginViewActions(),
-		DepsViewActions(),
 		TikiEditViewActions(),
-		ReadonlyTikiDetailViewActions(),
 	}
 
 	for _, r := range registries {

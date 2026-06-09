@@ -210,10 +210,9 @@ var validIdentRE = regexp.MustCompile(keyword.IdentPattern)
 
 // workflow field state — populated by config.LoadWorkflowFields() at startup.
 var (
-	workflowMu              sync.RWMutex
-	workflowFields          []FieldDef
-	workflowFieldByName     map[string]FieldDef
-	onWorkflowFieldsChanged []func()
+	workflowMu          sync.RWMutex
+	workflowFields      []FieldDef
+	workflowFieldByName map[string]FieldDef
 )
 
 // Field returns the FieldDef for a given field name and whether it exists.
@@ -386,7 +385,6 @@ func RegisterWorkflowFields(defs []FieldDef) error {
 	workflowFields = copied
 	workflowFieldByName = byName
 	workflowMu.Unlock()
-	notifyWorkflowFieldsChanged()
 	return nil
 }
 
@@ -397,25 +395,6 @@ func ClearWorkflowFields() {
 	workflowFields = nil
 	workflowFieldByName = nil
 	workflowMu.Unlock()
-	notifyWorkflowFieldsChanged()
-}
-
-// OnWorkflowFieldsChanged registers a callback invoked whenever the workflow
-// field catalog is modified. Used by plugin/legacy_convert to invalidate its
-// field-name cache without an import cycle.
-func OnWorkflowFieldsChanged(fn func()) {
-	workflowMu.Lock()
-	onWorkflowFieldsChanged = append(onWorkflowFieldsChanged, fn)
-	workflowMu.Unlock()
-}
-
-func notifyWorkflowFieldsChanged() {
-	workflowMu.RLock()
-	cbs := onWorkflowFieldsChanged
-	workflowMu.RUnlock()
-	for _, fn := range cbs {
-		fn()
-	}
 }
 
 // deepCopyFieldDef returns a copy of fd with cloned EnumValues and DefaultValue slices.

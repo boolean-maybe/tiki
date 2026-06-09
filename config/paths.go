@@ -183,20 +183,6 @@ func (pm *PathManager) ProjectConfigDir() string {
 	return filepath.Join(pm.projectRoot, pm.docDirName)
 }
 
-// ProjectConfigFile returns the path to the project-local config file
-func (pm *PathManager) ProjectConfigFile() string {
-	return filepath.Join(pm.ProjectConfigDir(), "config.yaml")
-}
-
-// PluginSearchPaths returns directories to search for plugin files
-// Search order: project config dir → user config dir
-func (pm *PathManager) PluginSearchPaths() []string {
-	return []string{
-		pm.ProjectConfigDir(), // Project config directory (for project-specific plugins)
-		pm.configDir,          // User config directory
-	}
-}
-
 // UserConfigWorkflowFile returns the path to workflow.yaml in the user config directory
 func (pm *PathManager) UserConfigWorkflowFile() string {
 	return filepath.Join(pm.configDir, defaultWorkflowFilename)
@@ -304,11 +290,6 @@ func GetCacheDir() string {
 	return mustGetPathManager().CacheDir()
 }
 
-// GetConfigFile returns the path to the user config file
-func GetConfigFile() string {
-	return mustGetPathManager().ConfigFile()
-}
-
 // GetDocDir returns the unified document root (default ".doc", configurable
 // via user-level store.dir). This is the single scan root for the document
 // store; brand-new documents are written at <doc-dir>/<ID>.md, while loading
@@ -321,16 +302,6 @@ func GetDocDir() string {
 // GetProjectConfigDir returns the project-level config directory (same as doc dir)
 func GetProjectConfigDir() string {
 	return mustGetPathManager().ProjectConfigDir()
-}
-
-// GetProjectConfigFile returns the path to the project-local config file
-func GetProjectConfigFile() string {
-	return mustGetPathManager().ProjectConfigFile()
-}
-
-// GetPluginSearchPaths returns directories to search for plugin files
-func GetPluginSearchPaths() []string {
-	return mustGetPathManager().PluginSearchPaths()
 }
 
 // GetUserConfigWorkflowFile returns the path to workflow.yaml in the user config directory

@@ -443,56 +443,6 @@ func TestParity_Init(t *testing.T) {
 	_ = gogitHead
 }
 
-func TestParity_Clone(t *testing.T) {
-	requireShellGit(t)
-
-	// create a source repo with one commit (go-git cannot clone empty repos)
-	src := filepath.Join(t.TempDir(), "src")
-	repo, err := gogitlib.PlainInit(src, false)
-	if err != nil {
-		t.Fatalf("PlainInit: %v", err)
-	}
-	wt, err := repo.Worktree()
-	if err != nil {
-		t.Fatalf("Worktree: %v", err)
-	}
-	f := filepath.Join(src, "readme.txt")
-	if err := os.WriteFile(f, []byte("hello"), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-	if _, err := wt.Add("readme.txt"); err != nil {
-		t.Fatalf("Add: %v", err)
-	}
-	if _, err := wt.Commit("init", &gogitlib.CommitOptions{
-		Author: &object.Signature{Name: "test", Email: "test@test.com"},
-	}); err != nil {
-		t.Fatalf("Commit: %v", err)
-	}
-
-	shellDest := filepath.Join(t.TempDir(), "shell-clone")
-	if err := shell.Clone(src, shellDest, os.Stdout, os.Stderr); err != nil {
-		t.Fatalf("shell.Clone: %v", err)
-	}
-
-	gogitDest := filepath.Join(t.TempDir(), "gogit-clone")
-	if err := gogit.Clone(src, gogitDest, os.Stdout, os.Stderr); err != nil {
-		t.Fatalf("gogit.Clone: %v", err)
-	}
-
-	// both clones should be valid repos with the same file
-	if _, err := gogitlib.PlainOpen(shellDest); err != nil {
-		t.Fatalf("shell clone is not a valid repo: %v", err)
-	}
-	if _, err := gogitlib.PlainOpen(gogitDest); err != nil {
-		t.Fatalf("gogit clone is not a valid repo: %v", err)
-	}
-	for _, dest := range []string{shellDest, gogitDest} {
-		if _, err := os.Stat(filepath.Join(dest, "readme.txt")); err != nil {
-			t.Errorf("cloned file missing in %s: %v", filepath.Base(dest), err)
-		}
-	}
-}
-
 func sortedKeys(m map[string]*types.AuthorInfo) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {

@@ -7,7 +7,6 @@ package config
 
 import (
 	"log/slog"
-	"sort"
 )
 
 // ThemeInfo holds metadata for a named theme.
@@ -67,14 +66,4 @@ func GetNavidownStyle() string {
 // ChromaThemeForEffective returns the chroma syntax theme name for the effective theme.
 func ChromaThemeForEffective() string {
 	return lookupTheme().ChromaTheme
-}
-
-// ThemeNames returns a sorted list of all registered theme names.
-func ThemeNames() []string {
-	names := make([]string, 0, len(themeRegistry))
-	for name := range themeRegistry {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
 }

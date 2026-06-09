@@ -37,13 +37,12 @@ type Config struct {
 
 	// Tiki configuration
 	Tiki struct {
-		MaxPoints    int `mapstructure:"maxPoints"`
 		MaxImageRows int `mapstructure:"maxImageRows"`
 	} `mapstructure:"tiki"`
 
 	// Appearance configuration
 	Appearance struct {
-		Theme             string `mapstructure:"theme"`             // "auto", "dark", "light", or a named theme (see ThemeNames())
+		Theme             string `mapstructure:"theme"`             // "auto", "dark", "light", or a named theme (see themeRegistry in themes.go)
 		GradientThreshold int    `mapstructure:"gradientThreshold"` // Minimum color count for gradients (16, 256, 16777216)
 		CodeBlock         struct {
 			Theme      string `mapstructure:"theme"`      // chroma syntax theme (e.g. "dracula", "monokai")
@@ -168,7 +167,6 @@ func setDefaults() {
 	viper.SetDefault("header.visible", true)
 
 	// Tiki defaults
-	viper.SetDefault("tiki.maxPoints", 10)
 	viper.SetDefault("tiki.maxImageRows", 40)
 
 	// Appearance defaults
@@ -249,16 +247,6 @@ func readWorkflowFile(path string) (*workflowFileData, error) {
 // GetHeaderVisible returns the header visibility setting
 func GetHeaderVisible() bool {
 	return viper.GetBool("header.visible")
-}
-
-// GetMaxPoints returns the maximum points value for tikis
-func GetMaxPoints() int {
-	maxPoints := viper.GetInt("tiki.maxPoints")
-	// Ensure minimum of 1
-	if maxPoints < 1 {
-		return 10 // fallback to default
-	}
-	return maxPoints
 }
 
 // GetMaxImageRows returns the maximum rows for inline image rendering

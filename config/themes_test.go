@@ -7,18 +7,8 @@ import (
 )
 
 func TestThemeRegistryComplete(t *testing.T) {
-	names := ThemeNames()
-	if len(names) != 14 {
-		t.Fatalf("expected 14 themes, got %d: %v", len(names), names)
-	}
-}
-
-func TestThemeNamesAreSorted(t *testing.T) {
-	names := ThemeNames()
-	for i := 1; i < len(names); i++ {
-		if names[i] < names[i-1] {
-			t.Errorf("ThemeNames() not sorted: %q before %q", names[i-1], names[i])
-		}
+	if len(themeRegistry) != 14 {
+		t.Fatalf("expected 14 themes, got %d", len(themeRegistry))
 	}
 }
 

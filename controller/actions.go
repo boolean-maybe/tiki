@@ -704,14 +704,6 @@ func TikiDetailViewActions() *ActionRegistry {
 	return r
 }
 
-// ReadonlyTikiDetailViewActions returns a reduced registry for readonly tiki detail views.
-// Only fullscreen toggle is available — no editing actions.
-func ReadonlyTikiDetailViewActions() *ActionRegistry {
-	r := NewActionRegistry()
-	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
-	return r
-}
-
 // TikiEditViewActions returns the canonical action registry for the tiki edit view.
 // Separate registry so view/edit modes can diverge while sharing rendering helpers.
 func TikiEditViewActions() *ActionRegistry {
@@ -721,14 +713,6 @@ func TikiEditViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionNextField, Key: tcell.KeyTab, Label: "Next", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionPrevField, Key: tcell.KeyBacktab, Label: "Prev", ShowInHeader: true, HideFromPalette: true})
 
-	return r
-}
-
-// CommonFieldNavigationActions returns actions available in all field editors (Tab/Shift-Tab navigation)
-func CommonFieldNavigationActions() *ActionRegistry {
-	r := NewActionRegistry()
-	r.Register(Action{ID: ActionNextField, Key: tcell.KeyTab, Label: "Next field", ShowInHeader: true, HideFromPalette: true})
-	r.Register(Action{ID: ActionPrevField, Key: tcell.KeyBacktab, Label: "Prev field", ShowInHeader: true, HideFromPalette: true})
 	return r
 }
 
@@ -778,35 +762,6 @@ func PluginViewActions() *ActionRegistry {
 
 	// plugin activation keys are merged dynamically after plugins load
 	r.MergePluginActions()
-
-	return r
-}
-
-// DepsViewActions returns the action registry for the dependency editor view.
-func DepsViewActions() *ActionRegistry {
-	r := NewActionRegistry()
-
-	// navigation (not shown in header, hidden from palette)
-	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyUp, Label: "↑", HideFromPalette: true})
-	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyDown, Label: "↓", HideFromPalette: true})
-	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "←", HideFromPalette: true})
-	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRight, Label: "→", HideFromPalette: true})
-	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyRune, Rune: 'k', Label: "↑", HideFromPalette: true})
-	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyRune, Rune: 'j', Label: "↓", HideFromPalette: true})
-	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyRune, Rune: 'h', Label: "←", HideFromPalette: true})
-	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRune, Rune: 'l', Label: "→", HideFromPalette: true})
-
-	// move tiki between lanes (shown in header)
-	depsIdReq := []Requirement{RequireID}
-	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: depsIdReq})
-	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: depsIdReq})
-
-	// tiki actions
-	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true, Require: depsIdReq})
-	r.Register(Action{ID: ActionNewTiki, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true, Require: []Requirement{RequireDetailPlugin}})
-	r.Register(Action{ID: ActionDeleteTiki, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: depsIdReq})
-
-	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
 
 	return r
 }

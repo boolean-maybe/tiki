@@ -339,18 +339,3 @@ func DefaultPlugin(plugins []Plugin) Plugin {
 	}
 	return plugins[0]
 }
-
-// GlobalActions returns the top-level actions parsed from a workflow file.
-// Exposed for controllers/views that are not board/list and therefore don't
-// receive globals via mergeGlobalActionsIntoPlugins.
-func GlobalActions(schema ruki.Schema) ([]PluginAction, error) {
-	files := config.FindWorkflowFiles()
-	if len(files) == 0 {
-		return nil, nil
-	}
-	_, actions, errs := loadPluginsFromFile(files[0], schema)
-	if len(errs) > 0 {
-		slog.Debug("workflow load warnings while extracting globals", "count", len(errs))
-	}
-	return actions, nil
-}

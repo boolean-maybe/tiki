@@ -9,8 +9,8 @@ import (
 )
 
 // hasAnyWorkflowField reports whether tk carries at least one workflow-
-// declared field in its Fields map. Used by the persistence layer to gate
-// behaviors that only apply when typed workflow data is present — this is
+// declared field in its Fields map. Test-only predicate used across the
+// tikistore tests to assert field-presence after load/save/update — this is
 // presence-of-fields, not a workflow/plain classification.
 func hasAnyWorkflowField(tk *tikipkg.Tiki) bool {
 	if tk == nil {

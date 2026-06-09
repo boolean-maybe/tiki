@@ -179,10 +179,6 @@ func TestPathManagerPaths(t *testing.T) {
 			name:   "ConfigFile",
 			getter: pm.ConfigFile,
 		},
-		{
-			name:   "ProjectConfigFile",
-			getter: pm.ProjectConfigFile,
-		},
 	}
 
 	for _, tt := range tests {
@@ -195,35 +191,6 @@ func TestPathManagerPaths(t *testing.T) {
 				t.Errorf("%s() = %q, want absolute path", tt.name, result)
 			}
 		})
-	}
-}
-
-func TestPathManagerPluginSearchPaths(t *testing.T) {
-	pm, err := newPathManager()
-	if err != nil {
-		t.Fatalf("newPathManager() error = %v", err)
-	}
-
-	paths := pm.PluginSearchPaths()
-	if len(paths) != 2 {
-		t.Errorf("PluginSearchPaths() returned %d paths, want 2", len(paths))
-	}
-
-	// First should be project config dir (.doc/)
-	if paths[0] != pm.ProjectConfigDir() {
-		t.Errorf("PluginSearchPaths()[0] = %q, want %q", paths[0], pm.ProjectConfigDir())
-	}
-
-	// Second should be user config dir
-	if paths[1] != pm.ConfigDir() {
-		t.Errorf("PluginSearchPaths()[1] = %q, want %q", paths[1], pm.ConfigDir())
-	}
-
-	// All paths should be absolute
-	for i, path := range paths {
-		if !filepath.IsAbs(path) {
-			t.Errorf("PluginSearchPaths()[%d] = %q, want absolute path", i, path)
-		}
 	}
 }
 
@@ -277,8 +244,6 @@ func TestGlobalAccessorFunctions(t *testing.T) {
 	}{
 		{"GetConfigDir", GetConfigDir},
 		{"GetCacheDir", GetCacheDir},
-		{"GetConfigFile", GetConfigFile},
-		{"GetProjectConfigFile", GetProjectConfigFile},
 	}
 
 	for _, tt := range tests {
@@ -291,22 +256,6 @@ func TestGlobalAccessorFunctions(t *testing.T) {
 				t.Errorf("%s() = %q, want absolute path", tt.name, result)
 			}
 		})
-	}
-}
-
-func TestGetPluginSearchPaths(t *testing.T) {
-	paths := GetPluginSearchPaths()
-	if len(paths) != 2 {
-		t.Errorf("GetPluginSearchPaths() returned %d paths, want 2", len(paths))
-	}
-
-	for i, path := range paths {
-		if path == "" {
-			t.Errorf("GetPluginSearchPaths()[%d] is empty", i)
-		}
-		if !filepath.IsAbs(path) {
-			t.Errorf("GetPluginSearchPaths()[%d] = %q, want absolute path", i, path)
-		}
 	}
 }
 
