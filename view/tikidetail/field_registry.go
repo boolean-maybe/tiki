@@ -251,8 +251,14 @@ func measureTikiIDListField(name string, tk *tikipkg.Tiki, tikiStore store.Store
 func MeasureAnchor(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) int {
 	switch a.Kind {
 	case gridlayout.AnchorComposite:
-		// composites render a concatenated string of segment values/literals;
-		// measure that rendered string (visible width, tags excluded).
+		// composites render a concatenated string of segment values/literals.
+		// a row-spanned composite word-wraps within its rows, so it only needs
+		// room for its longest word — measuring the full single line would make
+		// the solver shed a prose blurb that would otherwise wrap to fit (see
+		// the Project detail view). Single-row composites measure the full line.
+		if a.RowSpan > 1 {
+			return gridbox.LongestWordWidth(compositePlainText(a, tk, ctx))
+		}
 		return tview.TaggedStringWidth(buildCompositeText(a, tk, ctx))
 	case gridlayout.AnchorLiteral:
 		return gridbox.MeasureAnchorText(a)

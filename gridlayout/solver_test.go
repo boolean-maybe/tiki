@@ -301,6 +301,28 @@ func TestSolveLayout_CaptionAnchorHeightIsOne(t *testing.T) {
 	}
 }
 
+// TestSolveLayout_SingleColumnCompositeGrowsWithFr pins that a single-column
+// composite carrying :fr absorbs residual width rather than sitting at its
+// content minimum — the Project view's prose blurb wants to fill the box, not
+// render as a narrow ribbon. A multi-column span cannot grow (computeGrowColumns
+// skips ColSpan!=1), so the prose must live in one column to claim slack.
+func TestSolveLayout_SingleColumnCompositeGrowsWithFr(t *testing.T) {
+	spec := mustParse(t, [][]string{
+		{"status", `(status.label + " " + status.visual):fr`},
+	})
+	heightOf := func(a Anchor, w int) int { return 1 }
+	measure := func(a Anchor) int { return 5 }
+	plan := SolveLayout(spec, 100, 1, measure, heightOf)
+	// col 0 is auto (≈5); col 1 is fr and should absorb the rest (~94).
+	if plan.ColumnWidths[1] <= plan.ColumnWidths[0] {
+		t.Fatalf("fr composite col = %d, auto col = %d; fr should absorb residual and be much wider",
+			plan.ColumnWidths[1], plan.ColumnWidths[0])
+	}
+	if plan.ColumnWidths[1] < 80 {
+		t.Errorf("fr composite col = %d; expected it to grow to absorb most of width 100", plan.ColumnWidths[1])
+	}
+}
+
 func TestSolveLayout_CompositeColumnFloor(t *testing.T) {
 	spec := mustParse(t, [][]string{
 		{"<text.label>status.caption", `(status.label + " " + status.visual):16..`},

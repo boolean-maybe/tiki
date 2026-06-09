@@ -6,10 +6,12 @@ import (
 	"github.com/boolean-maybe/tiki/gridlayout"
 )
 
-// longestWordWidth returns the length of the longest whitespace-separated
+// LongestWordWidth returns the length of the longest whitespace-separated
 // word in s, or 1 if s contains no words. Used as the column-width hint
-// for row-spanned literals so they wrap rather than demand full text width.
-func longestWordWidth(s string) int {
+// for row-spanned literals and composites so they wrap rather than demand
+// full text width. Callers measuring already-rendered text should strip
+// color tags first; this helper does not.
+func LongestWordWidth(s string) int {
 	max := 1
 	for _, w := range strings.Fields(s) {
 		if len(w) > max {
@@ -59,7 +61,7 @@ func MeasureAnchorText(a gridlayout.Anchor) int {
 	switch a.Kind {
 	case gridlayout.AnchorLiteral:
 		if a.RowSpan > 1 {
-			return longestWordWidth(a.Text)
+			return LongestWordWidth(a.Text)
 		}
 		return len(a.Text) + 1
 	case gridlayout.AnchorComposite:
@@ -75,7 +77,7 @@ func measureComposite(a gridlayout.Anchor) int {
 			if seg.Kind != gridlayout.SegmentLiteral {
 				continue
 			}
-			if w := longestWordWidth(seg.Text); w > max {
+			if w := LongestWordWidth(seg.Text); w > max {
 				max = w
 			}
 		}

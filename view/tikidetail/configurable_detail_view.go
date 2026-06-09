@@ -449,27 +449,7 @@ func buildCompositeText(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderCo
 		// trailing [-] reset) wraps a complete string. The bare-role path
 		// preserves the legacy "open tag then write text" emission so
 		// existing visual snapshots stay byte-identical.
-		var content string
-		switch seg.Kind {
-		case gridlayout.SegmentLiteral:
-			content = seg.Text
-		case gridlayout.SegmentField:
-			segCtx := ctx
-			segCtx.FieldName = seg.Name
-			segCtx.Display = seg.Display
-			switch {
-			case seg.Name == "title":
-				content = expandFieldText(tk.Title(), ctx.Roles)
-			case seg.Name == "id":
-				content = renderTikiIDGradient(tk.ID(), ctx.Roles)
-			default:
-				if wfd, ok := workflow.Field(seg.Name); ok {
-					content = genericFieldValueString(wfd, tk, segCtx)
-				} else {
-					content = "—"
-				}
-			}
-		}
+		content := compositeSegmentContent(seg, tk, ctx)
 
 		switch {
 		case seg.Role == "":
@@ -495,6 +475,42 @@ func buildCompositeText(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderCo
 			}
 			buf.WriteString(content)
 		}
+	}
+	return buf.String()
+}
+
+// compositeSegmentContent returns the plain (untagged) rendered text of a
+// single composite segment: the literal text, or the field's rendered value.
+// Shared by buildCompositeText (which then wraps each piece in color tags) and
+// compositePlainText (which concatenates the pieces for width measurement), so
+// the value-resolution logic lives in one place.
+func compositeSegmentContent(seg gridlayout.Segment, tk *tikipkg.Tiki, ctx FieldRenderContext) string {
+	if seg.Kind == gridlayout.SegmentLiteral {
+		return seg.Text
+	}
+	segCtx := ctx
+	segCtx.FieldName = seg.Name
+	segCtx.Display = seg.Display
+	switch seg.Name {
+	case "title":
+		return expandFieldText(tk.Title(), ctx.Roles)
+	case "id":
+		return renderTikiIDGradient(tk.ID(), ctx.Roles)
+	}
+	if wfd, ok := workflow.Field(seg.Name); ok {
+		return genericFieldValueString(wfd, tk, segCtx)
+	}
+	return "—"
+}
+
+// compositePlainText concatenates a composite's segment contents with no color
+// tags — the wrap-measure source for MeasureAnchor's row-spanned-composite
+// branch. Tags would inflate word widths (a leading [#hex] glues onto the
+// first word), so measurement runs against this untagged form.
+func compositePlainText(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) string {
+	var buf strings.Builder
+	for _, seg := range a.Segments {
+		buf.WriteString(compositeSegmentContent(seg, tk, ctx))
 	}
 	return buf.String()
 }

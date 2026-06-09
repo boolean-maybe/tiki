@@ -452,6 +452,56 @@ func TestBundledKanban_DetailUsesFieldCaptions(t *testing.T) {
 	}
 }
 
+// TestBundledKanban_ProjectStatusColumnHasFloor pins that the bundled Project
+// view's status composite carries a min-width floor (>=16), matching the Detail
+// view's status cell. Without the floor the status column auto-sizes to its
+// current content ("Ready" = 5 cells), and editing the status to a longer value
+// like "In Progress" (plus focus marker + visual glyph) overflows and truncates
+// to "In Pro". The floor reserves room so the value never clips on edit.
+func TestBundledKanban_ProjectStatusColumnHasFloor(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	src := filepath.Join(filepath.Dir(wd), "config", "workflows", "kanban.yaml")
+	if _, err := os.Stat(src); err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+	var project *DetailPlugin
+	for _, p := range plugins {
+		if dp, ok := p.(*DetailPlugin); ok && dp.Name == "Project" {
+			project = dp
+			break
+		}
+	}
+	if project == nil {
+		t.Fatal("bundled kanban does not contain a Project view")
+	}
+	// the status composite is the only composite anchor in the status row
+	// (col 1). It must carry a floor of at least 16 cells.
+	var found bool
+	for _, a := range project.Layout.Anchors {
+		if a.Kind != gridlayout.AnchorComposite {
+			continue
+		}
+		// skip the prose blurb composite (row-spanned, fr-sized).
+		if a.RowSpan > 1 {
+			continue
+		}
+		found = true
+		if a.Sizing.Min < 16 {
+			t.Errorf("Project status composite floor = %d, want >= 16 (so In Progress does not truncate on edit)", a.Sizing.Min)
+		}
+	}
+	if !found {
+		t.Fatal("Project view has no single-row status composite anchor")
+	}
+}
+
 // TestBundledKanban_SizingGrammarMigration guards the column-sizing-grammar
 // migration: the retired "<->" stretcher token must not appear anywhere in the
 // bundled workflow, and the Detail view's list fields (tags, dependsOn) must be
