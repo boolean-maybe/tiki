@@ -17,6 +17,21 @@ func TestFieldDef_DisplayCaption(t *testing.T) {
 	}
 }
 
+func TestValueType_IsList(t *testing.T) {
+	listTypes := []ValueType{TypeListString, TypeListRef}
+	for _, lt := range listTypes {
+		if !lt.IsList() {
+			t.Errorf("IsList(%v) = false, want true", lt)
+		}
+	}
+	nonList := []ValueType{TypeString, TypeInt, TypeDate, TypeTimestamp, TypeBool, TypeID, TypeRef, TypeRecurrence, TypeEnum}
+	for _, nt := range nonList {
+		if nt.IsList() {
+			t.Errorf("IsList(%v) = true, want false", nt)
+		}
+	}
+}
+
 func TestSystemField(t *testing.T) {
 	tests := []struct {
 		name   string

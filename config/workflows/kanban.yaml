@@ -207,6 +207,8 @@ views:
     layout: |
       type.visual + " " + id
       <text.secondary>title
+      <text.muted>dependsOn.count + <text.muted>" tasks"
+      <text.muted>"tags: " + <text.value>tags
       "priority " + priority.visual + "  points " + points.visual
     lanes:
       - name: Now

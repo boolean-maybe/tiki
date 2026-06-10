@@ -502,6 +502,80 @@ func TestBundledKanban_ProjectStatusColumnHasFloor(t *testing.T) {
 	}
 }
 
+// TestBundledKanban_RoadmapShowsTaskCount asserts the Roadmap board card
+// surfaces the epic's linked-task count via a `dependsOn.count` segment after
+// the title. An epic's child tasks are its dependsOn references (see the
+// "Add tiki to project" action), so the count of dependsOn is the task count.
+func TestBundledKanban_RoadmapShowsTaskCount(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	src := filepath.Join(filepath.Dir(wd), "config", "workflows", "kanban.yaml")
+	if _, err := os.Stat(src); err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+	var roadmap *WorkflowPlugin
+	for _, p := range plugins {
+		if wp, ok := p.(*WorkflowPlugin); ok && wp.Name == "Roadmap" {
+			roadmap = wp
+			break
+		}
+	}
+	if roadmap == nil {
+		t.Fatal("bundled kanban does not contain a Roadmap board view")
+	}
+
+	titleRow := -1
+	countRow := -1
+	for _, a := range roadmap.Layout.Anchors {
+		if a.Kind == gridlayout.AnchorField && a.Name == "title" {
+			titleRow = a.Row
+		}
+		for _, seg := range a.Segments {
+			if seg.Kind == gridlayout.SegmentField && seg.Name == "dependsOn" && seg.Display == gridlayout.DisplayCount {
+				countRow = a.Row
+			}
+		}
+	}
+	if countRow == -1 {
+		t.Fatal("Roadmap layout has no dependsOn.count segment")
+	}
+	if titleRow == -1 {
+		t.Fatal("Roadmap layout has no title anchor")
+	}
+	if countRow <= titleRow {
+		t.Errorf("dependsOn.count is on row %d; want a row after the title (row %d)", countRow, titleRow)
+	}
+
+	// a tags row sits under the count row, and the tag VALUE is painted a
+	// distinct (cool-gray) role from the muted "tags:" label so the values
+	// stand apart on the card.
+	tagsRow := -1
+	tagsValueRole := ""
+	for _, a := range roadmap.Layout.Anchors {
+		for _, seg := range a.Segments {
+			if seg.Kind == gridlayout.SegmentField && seg.Name == "tags" {
+				tagsRow = a.Row
+				tagsValueRole = seg.Role
+			}
+		}
+	}
+	if tagsRow == -1 {
+		t.Fatal("Roadmap layout has no tags segment")
+	}
+	if tagsRow <= countRow {
+		t.Errorf("tags is on row %d; want a row after the task count (row %d)", tagsRow, countRow)
+	}
+	if tagsValueRole != "text.value" {
+		t.Errorf("tags value role = %q, want %q (values distinct from the muted label)", tagsValueRole, "text.value")
+	}
+}
+
 // TestBundledKanban_SizingGrammarMigration guards the column-sizing-grammar
 // migration: the retired "<->" stretcher token must not appear anywhere in the
 // bundled workflow, and the Detail view's list fields (tags, dependsOn) must be

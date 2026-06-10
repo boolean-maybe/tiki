@@ -138,12 +138,20 @@ Cell vocabulary:
 | `name?`           | hide this field (and its `.caption`) when the tiki has no value for it.   |
 |                   | Composes with sizing: `tags?:fr`, `assignee?:auto..20`.                  |
 | `name.visual`     | field, show the visual indicator (emoji/icon) instead of the label       |
+| `name.caption`    | field's caption text (label), rendered as a static label rather than the |
+|                   | value. Sheds together with the field's value cell.                       |
+| `name.count`      | item count of a list field, rendered as an integer (`3`). Valid only on   |
+|                   | `stringList` / `tikiIdList` fields — validated at workflow load. Empty or |
+|                   | missing list renders `0`; hide it with `name?.count`. Works standalone    |
+|                   | (`tags.count`, `dependsOn?.count:4..`) and as a composite segment         |
+|                   | (`("Deps: " + dependsOn.count)`).                                        |
 | `<role>name`      | field with semantic color role — replaces default styling for text       |
 |                   | fields (title, custom strings). Structured fields ignore the role.       |
 |                   | Bare-legal in YAML (no quoting needed).                                  |
 | `a + " " + b`    | composite cell — concatenates field refs and/or `"quoted"` literals.     |
 |                   | At least one segment must be a field ref. Segments support `.visual`,    |
-|                   | `:N`, and `<role>` individually; the cell sizes to its rendered content. |
+|                   | `.count`, and `<role>` individually; the cell sizes to its rendered      |
+|                   | content (segment-level `:N` sizing is rejected — size the whole cell).    |
 |                   | Single-field composites are editable; multi-field render read-only.      |
 | `"any text"`      | literal caption — any quoted YAML string that is not a bare marker or a  |
 |                   | valid identifier. Used to label adjacent fields. Width defaults to the   |

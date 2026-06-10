@@ -78,7 +78,12 @@ func CreateTikiBox(tk *tikipkg.Tiki, spec gridlayout.GridSpec, selected bool, ro
 		applyBorderlessStyle(container, selected, roles)
 		return container
 	}
-	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
+	// right inset of 3 cells keeps truncated content (the `…`) and any flush
+	// text from butting against the right border — a clear breathing gap,
+	// matching the established card look. Left stays 0 so content is flush with
+	// the left border as before. SetBorders args: top, bottom, header, footer,
+	// left, right.
+	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 3)
 	frame.SetBorder(true)
 	applyFrameStyle(frame, selected, roles)
 	return frame

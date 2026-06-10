@@ -479,10 +479,10 @@ func (g *Container) anchorPlacementHeight(a gridlayout.Anchor, plan gridlayout.P
 	if visible > 1 {
 		totalWidth += (visible - 1) * InterColumnGap
 	}
-	// A `.caption` field anchor is a single line of label text, never the
-	// field's wrapped value — match the solver's anchorHeight rule so the
-	// caption cell occupies exactly one row and sits flush above its value.
-	if a.Display == gridlayout.DisplayCaption {
+	// A `.caption` or `.count` field anchor is a single line (label text / item
+	// count), never the field's wrapped value — match the solver's anchorHeight
+	// rule so the cell occupies exactly one row and sits flush above its value.
+	if a.Display.IsSingleLineDisplay() {
 		return 1
 	}
 	h := g.heightOf(a, totalWidth)

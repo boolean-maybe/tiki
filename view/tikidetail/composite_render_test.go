@@ -202,12 +202,13 @@ func TestRenderCompositePrimitive_RowSpanWraps(t *testing.T) {
 	}
 }
 
-// TestRenderCompositePrimitive_SingleRowReturnsTextView pins that a
-// single-row composite returns a *tview.TextView so callers (board cards,
-// caption-style composites like `status.visual + " " + status.label`) get
-// the same primitive type they relied on before the prose-block branch
-// was added.
-func TestRenderCompositePrimitive_SingleRowReturnsTextView(t *testing.T) {
+// TestRenderCompositePrimitive_SingleRowIsSingleLine pins that a single-row
+// composite renders as a single-line cell (the truncating text view), NOT the
+// word-wrapping prose-block primitive used for row-spanned composites. The
+// truncating view embeds *tview.TextView; the prose block is a plain
+// *tview.TextView with word-wrap on. We distinguish by asserting it is not the
+// plain wrapping type and that it carries the rendered text.
+func TestRenderCompositePrimitive_SingleRowIsSingleLine(t *testing.T) {
 	roles := theme.Roles()
 	a := gridlayout.Anchor{
 		Kind:    gridlayout.AnchorComposite,
@@ -223,7 +224,10 @@ func TestRenderCompositePrimitive_SingleRowReturnsTextView(t *testing.T) {
 	ctx := FieldRenderContext{Mode: RenderModeView, Roles: roles}
 
 	prim := renderCompositePrimitive(a, tk, ctx)
-	if _, ok := prim.(*tview.TextView); !ok {
-		t.Fatalf("single-row composite: got %T, want *tview.TextView", prim)
+	if _, isPlainWrap := prim.(*tview.TextView); isPlainWrap {
+		t.Fatalf("single-row composite: got plain *tview.TextView (the prose-block wrapping shape), want single-line truncating view")
+	}
+	if got := extractTextView(prim, true); !strings.Contains(got, "Status:") {
+		t.Errorf("single-row composite missing rendered text, got %q", got)
 	}
 }

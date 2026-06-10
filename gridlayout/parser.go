@@ -8,7 +8,7 @@ import (
 	"github.com/boolean-maybe/tiki/theme"
 )
 
-var cellNameRe = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_-]*)(\?)?(?:\.(label|visual|caption))?(?::([A-Za-z0-9.]+))?$`)
+var cellNameRe = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_-]*)(\?)?(?:\.(label|visual|caption|count))?(?::([A-Za-z0-9.]+))?$`)
 var cellRolePrefixRe = regexp.MustCompile(`^<([a-z][a-z.]*)>(.+)$`)
 var literalSegmentRe = regexp.MustCompile(`^"(.*)"$`)
 
@@ -131,8 +131,8 @@ func tryParseComposite(s string) (Cell, bool, error) {
 //  1. Empty → error.
 //  2. Bare marker (--, ^, _) → corresponding span/empty cell.
 //  3. Identifier shape (letter, then letters/digits/underscores/hyphens,
-//     optional `?` hide suffix, optional `.label`/`.visual`/`.caption` display
-//     suffix, optional `:[mode][min..max]` sizing suffix) → FieldCell.
+//     optional `?` hide suffix, optional `.label`/`.visual`/`.caption`/`.count`
+//     display suffix, optional `:[mode][min..max]` sizing suffix) → FieldCell.
 //  4. Anything else → LiteralCell.
 //
 // Sizing grammar (after the `:`): "auto" (default, content-sized) | "<int>"
@@ -220,6 +220,8 @@ func parseDisplayMode(s string) DisplayMode {
 		return DisplayVisual
 	case "caption":
 		return DisplayCaption
+	case "count":
+		return DisplayCount
 	}
 	return DisplayLabel
 }

@@ -301,6 +301,18 @@ func TestSolveLayout_CaptionAnchorHeightIsOne(t *testing.T) {
 	}
 }
 
+// TestSolveLayout_CountAnchorHeightIsOne verifies a `.count` field anchor is
+// always height 1 even when the field's value height callback returns more —
+// the count is a single line regardless of how many items the list holds.
+func TestSolveLayout_CountAnchorHeightIsOne(t *testing.T) {
+	spec := mustParse(t, [][]string{{"tags.count"}})
+	heightOf := func(a Anchor, w int) int { return 5 } // value would be 5 rows
+	plan := SolveLayout(spec, 40, 2, measureZero, heightOf)
+	if plan.RowHeights[0] != 1 {
+		t.Errorf("count row height = %d, want 1 (count is always one line)", plan.RowHeights[0])
+	}
+}
+
 // TestSolveLayout_SingleColumnCompositeGrowsWithFr pins that a single-column
 // composite carrying :fr absorbs residual width rather than sitting at its
 // content minimum — the Project view's prose blurb wants to fill the box, not

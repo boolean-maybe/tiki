@@ -25,7 +25,9 @@ import (
 // stripTags=true asks tview to strip color tags before returning the text;
 // false returns the raw bytes including escape markers.
 func extractTextView(p tview.Primitive, stripTags bool) string {
-	tv, ok := p.(*tview.TextView)
+	// matches both *tview.TextView and gridbox.truncatingTextView (which embeds
+	// *tview.TextView and promotes GetText) — single-line cells may be either.
+	tv, ok := p.(interface{ GetText(bool) string })
 	if !ok {
 		return ""
 	}

@@ -16,11 +16,7 @@ import (
 func TestRenderLiteralCaption(t *testing.T) {
 	colors := theme.Roles()
 	prim := renderLiteralCaption("Status:", "", "", colors)
-	tv, ok := prim.(*tview.TextView)
-	if !ok {
-		t.Fatalf("renderLiteralCaption returned %T, want *tview.TextView", prim)
-	}
-	got := tv.GetText(true)
+	got := extractTextView(prim, true)
 	if !strings.Contains(got, "Status:") {
 		t.Errorf("literal text not found in rendered view: got %q, want substring %q", got, "Status:")
 	}
@@ -33,11 +29,7 @@ func TestRenderLiteralCaption_PlainLiteralUsesTextPrimary(t *testing.T) {
 	colors := theme.Roles()
 	a := gridlayout.Anchor{Kind: gridlayout.AnchorLiteral, Text: "Status:", RowSpan: 1, ColSpan: 1}
 	prim := renderLiteralAnchor(a, colors)
-	tv, ok := prim.(*tview.TextView)
-	if !ok {
-		t.Fatalf("expected *tview.TextView, got %T", prim)
-	}
-	got := tv.GetText(false)
+	got := extractTextView(prim, false)
 	wantTag := colors.TextPrimary().Tag()
 	if !strings.HasPrefix(got, wantTag) {
 		t.Errorf("rendered text %q does not start with text.primary tag %q", got, wantTag)
@@ -60,11 +52,7 @@ func TestRenderLiteralCaption_ExplicitRoleUsesThatRole(t *testing.T) {
 		ColSpan: 1,
 	}
 	prim := renderLiteralAnchor(a, colors)
-	tv, ok := prim.(*tview.TextView)
-	if !ok {
-		t.Fatalf("expected *tview.TextView, got %T", prim)
-	}
-	got := tv.GetText(false)
+	got := extractTextView(prim, false)
 	wantTag := colors.TextLabel().Tag()
 	if !strings.HasPrefix(got, wantTag) {
 		t.Errorf("rendered text %q does not start with text.label tag %q", got, wantTag)
@@ -84,12 +72,14 @@ func TestRenderLiteralAnchor_SingleRowDoesNotWrap(t *testing.T) {
 		ColSpan: 1,
 	}
 	prim := renderLiteralAnchor(a, colors)
-	tv, ok := prim.(*tview.TextView)
-	if !ok {
-		t.Fatalf("single-row literal: got %T, want *tview.TextView", prim)
+	// single-row literals now render through the truncating single-line view
+	// (renderLiteralCaption); multi-row literals are the plain wrapping
+	// TextView. Assert it is NOT the wrapping primitive and carries the text.
+	if _, isPlainWrap := prim.(*tview.TextView); isPlainWrap {
+		t.Fatalf("single-row literal: got plain *tview.TextView (the wrapping multi-row shape), want single-line truncating view")
 	}
-	if !strings.Contains(tv.GetText(true), "Status:") {
-		t.Errorf("single-row literal: missing original text in %q", tv.GetText(true))
+	if got := extractTextView(prim, true); !strings.Contains(got, "Status:") {
+		t.Errorf("single-row literal: missing original text in %q", got)
 	}
 }
 
@@ -156,7 +146,10 @@ func TestRenderLiteralAnchor_MultiRowEmptyTextFallsBackToSingleLine(t *testing.T
 		ColSpan: 2,
 	}
 	prim := renderLiteralAnchor(a, colors)
-	if _, ok := prim.(*tview.TextView); !ok {
-		t.Fatalf("multi-row empty literal: got %T, want *tview.TextView", prim)
+	// whitespace-only row-spanned literal falls back to the single-line caption
+	// path (renderLiteralCaption), which is the truncating single-line view —
+	// NOT the plain wrapping TextView used for real multi-row prose.
+	if _, isPlainWrap := prim.(*tview.TextView); isPlainWrap {
+		t.Fatalf("multi-row empty literal: got plain *tview.TextView, want single-line caption fallback")
 	}
 }

@@ -53,12 +53,13 @@ type ConfigurableDetailView struct {
 	layout []string            // flat anchor names in column-major order (edit traversal)
 
 	// layoutDisplays is positionally aligned with layout: layoutDisplays[i] is
-	// the DisplayMode of the anchor that produced layout[i]. Caption anchors
-	// (DisplayCaption) carry a field name but render the field's label, not its
-	// value — they are display-only and must never be edit-traversal stops.
-	// Without this, a field with both a `.caption` cell and a value cell (the
-	// bundled Detail layout has one per field) appears twice in layout, and Tab
-	// stops on the caption first, requiring a second press to reach the value.
+	// the DisplayMode of the anchor that produced layout[i]. Display-only anchors
+	// (DisplayCaption, DisplayCount) carry a field name but render the field's
+	// label / item count, not its editable value — they must never be
+	// edit-traversal stops. Without this, a field with both such a cell and a
+	// value cell (the bundled Detail layout has a `.caption` per field) appears
+	// twice in layout, and Tab stops on the display-only cell first, requiring a
+	// second press to reach the value.
 	layoutDisplays []gridlayout.DisplayMode
 
 	navMarkdown *markdown.NavigableMarkdown
@@ -498,6 +499,16 @@ func compositeSegmentContent(seg gridlayout.Segment, tk *tikipkg.Tiki, ctx Field
 		return renderTikiIDGradient(tk.ID(), ctx.Roles)
 	}
 	if wfd, ok := workflow.Field(seg.Name); ok {
+		// inside a composite, an empty/absent list field contributes no value
+		// text (not the standalone "—" dash), so a `"label: " + listField` cell
+		// reads "label:" rather than "label: —" when the list is empty. The dash
+		// is the right placeholder only for a standalone value cell. `.count`
+		// already has its own non-dash path in genericFieldValueString.
+		if wfd.Type.IsList() && seg.Display != gridlayout.DisplayCount {
+			if vals, _, _ := tk.StringSliceField(seg.Name); len(vals) == 0 {
+				return ""
+			}
+		}
 		return genericFieldValueString(wfd, tk, segCtx)
 	}
 	return "—"
@@ -516,17 +527,22 @@ func compositePlainText(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderCo
 }
 
 func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	tv := tview.NewTextView().SetDynamicColors(true).SetText(buildCompositeText(a, tk, ctx))
-	tv.SetBorderPadding(0, 0, 0, 0)
+	text := buildCompositeText(a, tk, ctx)
 	// row-spanned composites become prose blocks: enable word-wrap so a
 	// multi-segment paragraph (e.g. coloured `<Ctrl-Q>` highlight inside
 	// surrounding muted prose) flows across the rows it occupies, mirroring
-	// the renderLiteralAnchor RowSpan>1 path.
+	// the renderLiteralAnchor RowSpan>1 path. Such a block wraps rather than
+	// truncates, so it uses a plain TextView, not the single-line truncator.
 	if a.RowSpan > 1 {
+		tv := tview.NewTextView().SetDynamicColors(true).SetText(text)
+		tv.SetBorderPadding(0, 0, 0, 0)
 		tv.SetWrap(true)
 		tv.SetWordWrap(true)
+		return tv
 	}
-	return tv
+	// single-row composite: truncate with an ellipsis when it overflows its
+	// column instead of hard-clipping mid-token (e.g. "tags: backend, sec…").
+	return gridbox.NewTruncatingTextView().SetText(text)
 }
 
 // RenderViewModeAnchor produces the read-only primitive for a single
@@ -587,9 +603,7 @@ func paintLiteralText(text, role, modifier string, roles *theme.Theme) string {
 // markup parsing — authors compose multi-color text via composite ` + `
 // segments.
 func renderLiteralCaption(text, role, modifier string, roles *theme.Theme) tview.Primitive {
-	tv := tview.NewTextView().SetDynamicColors(true).SetText(paintLiteralText(text, role, modifier, roles))
-	tv.SetBorderPadding(0, 0, 0, 0)
-	return tv
+	return gridbox.NewTruncatingTextView().SetText(paintLiteralText(text, role, modifier, roles))
 }
 
 // fieldCaptionText resolves the caption text for a `.caption` field anchor.
@@ -969,15 +983,15 @@ func (cv *ConfigurableDetailView) IsEditFieldFocused() bool {
 // isEditableLayoutPosition reports whether the layout position i is an
 // edit-traversal stop. It is the position-aware companion to
 // isEditableLayoutField: in addition to the field being editable, the anchor
-// at i must render the field's value, not its caption. Caption anchors
-// (DisplayCaption) carry a field name but are display-only, so a field that
-// has both a `.caption` cell and a value cell appears twice in layout — only
-// the value position is a stop.
+// at i must render the field's value, not its caption or item count.
+// Display-only anchors (DisplayCaption, DisplayCount) carry a field name but
+// are read-only, so a field that has both such a cell and a value cell appears
+// twice in layout — only the value position is a stop.
 func (cv *ConfigurableDetailView) isEditableLayoutPosition(i int) bool {
 	if i < 0 || i >= len(cv.layout) {
 		return false
 	}
-	if i < len(cv.layoutDisplays) && cv.layoutDisplays[i] == gridlayout.DisplayCaption {
+	if i < len(cv.layoutDisplays) && cv.layoutDisplays[i].IsSingleLineDisplay() {
 		return false
 	}
 	return cv.isEditableLayoutField(cv.layout[i])

@@ -850,6 +850,94 @@ func TestTokenizeCell_CaptionWithRole(t *testing.T) {
 	}
 }
 
+func TestTokenizeCell_CountDisplayMode(t *testing.T) {
+	cases := []struct {
+		in   string
+		name string
+		role string
+		hide bool
+		want Sizing
+	}{
+		{in: "tags.count", name: "tags", want: Sizing{Mode: SizeAuto}},
+		{in: "dependsOn?.count", name: "dependsOn", hide: true, want: Sizing{Mode: SizeAuto}},
+		{in: "tags?.count:4..", name: "tags", hide: true, want: Sizing{Mode: SizeAuto, Min: 4, MinSet: true}},
+		{in: "<text.muted>tags.count", name: "tags", role: "text.muted", want: Sizing{Mode: SizeAuto}},
+	}
+	for _, c := range cases {
+		t.Run(c.in, func(t *testing.T) {
+			cell, err := TokenizeCell(c.in)
+			if err != nil {
+				t.Fatalf("tokenize: %v", err)
+			}
+			fc, ok := cell.(FieldCell)
+			if !ok {
+				t.Fatalf("got %T, want FieldCell", cell)
+			}
+			if fc.Name != c.name {
+				t.Errorf("Name = %q, want %q", fc.Name, c.name)
+			}
+			if fc.Display != DisplayCount {
+				t.Errorf("Display = %v, want DisplayCount", fc.Display)
+			}
+			if fc.Role != c.role {
+				t.Errorf("Role = %q, want %q", fc.Role, c.role)
+			}
+			if fc.HideWhenEmpty != c.hide {
+				t.Errorf("HideWhenEmpty = %v, want %v", fc.HideWhenEmpty, c.hide)
+			}
+			if fc.Sizing != c.want {
+				t.Errorf("Sizing = %+v, want %+v", fc.Sizing, c.want)
+			}
+		})
+	}
+}
+
+func TestTokenizeCell_CountSegmentInComposite(t *testing.T) {
+	cell, err := TokenizeCell(`("Deps: " + dependsOn.count):8..`)
+	if err != nil {
+		t.Fatalf("tokenize: %v", err)
+	}
+	cc, ok := cell.(CompositeCell)
+	if !ok {
+		t.Fatalf("got %T, want CompositeCell", cell)
+	}
+	if len(cc.Segments) != 2 {
+		t.Fatalf("segments = %d, want 2", len(cc.Segments))
+	}
+	if cc.Segments[0].Kind != SegmentLiteral || cc.Segments[0].Text != "Deps: " {
+		t.Errorf("seg[0] = %+v, want literal \"Deps: \"", cc.Segments[0])
+	}
+	if cc.Segments[1].Kind != SegmentField || cc.Segments[1].Name != "dependsOn" || cc.Segments[1].Display != DisplayCount {
+		t.Errorf("seg[1] = %+v, want field dependsOn DisplayCount", cc.Segments[1])
+	}
+	if want := (Sizing{Mode: SizeAuto, Min: 8, MinSet: true}); cc.Sizing != want {
+		t.Errorf("cell sizing = %+v, want %+v", cc.Sizing, want)
+	}
+}
+
+func TestParseGrid_CountDisplayTravelsToAnchor(t *testing.T) {
+	// A `.count` cell and a value cell may reference the same field; the
+	// DisplayCount mode must travel to the placed anchor like DisplayCaption.
+	spec, err := ParseGrid([][]string{
+		{"tags.count", "tags"},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	names := spec.AnchorNames()
+	displays := spec.AnchorDisplays()
+	wantNames := []string{"tags", "tags"}
+	wantDisplays := []DisplayMode{DisplayCount, DisplayLabel}
+	if !slices.Equal(names, wantNames) {
+		t.Fatalf("names = %v, want %v", names, wantNames)
+	}
+	for i := range wantDisplays {
+		if displays[i] != wantDisplays[i] {
+			t.Errorf("displays[%d] = %v, want %v", i, displays[i], wantDisplays[i])
+		}
+	}
+}
+
 func TestTokenizeCell_Sizing(t *testing.T) {
 	cases := []struct {
 		in   string

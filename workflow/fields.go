@@ -27,6 +27,15 @@ const (
 	TypeEnum                 // enum field with EnumValues metadata
 )
 
+// IsList reports whether the type is one of the list-valued types
+// (TypeListString or TypeListRef). Both store a []string; the distinction is
+// whether the elements are free strings (tags) or document-ID references
+// (dependsOn). Several renderers/measurers/validators branch on list-ness, so
+// the predicate lives here rather than being re-spelled at each site.
+func (t ValueType) IsList() bool {
+	return t == TypeListString || t == TypeListRef
+}
+
 // EnumValue describes one allowed value of a TypeEnum field with display
 // metadata. Default marks the value as the creation default for the field;
 // at most one value per enum may set Default: true. Visual is an optional

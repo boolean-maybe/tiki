@@ -308,6 +308,49 @@ func TestDetailPlugin_RejectsUnknownFieldModifier(t *testing.T) {
 	}
 }
 
+func TestDetailPlugin_RejectsCountOnNonListField(t *testing.T) {
+	schema := testSchema()
+	// status is an enum, not a list — `.count` must be rejected at load.
+	raw := "status.count | --\ntype | priority"
+	_, err := validateLayout("Test", "detail", raw, schema)
+	if err == nil {
+		t.Fatal("expected error for .count on a non-list field")
+	}
+	if !strings.Contains(err.Error(), "status") || !strings.Contains(err.Error(), "list") {
+		t.Errorf("error should name the field and mention list-only, got: %v", err)
+	}
+}
+
+func TestDetailPlugin_AcceptsCountOnListField(t *testing.T) {
+	schema := testSchema()
+	raw := "tags.count | dependsOn.count\nstatus | type"
+	_, err := validateLayout("Test", "detail", raw, schema)
+	if err != nil {
+		t.Fatalf("unexpected error for .count on list fields: %v", err)
+	}
+}
+
+func TestDetailPlugin_AcceptsCountInComposite(t *testing.T) {
+	schema := testSchema()
+	raw := `("Deps: " + dependsOn.count) | --` + "\nstatus | type"
+	_, err := validateLayout("Test", "detail", raw, schema)
+	if err != nil {
+		t.Fatalf("unexpected error for .count composite segment: %v", err)
+	}
+}
+
+func TestDetailPlugin_RejectsCountOnNonListSegment(t *testing.T) {
+	schema := testSchema()
+	raw := `("S: " + status.count) | --` + "\ntype | priority"
+	_, err := validateLayout("Test", "detail", raw, schema)
+	if err == nil {
+		t.Fatal("expected error for .count on a non-list composite segment")
+	}
+	if !strings.Contains(err.Error(), "status") {
+		t.Errorf("error should name the offending field, got: %v", err)
+	}
+}
+
 // TestWikiKind_BuildsWikiPlugin asserts that kind: wiki parses to a WikiPlugin
 // (markdown-view path), distinct from the DetailPlugin used by kind: detail.
 func TestWikiKind_BuildsWikiPlugin(t *testing.T) {

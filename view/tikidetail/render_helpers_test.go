@@ -7,7 +7,6 @@ import (
 	gradcore "github.com/boolean-maybe/tiki/internal/gradient"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	"github.com/rivo/tview"
 )
 
 // TestRenderTitleText_ExpandsRoleMarkup pins that a title stored with
@@ -23,11 +22,7 @@ func TestRenderTitleText_ExpandsRoleMarkup(t *testing.T) {
 	tk.SetTitle("<highlight>foo")
 
 	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "", "")
-	tv, ok := prim.(*tview.TextView)
-	if !ok {
-		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
-	}
-	got := tv.GetText(false)
+	got := extractTextView(prim, false)
 	highlightTag := roles.Highlight().Tag() // <highlight> resolves to the active theme's highlight role
 	if !strings.Contains(got, highlightTag) {
 		t.Errorf("expected highlight color tag %q in rendered title, got %q", highlightTag, got)
@@ -49,11 +44,7 @@ func TestRenderTitleText_TviewTagsRenderLiterally(t *testing.T) {
 	tk.SetTitle("[red]x[/]")
 
 	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "", "")
-	tv, ok := prim.(*tview.TextView)
-	if !ok {
-		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
-	}
-	got := tv.GetText(false)
+	got := extractTextView(prim, false)
 	// tview.Escape inserts a closing-bracket-following-marker pattern: "[red[]"
 	// (the `[]` neutralizes the `[red]` opener). The exact escape form is
 	// covered by tview's own tests; here we assert the brackets are not
@@ -78,11 +69,7 @@ func TestRenderTitleText_BadMarkupFailsClosed(t *testing.T) {
 	tk.SetTitle("{dangr}x")
 
 	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "", "")
-	tv, ok := prim.(*tview.TextView)
-	if !ok {
-		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
-	}
-	got := tv.GetText(false)
+	got := extractTextView(prim, false)
 	// fail-closed: the raw token survives, escaped, no color tag for it.
 	if !strings.Contains(got, "x") {
 		t.Errorf("expected literal 'x' in title even on bad markup, got %q", got)
@@ -96,11 +83,7 @@ func TestRenderTitleText_WithRole(t *testing.T) {
 	tk.SetTitle("My Tiki")
 
 	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "highlight", "")
-	tv, ok := prim.(*tview.TextView)
-	if !ok {
-		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
-	}
-	got := tv.GetText(false)
+	got := extractTextView(prim, false)
 	highlightRole, _ := roles.ResolveByName("highlight")
 	highlightTag := highlightRole.Tag()
 	if !strings.Contains(got, highlightTag) {
@@ -130,11 +113,7 @@ func TestRenderTitleText_WithRoleAndModifier(t *testing.T) {
 	defer gradcore.UseGradients.Store(false)
 
 	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "highlight", "accent")
-	tv, ok := prim.(*tview.TextView)
-	if !ok {
-		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
-	}
-	got := tv.GetText(false)
+	got := extractTextView(prim, false)
 	// modifier path emits one [#rrggbb] tag per visible rune; two runes → two tags.
 	tagCount := strings.Count(got, "[#")
 	if tagCount != 2 {
@@ -147,11 +126,7 @@ func TestRenderTitleText_WithRoleAndModifier(t *testing.T) {
 	// sanity: unmodified call produces no [-] reset (bare-tag path keeps the
 	// legacy behavior — tag-then-text-then-value-tag).
 	primSolid := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "highlight", "")
-	tvSolid, ok := primSolid.(*tview.TextView)
-	if !ok {
-		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", primSolid)
-	}
-	solid := tvSolid.GetText(false)
+	solid := extractTextView(primSolid, false)
 	if strings.HasSuffix(solid, "[-]") {
 		t.Errorf("bare-role path should not emit [-] reset, got %q", solid)
 	}

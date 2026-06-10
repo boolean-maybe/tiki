@@ -403,6 +403,9 @@ func validateLayout(pluginName, viewKind string, raw string, schema ruki.Schema)
 				if err := validateLayoutFieldName(pluginName, viewKind, seg.Name, schema); err != nil {
 					return gridlayout.GridSpec{}, err
 				}
+				if err := validateCountDisplay(pluginName, seg.Name, seg.Display, schema); err != nil {
+					return gridlayout.GridSpec{}, err
+				}
 			}
 			continue
 		}
@@ -419,8 +422,37 @@ func validateLayout(pluginName, viewKind string, raw string, schema ruki.Schema)
 		if err := validateLayoutFieldName(pluginName, viewKind, a.Name, schema); err != nil {
 			return gridlayout.GridSpec{}, err
 		}
+		if err := validateCountDisplay(pluginName, a.Name, a.Display, schema); err != nil {
+			return gridlayout.GridSpec{}, err
+		}
 	}
 	return spec, nil
+}
+
+// validateCountDisplay rejects a `.count` display suffix on a non-list field.
+// The item count is only meaningful for list-typed fields (stringList /
+// tikiIdList); on any other type it would coerce to "0"/"1" misleadingly, so
+// it is a hard load-time error. List-ness is read from the ruki schema, which
+// is the type source threaded into layout validation; a nil schema (no
+// validation pass) is a no-op.
+func validateCountDisplay(pluginName, name string, display gridlayout.DisplayMode, schema ruki.Schema) error {
+	if display != gridlayout.DisplayCount {
+		return nil
+	}
+	if schema == nil {
+		return nil
+	}
+	spec, ok := schema.Field(name)
+	if !ok {
+		// field existence is already enforced by validateLayoutFieldName.
+		return nil
+	}
+	if spec.Type == ruki.ValueListString || spec.Type == ruki.ValueListRef {
+		return nil
+	}
+	return fmt.Errorf(
+		"plugin %q: layout field %q: .count is only valid on list fields (stringList/tikiIdList)",
+		pluginName, name)
 }
 
 // warnMultiRowFieldsInTikiBox emits a load-time warning when a board/list
@@ -436,7 +468,7 @@ func warnMultiRowFieldsInTikiBox(pluginName string, spec gridlayout.GridSpec) {
 		if !ok {
 			return
 		}
-		if fd.Type == workflow.TypeListString || fd.Type == workflow.TypeListRef {
+		if fd.Type.IsList() {
 			slog.Warn(
 				"layout references multi-row field on a fixed-height tiki box — only the first row will render",
 				"plugin", pluginName, "field", name, "type", fd.Type)
@@ -445,14 +477,17 @@ func warnMultiRowFieldsInTikiBox(pluginName string, spec gridlayout.GridSpec) {
 	for _, a := range spec.Anchors {
 		switch a.Kind {
 		case gridlayout.AnchorComposite:
-			for _, seg := range a.Segments {
-				if seg.Kind == gridlayout.SegmentField {
-					check(seg.Name)
-				}
-			}
+			// composites always render a single line on a card (the list segment
+			// comma-joins, a `.count` segment is an integer), so a list field used
+			// inside one is never clipped — nothing to warn about.
 		case gridlayout.AnchorLiteral:
 			// literals have no field name to check
 		default:
+			// a `.count` anchor renders a single integer line, never the multi-row
+			// list value, so it is not subject to the clipping this warns about.
+			if a.Display == gridlayout.DisplayCount {
+				continue
+			}
 			check(a.Name)
 		}
 	}

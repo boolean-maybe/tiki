@@ -178,6 +178,12 @@ func MeasureFieldValue(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) in
 	if !ok {
 		return 0
 	}
+	// a `.count` cell renders the integer item count, not the list contents, so
+	// it measures the digit width — checked before the list cases, which would
+	// otherwise over-reserve the column to the longest token / widest id row.
+	if ctx.Display == gridlayout.DisplayCount {
+		return len(listFieldCountText(name, tk))
+	}
 	switch fd.Type {
 	case workflow.TypeListString:
 		return measureStringListField(name, tk) + listColumnPadding
@@ -474,16 +480,33 @@ func tikiIDListHeight(tk *tikipkg.Tiki, _ int) int {
 	return depRows
 }
 
+// listFieldCountText returns the item count of a list-typed field as a string
+// ("0" for empty/missing/un-coercible), via StringSliceField — the same value
+// path the list renderers and measures use, so a scalar coerced to a one-element
+// list counts as 1, matching how it renders.
+func listFieldCountText(name string, tk *tikipkg.Tiki) string {
+	vals, _, _ := tk.StringSliceField(name)
+	return strconv.Itoa(len(vals))
+}
+
 // renderConfiguredField looks up the field descriptor and routes through the
 // type registry to produce a primitive. Fields that exist in the workflow
 // catalog but not in the typed registry fall back to a generic catalog-
 // driven row that reads the value verbatim from the tiki's Fields map.
+//
+// A `.count` anchor (DisplayCount) short-circuits before the registry lookup:
+// keyed off the anchor's Display mode (not the field name), it renders the
+// field's item count as a single-line value, honoring the anchor's role like
+// any other value. Load-time validation guarantees the field is list-typed.
 //
 // Workflow-declared TypeEnum fields are routed to the SemanticEnum renderer
 // even when they don't have a built-in FieldDescriptor — so user-declared
 // enums (e.g. severity in bug-tracker.yaml) get the same display-with-emoji
 // rendering and focus-aware coloring as the canonical status/type/priority.
 func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	if ctx.Display == gridlayout.DisplayCount {
+		return valueOnlyLine(listFieldCountText(name, tk), ctx.Roles)
+	}
 	if fd, ok := LookupField(name); ok {
 		ui, ok := LookupType(fd.Semantic)
 		if !ok || ui.Render == nil {
@@ -517,6 +540,13 @@ func renderGenericWorkflowField(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx Fiel
 // a controlled source (enum labels, formatted times, parsed numbers) are
 // passed through verbatim.
 func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRenderContext) string {
+	// a `.count` cell has a well-defined value (0) even when the field is
+	// absent, so it must be resolved before the absent-key dash guard below —
+	// otherwise a project with no dependsOn key renders "— tasks" instead of
+	// "0 tasks". Validated list-only at load, so this is safe for any DisplayCount.
+	if ctx.Display == gridlayout.DisplayCount {
+		return listFieldCountText(fd.Name, tk)
+	}
 	raw, ok := tk.Get(fd.Name)
 	if !ok {
 		return "—"
@@ -610,9 +640,7 @@ func withFieldDescriptor(ctx FieldRenderContext, fd FieldDescriptor) FieldRender
 // placeholderRow produces a single-line text view used for unknown/stub
 // renderers so the layout still allocates a row.
 func placeholderRow(text string) tview.Primitive {
-	tv := tview.NewTextView().SetDynamicColors(true).SetText(text)
-	tv.SetBorderPadding(0, 0, 0, 0)
-	return tv
+	return gridbox.NewTruncatingTextView().SetText(text)
 }
 
 // valueOnlyLine returns a single-line value row in the value color, with no
@@ -620,9 +648,7 @@ func placeholderRow(text string) tview.Primitive {
 // caption-from-field coupling was removed; renderers emit only the value.
 func valueOnlyLine(value string, roles *theme.Theme) tview.Primitive {
 	tag := roles.TextValue().Tag()
-	tv := tview.NewTextView().SetDynamicColors(true).SetText(tag + value)
-	tv.SetBorderPadding(0, 0, 0, 0)
-	return tv
+	return gridbox.NewTruncatingTextView().SetText(tag + value)
 }
 
 // --- semantic-type renderers ---
@@ -760,9 +786,7 @@ func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	}
 
 	text := focusMarker + valueTag + display
-	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
-	textView.SetBorderPadding(0, 0, 0, 0)
-	return textView
+	return gridbox.NewTruncatingTextView().SetText(text)
 }
 
 // editEnumValue is the generic in-place editor for any TypeEnum field. It

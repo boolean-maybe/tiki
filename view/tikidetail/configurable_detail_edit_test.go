@@ -406,6 +406,48 @@ func TestConfigurableDetailView_CaptionAnchorsAreNotTabStops(t *testing.T) {
 	}
 }
 
+// TestConfigurableDetailView_CountAnchorsAreNotTabStops pins that a `.count`
+// display anchor — like a `.caption` anchor — is display-only and must never be
+// an edit-mode Tab stop, even though it carries a field name. Here `tags.count`
+// precedes the editable `tags` value; Tab must land on tags exactly once.
+func TestConfigurableDetailView_CountAnchorsAreNotTabStops(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI130")
+	tk.Set(tikipkg.FieldTags, []string{"a", "b"})
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID(),
+		detailPluginFromGrid(t, [][]string{
+			{"tags.count", "tags"},
+			{"status", "type"},
+		}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+
+	if !cv.EnterEditMode() {
+		t.Fatal("EnterEditMode failed")
+	}
+	visited := []string{cv.GetFocusedFieldName()}
+	for cv.FocusNextField() {
+		visited = append(visited, cv.GetFocusedFieldName())
+	}
+	// column-major: col 0 → tags.count(skip), status; col 1 → tags, type; then
+	// description. tags must appear exactly once (its value anchor).
+	tagsCount := 0
+	for _, n := range visited {
+		if n == "tags" {
+			tagsCount++
+		}
+	}
+	if tagsCount != 1 {
+		t.Errorf("tags visited %d times in %v, want exactly 1 (count anchor leaking as a Tab stop?)", tagsCount, visited)
+	}
+}
+
 // detailPluginFromGrid parses a 2D grid through the real gridlayout parser and
 // wraps it in a DetailPlugin. Unlike detailPluginFromFields (which only builds
 // 1-column specs), this exercises multi-column layouts so column-major Tab

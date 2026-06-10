@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/view/gridbox"
 	"github.com/boolean-maybe/tiki/view/render"
 	"github.com/boolean-maybe/tiki/workflow"
 
@@ -97,11 +98,7 @@ func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext, role, modifier st
 	// appended because the reset would discard it on the next character.
 	if role != "" && modifier != "" && ctx.Roles != nil {
 		if paint, ok := ctx.Roles.PaintResolver()(role, modifier); ok {
-			titleBox := tview.NewTextView().
-				SetDynamicColors(true).
-				SetText(paint.PaintString(expanded))
-			titleBox.SetBorderPadding(0, 0, 0, 0)
-			return titleBox
+			return gridbox.NewTruncatingTextView().SetText(paint.PaintString(expanded))
 		}
 		// resolver miss — fall through to the bare-tag default
 	}
@@ -121,11 +118,7 @@ func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext, role, modifier st
 	}
 	valueTag := ctx.Roles.TextValue().Tag()
 	titleText := fmt.Sprintf("%s%s%s", titleTag, expanded, valueTag)
-	titleBox := tview.NewTextView().
-		SetDynamicColors(true).
-		SetText(titleText)
-	titleBox.SetBorderPadding(0, 0, 0, 0)
-	return titleBox
+	return gridbox.NewTruncatingTextView().SetText(titleText)
 }
 
 // wordListColumn wraps a WordList of the given words in the standard list

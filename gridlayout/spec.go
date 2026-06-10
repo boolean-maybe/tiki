@@ -18,6 +18,7 @@
 //	name:MIN..MAX        bounds on any mode (e.g. :8.., :..20, :8..20)
 //	name?                hide this field (and its .caption) when the tiki has no value for it
 //	name.caption         field's caption text (label), rendered as a static label
+//	name.count           item count of a list field (stringList/tikiIdList only), rendered as an integer
 //	"any text"           literal text, default role text.primary
 //	<role>"any text"     literal text painted with the given role
 //	<role.mod>"any text" literal text with role + modifier (e.g. .accent)
@@ -53,6 +54,7 @@ const (
 	DisplayLabel   DisplayMode = iota // default: show Label
 	DisplayVisual                     // show Visual
 	DisplayCaption                    // show the field's caption (label text, not value)
+	DisplayCount                      // show the item count of a list field (valid on stringList/tikiIdList only)
 )
 
 // FieldCell is a non-span field anchor cell. Sizing carries the parsed
@@ -272,3 +274,12 @@ func (s GridSpec) AnchorDisplaysColumnMajor() []DisplayMode {
 // IsEmpty reports whether the grid has zero anchors. Useful as a guard for
 // callers falling back to default metadata.
 func (s GridSpec) IsEmpty() bool { return len(s.Anchors) == 0 }
+
+// IsSingleLineDisplay reports whether a display mode always renders exactly one
+// line, independent of the field's value. Caption text and a list field's count
+// are both single-line regardless of the underlying field type, so height
+// computation must short-circuit on them rather than consult the field's
+// (possibly multi-row) natural height.
+func (d DisplayMode) IsSingleLineDisplay() bool {
+	return d == DisplayCaption || d == DisplayCount
+}

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
 
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/theme"
@@ -112,6 +111,27 @@ func TestCreateTikiBox_SingleRowRendersWithoutBorder(t *testing.T) {
 	}
 }
 
+// TestCreateTikiBox_CompositeWithCountDrawsNumber pins that a board card whose
+// layout uses a `.count` segment inside a composite renders the list field's
+// item count — "Deps: 2" for a tiki with two declared dependencies.
+func TestCreateTikiBox_CompositeWithCountDrawsNumber(t *testing.T) {
+	tk := makeTiki("K3X9M2", "story", "medium")
+	tk.SetTitle("Fix login retry logic")
+	tk.Set(tikipkg.FieldDependsOn, []string{"AAAAAA", "BBBBBB"})
+	spec, err := gridlayout.ParseGrid([][]string{
+		{"<highlight>title"},
+		{`"Deps: " + dependsOn.count`},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	rows := renderTikiBoxToString(t, tk, spec, 40)
+	joined := strings.Join(rows, "\n")
+	if !strings.Contains(joined, "Deps: 2") {
+		t.Errorf("card missing dependency count %q in:\n%s", "Deps: 2", joined)
+	}
+}
+
 // renderTikiBoxToString draws a CreateTikiBox into an offscreen tcell
 // simulation screen and returns the visible characters, one row per
 // line. The role-tag bytes are resolved by the simulation screen so the
@@ -146,6 +166,58 @@ func renderTikiBoxToString(t *testing.T, tk *tikipkg.Tiki, spec gridlayout.GridS
 		rows[y] = strings.TrimRight(string(row), " ")
 	}
 	return rows
+}
+
+// rightBorderInset is the number of blank cells the card reserves between
+// content and the right border. Truncated content (the `…`) and any flush text
+// must stop this many cells short of the `│`.
+const rightBorderInset = 3
+
+// TestCreateTikiBox_TruncationLeavesRightBorderGap pins that on a bordered
+// card, truncated content (the `…`) does not touch the right border — there is
+// a rightBorderInset-cell gap between the content and the `│`, matching the
+// pre-existing card look. Without the inset, "real-time…│" reads as cramped.
+func TestCreateTikiBox_TruncationLeavesRightBorderGap(t *testing.T) {
+	tk := makeTiki("F8CGVY", "project", "high")
+	tk.SetTitle("Ground station UI rewrite with real-time telemetry")
+	spec, err := gridlayout.ParseGrid([][]string{
+		{"<text.secondary>title"},
+		{"<text.muted>type.visual"},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	rows := renderTikiBoxToString(t, tk, spec, 30)
+	var titleRow string
+	for _, r := range rows {
+		if strings.Contains(r, "…") {
+			titleRow = r
+			break
+		}
+	}
+	if titleRow == "" {
+		t.Fatalf("no truncated row found in:\n%s", strings.Join(rows, "\n"))
+	}
+	// the ellipsis must not be the last cell before the right border. The
+	// rendered row (right-trimmed) ends at the border `│`; assert there is a
+	// space between the `…` and the `│`.
+	runes := []rune(titleRow)
+	borderIdx := -1
+	for i := len(runes) - 1; i >= 0; i-- {
+		if runes[i] == '│' {
+			borderIdx = i
+			break
+		}
+	}
+	if borderIdx < rightBorderInset+1 {
+		t.Fatalf("could not locate right border in %q", titleRow)
+	}
+	for i := 1; i <= rightBorderInset; i++ {
+		if runes[borderIdx-i] != ' ' {
+			t.Errorf("expected >= %d blank cells before the right border, got %q", rightBorderInset, titleRow)
+			break
+		}
+	}
 }
 
 // TestCreateTikiBox_NarrowLaneStillRenders pins that the single-column
@@ -199,9 +271,9 @@ func TestBuildTikiBoxPrimitives_TitleAnchorEscapesTviewTags(t *testing.T) {
 	if len(primitives) != 1 {
 		t.Fatalf("expected 1 primitive, got %d", len(primitives))
 	}
-	tv, ok := primitives[0].(*tview.TextView)
+	tv, ok := primitives[0].(interface{ GetText(bool) string })
 	if !ok {
-		t.Fatalf("title primitive type = %T, want *tview.TextView", primitives[0])
+		t.Fatalf("title primitive type = %T, want a text view", primitives[0])
 	}
 	body := tv.GetText(true) // strip style tags
 	if !strings.Contains(body, "X") {
@@ -232,9 +304,9 @@ func TestBuildTikiBoxPrimitives_MissingPriorityRendersDash(t *testing.T) {
 	if len(primitives) != 1 {
 		t.Fatalf("expected 1 primitive, got %d", len(primitives))
 	}
-	tv, ok := primitives[0].(*tview.TextView)
+	tv, ok := primitives[0].(interface{ GetText(bool) string })
 	if !ok {
-		t.Fatalf("composite primitive type = %T, want *tview.TextView", primitives[0])
+		t.Fatalf("composite primitive type = %T, want a text view", primitives[0])
 	}
 	body := tv.GetText(true) // strip style tags
 	if !strings.Contains(body, "priority") {

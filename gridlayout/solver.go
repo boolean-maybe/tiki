@@ -229,13 +229,13 @@ func SolveLayout(spec GridSpec, width, gap int, measure func(a Anchor) int, heig
 }
 
 // anchorHeight returns the natural height (in rows) of an anchor at the given
-// total width. A `.caption` field anchor renders exactly one line of label
-// text — never the field's wrapped value — so it is always height 1; without
-// this short-circuit a caption cell next to a multi-row list value would
-// inflate its row to the value's height and orphan the caption above a gap.
+// total width. A `.caption` or `.count` field anchor renders exactly one line
+// (label text / item count) — never the field's wrapped value — so it is always
+// height 1; without this short-circuit such a cell next to a multi-row list
+// value would inflate its row to the value's height and orphan it above a gap.
 // All other anchors defer to the caller-supplied height callback.
 func anchorHeight(a Anchor, width int, heightOf func(a Anchor, w int) int) int {
-	if a.Kind == AnchorField && a.Display == DisplayCaption {
+	if a.Kind == AnchorField && a.Display.IsSingleLineDisplay() {
 		return 1
 	}
 	return heightOf(a, width)
