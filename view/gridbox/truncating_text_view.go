@@ -44,14 +44,16 @@ func (t *truncatingTextView) SetText(text string) *truncatingTextView {
 	return t
 }
 
-// Draw truncates the source text to the current inner width (color-aware) and
-// renders it. The embedded view is left holding the full source after Draw so
-// the next Draw — possibly at a wider width — truncates from the complete text
-// rather than an already-clipped copy.
+// Draw truncates the source text to one column short of the current inner
+// width (color-aware) and renders it. Reserving the last column keeps the
+// ellipsis (or any flush text) from butting against the column's right edge —
+// a one-cell breathing gap before the box border. The embedded view is left
+// holding the full source after Draw so the next Draw — possibly at a wider
+// width — truncates from the complete text rather than an already-clipped copy.
 func (t *truncatingTextView) Draw(screen tcell.Screen) {
 	_, _, width, _ := t.GetInnerRect()
 	if width > 0 {
-		t.TextView.SetText(util.TruncateTextWithColors(t.source, width))
+		t.TextView.SetText(util.TruncateTextWithColors(t.source, width-1))
 	}
 	t.TextView.Draw(screen)
 	t.TextView.SetText(t.source)

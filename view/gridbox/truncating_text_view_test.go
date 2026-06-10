@@ -49,6 +49,23 @@ func TestTruncatingTextView_AppendsEllipsisWhenClipped(t *testing.T) {
 	}
 }
 
+func TestTruncatingTextView_LeavesTrailingColumnGapWhenClipped(t *testing.T) {
+	// when text is clipped, the last column must stay blank so the ellipsis
+	// (and any flush text) does not butt against the box's right border.
+	tv := NewTruncatingTextView()
+	tv.SetText("tags: backend, security, urgent, refactor")
+
+	const w = 18
+	got := drawToString(t, tv, w)
+	runes := []rune(strings.SplitN(got, "\n", 2)[0])
+	if last := runes[w-1]; last != ' ' {
+		t.Errorf("last column should be blank as a border gap, got %q in %q", string(last), got)
+	}
+	if secondLast := runes[w-2]; secondLast != '…' {
+		t.Errorf("ellipsis should sit one column short of the edge, got %q in %q", string(secondLast), got)
+	}
+}
+
 func TestTruncatingTextView_NoEllipsisWhenFits(t *testing.T) {
 	tv := NewTruncatingTextView()
 	tv.SetText("3 tasks")
