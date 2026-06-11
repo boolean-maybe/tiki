@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gdamore/tcell/v2"
+
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/service"
@@ -269,6 +271,72 @@ func TestDetailController_SaveCommitsAndExits(t *testing.T) {
 	}
 }
 
+// TestDetailController_SaveAndCloseCommitsAndPops verifies the happy path for
+// ActionDetailSaveAndClose (Enter on a single-line field): it commits like
+// Save, exits edit mode, AND pops the detail view off the nav stack.
+func TestDetailController_SaveAndCloseCommitsAndPops(t *testing.T) {
+	dc, view, tc, tikiStore := newDetailEditTestRig(t)
+
+	dc.navController.PushView(model.ViewID("source"), nil)
+	dc.navController.PushView(model.ViewID("plugin:Detail"), nil)
+	stackDepthBefore := dc.navController.Depth()
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	saver, ok := view.fieldHandlers["status"]
+	if !ok || saver == nil {
+		t.Fatal("status save handler not installed by controller")
+	}
+	saver(enumDisplay("status", "inProgress"))
+
+	if !dc.HandleAction(ActionDetailSaveAndClose) {
+		t.Fatal("ActionDetailSaveAndClose returned false")
+	}
+	if view.IsEditMode() {
+		t.Error("view should not be in edit mode after Save & Close")
+	}
+	if tc.GetEditingTiki() != nil {
+		t.Error("editing tiki should be cleared after Save & Close")
+	}
+	if got := dc.navController.Depth(); got >= stackDepthBefore {
+		t.Errorf("nav depth = %d, want < %d (save & close should pop the detail view)", got, stackDepthBefore)
+	}
+	got := tikiStore.GetTiki("TIKI200")
+	if got == nil {
+		t.Fatal("tiki disappeared from store after save & close")
+	}
+	if v, _, _ := got.StringField(tikipkg.FieldStatus); v != "inProgress" {
+		t.Errorf("status not persisted: got %q, want %q", v, "inProgress")
+	}
+}
+
+// TestDetailController_SaveAndCloseInvalidDoesNotPop pins that a failed commit
+// (invalid view) leaves the detail view in place and in edit mode, so the user
+// can correct the input rather than being popped back to the board.
+func TestDetailController_SaveAndCloseInvalidDoesNotPop(t *testing.T) {
+	dc, view, _ := newDetailEditTestRigWithStatusline(t)
+
+	dc.navController.PushView(model.ViewID("source"), nil)
+	dc.navController.PushView(model.ViewID("plugin:Detail"), nil)
+	stackDepthBefore := dc.navController.Depth()
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	view.valid = false
+
+	if dc.HandleAction(ActionDetailSaveAndClose) {
+		t.Fatal("ActionDetailSaveAndClose returned true on an invalid view")
+	}
+	if !view.IsEditMode() {
+		t.Error("view should stay in edit mode after a rejected Save & Close")
+	}
+	if got := dc.navController.Depth(); got != stackDepthBefore {
+		t.Errorf("nav depth = %d, want %d (rejected save must not pop)", got, stackDepthBefore)
+	}
+}
+
 // TestDetailController_SaveFlushesFocusedEditorBeforeCommit pins the
 // non-obvious contract that ActionDetailSave must flush the currently
 // focused editor before calling CommitEditSession. Editors like the tags
@@ -416,6 +484,11 @@ func TestDetailEditModeActions_HasExpectedKeys(t *testing.T) {
 	r := DetailEditModeActions()
 	if r.GetByID(ActionDetailSave) == nil {
 		t.Error("missing ActionDetailSave")
+	}
+	if a := r.GetByID(ActionDetailSaveAndClose); a == nil {
+		t.Error("missing ActionDetailSaveAndClose")
+	} else if a.Key != tcell.KeyEnter {
+		t.Errorf("ActionDetailSaveAndClose key = %v, want KeyEnter", a.Key)
 	}
 	if r.GetByID(ActionDetailCancel) == nil {
 		t.Error("missing ActionDetailCancel")

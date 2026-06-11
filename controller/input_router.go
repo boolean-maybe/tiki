@@ -245,6 +245,9 @@ type detailEditModeView interface {
 // view is a configurable detail view in in-place edit mode:
 //   - Tab/Shift-Tab traverse editable metadata fields (via the controller).
 //   - Ctrl+S commits the edit session and exits edit mode.
+//   - Enter commits the edit session and pops the detail view (save & close)
+//     when a single-line field is focused; in a multi-line TextArea it falls
+//     through so Enter keeps its native newline meaning.
 //   - Esc cancels the edit session and exits edit mode without popping
 //     the view from the nav stack.
 //
@@ -271,6 +274,16 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 		return true, ctrl.HandleAction(ActionDetailCancel)
 	case tcell.KeyCtrlS:
 		return true, ctrl.HandleAction(ActionDetailSave)
+	case tcell.KeyEnter:
+		// Enter commits and closes on single-line fields. In a multi-line
+		// TextArea (description, tags) it keeps its native newline meaning:
+		// stop=true prevents the edit-mode registry (which binds Enter to
+		// ActionDetailSaveAndClose for the footer) from firing, handled=false
+		// lets tview deliver the key to the focused widget's InputHandler.
+		if isTextAreaFocused(ir.navController.GetApp()) {
+			return true, false
+		}
+		return true, ctrl.HandleAction(ActionDetailSaveAndClose)
 	case tcell.KeyTab:
 		return true, ctrl.HandleAction(ActionNextField)
 	case tcell.KeyBacktab:
@@ -306,12 +319,38 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 }
 
 // isTextInputFocused reports whether the currently focused tview primitive
-// is a free-form text editor — either tview.InputField/TextArea directly,
-// or an adapter struct that embeds one (e.g. titleEditAdapter wraps
-// *tview.InputField for title editing). Detection walks the focused
-// value's struct fields via reflection so adapters don't need to register
-// with a marker interface across packages.
+// is a free-form text editor — tview.InputField or tview.TextArea, directly
+// or via an embedding adapter (e.g. titleEditAdapter wraps *tview.InputField).
 func isTextInputFocused(app *tview.Application) bool {
+	return focusMatches(app, isInputFieldOrTextArea)
+}
+
+// isTextAreaFocused reports whether the focused primitive is specifically a
+// multi-line tview.TextArea (directly or via an embedding adapter such as
+// descriptionEditAdapter / tagsEditAdapter). Used to keep Enter as a newline
+// in textareas while it commits-and-closes on single-line fields.
+func isTextAreaFocused(app *tview.Application) bool {
+	return focusMatches(app, isTextArea)
+}
+
+func isInputFieldOrTextArea(p tview.Primitive) bool {
+	switch p.(type) {
+	case *tview.InputField, *tview.TextArea:
+		return true
+	}
+	return false
+}
+
+func isTextArea(p tview.Primitive) bool {
+	_, ok := p.(*tview.TextArea)
+	return ok
+}
+
+// focusMatches reports whether the app's focused primitive satisfies pred —
+// either directly, or as an embedded *tview pointer field of an adapter
+// struct. Detection walks the focused value's struct fields via reflection so
+// adapters don't need to register with a marker interface across packages.
+func focusMatches(app *tview.Application, pred func(tview.Primitive) bool) bool {
 	if app == nil {
 		return false
 	}
@@ -319,11 +358,10 @@ func isTextInputFocused(app *tview.Application) bool {
 	if focus == nil {
 		return false
 	}
-	switch focus.(type) {
-	case *tview.InputField, *tview.TextArea:
+	if pred(focus) {
 		return true
 	}
-	// adapter case: wrapper struct that embeds *tview.InputField or *tview.TextArea
+	// adapter case: wrapper struct embedding a *tview primitive
 	v := reflect.ValueOf(focus)
 	for v.Kind() == reflect.Ptr {
 		if v.IsNil() {
@@ -336,11 +374,13 @@ func isTextInputFocused(app *tview.Application) bool {
 	}
 	for i := 0; i < v.NumField(); i++ {
 		fv := v.Field(i)
-		if fv.Kind() != reflect.Ptr {
+		// CanInterface() guards against unexported fields — a bare
+		// *tview.InputField/TextArea embeds unexported *tview.Box etc., and
+		// calling Interface() on those panics.
+		if fv.Kind() != reflect.Ptr || !fv.CanInterface() {
 			continue
 		}
-		switch fv.Interface().(type) {
-		case *tview.InputField, *tview.TextArea:
+		if p, ok := fv.Interface().(tview.Primitive); ok && pred(p) {
 			return true
 		}
 	}

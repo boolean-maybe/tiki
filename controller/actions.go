@@ -58,6 +58,11 @@ const (
 
 	// ActionDetailCancel: cancels edits in in-place detail edit mode.
 	ActionDetailCancel ActionID = "detail_cancel"
+
+	// ActionDetailSaveAndClose: commits edits in in-place detail edit mode and
+	// pops the detail view, returning to the originating board. Bound to Enter
+	// on single-line fields (multi-line TextArea fields keep Enter as newline).
+	ActionDetailSaveAndClose ActionID = "detail_save_and_close"
 )
 
 // ActionID values for tiki edit view actions.

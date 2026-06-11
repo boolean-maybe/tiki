@@ -178,6 +178,87 @@ func newRouterRecurrenceView(t *testing.T, recurrenceFocused, startOnValue bool)
 	}
 }
 
+// detailEditFakeView is a minimal detailEditModeView in edit mode, used by the
+// Enter save-and-close tests. The focus discrimination (TextArea vs. not) is
+// driven by the app's focused root, not this fake.
+type detailEditFakeView struct {
+	*routerFakeView
+}
+
+func (v *detailEditFakeView) IsEditMode() bool         { return true }
+func (v *detailEditFakeView) IsEditFieldFocused() bool { return true }
+
+// newRouterWithApp builds an InputRouter wired to a Detail plugin controller
+// and a NavigationController whose app has root focused for the focus checks.
+func newRouterWithApp(pluginName string, root tview.Primitive) *InputRouter {
+	app := tview.NewApplication()
+	app.SetRoot(root, true)
+	return &InputRouter{
+		pluginControllers: map[string]PluginControllerInterface{
+			pluginName: &DetailController{},
+		},
+		navController: NewNavigationController(app),
+	}
+}
+
+// TestMaybeHandleDetailEditMode_EnterFallsThroughOnTextArea pins that Enter on
+// a multi-line TextArea (description/tags) returns stop=true, handled=false:
+// stop=true prevents the edit-mode registry (which binds Enter to
+// ActionDetailSaveAndClose for the footer) from firing it, and handled=false
+// lets tview deliver the key to the widget so it inserts a newline. Returning
+// false/false here would be a bug — the registry would then match Enter and
+// save-and-close the view instead of inserting a newline.
+func TestMaybeHandleDetailEditMode_EnterFallsThroughOnTextArea(t *testing.T) {
+	const pluginName = "Detail"
+	ir := newRouterWithApp(pluginName, tview.NewTextArea())
+	view := &detailEditFakeView{routerFakeView: &routerFakeView{}}
+	entry := &ViewEntry{ViewID: model.MakePluginViewID(pluginName)}
+	event := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+
+	stop, handled := ir.maybeHandleDetailEditMode(view, entry, event)
+	if !stop || handled {
+		t.Errorf("Enter on TextArea: stop=%v handled=%v, want true/false (consume routing, let widget insert newline)", stop, handled)
+	}
+}
+
+// TestMaybeHandleDetailEditMode_EnterInterceptedOnSingleLineField pins that
+// Enter IS intercepted (stop=true) when a single-line InputField field holds
+// focus, dispatching the save-and-close action.
+func TestMaybeHandleDetailEditMode_EnterInterceptedOnSingleLineField(t *testing.T) {
+	const pluginName = "Detail"
+	ir := newRouterWithApp(pluginName, tview.NewInputField())
+	view := &detailEditFakeView{routerFakeView: &routerFakeView{}}
+	entry := &ViewEntry{ViewID: model.MakePluginViewID(pluginName)}
+	event := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+
+	stop, _ := ir.maybeHandleDetailEditMode(view, entry, event)
+	if !stop {
+		t.Error("Enter on InputField: stop=false, want true (intercepted for save & close)")
+	}
+}
+
+// TestIsTextAreaFocused pins the discriminator: only *tview.TextArea (direct or
+// embedded) reports true; a bare *tview.InputField does not.
+func TestIsTextAreaFocused(t *testing.T) {
+	textAreaApp := tview.NewApplication()
+	textAreaApp.SetRoot(tview.NewTextArea(), true)
+	if !isTextAreaFocused(textAreaApp) {
+		t.Error("isTextAreaFocused=false for *tview.TextArea root, want true")
+	}
+
+	adapterApp := tview.NewApplication()
+	adapterApp.SetRoot(&adapterEmbeddingTextArea{TextArea: tview.NewTextArea()}, true)
+	if !isTextAreaFocused(adapterApp) {
+		t.Error("isTextAreaFocused=false for adapter embedding *tview.TextArea, want true")
+	}
+
+	inputApp := tview.NewApplication()
+	inputApp.SetRoot(tview.NewInputField(), true)
+	if isTextAreaFocused(inputApp) {
+		t.Error("isTextAreaFocused=true for *tview.InputField, want false")
+	}
+}
+
 // TestMaybeHandleDetailEditMode_LeftMovesRecurrencePart pins that a KeyLeft
 // routed through the input router while the recurrence field is focused
 // flips the underlying *component.RecurrenceEdit out of value-focused state.

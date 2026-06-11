@@ -386,6 +386,8 @@ func (dc *DetailController) HandleAction(actionID ActionID) bool {
 		return dc.enterEditMode()
 	case ActionDetailSave:
 		return dc.commitEdit()
+	case ActionDetailSaveAndClose:
+		return dc.commitEditAndClose()
 	case ActionDetailCancel:
 		return dc.cancelEdit()
 	case ActionNextField:
@@ -528,6 +530,21 @@ func (dc *DetailController) commitEdit() bool {
 		return false
 	}
 	dc.editView.ExitEditMode()
+	return true
+}
+
+// commitEditAndClose commits the in-flight edit session like commitEdit, then
+// pops the detail view off the nav stack so the user lands back on the
+// originating board. When the commit fails (validation or store rejection),
+// commitEdit leaves the view in edit mode and returns false; the view is not
+// popped so the user can correct the input.
+func (dc *DetailController) commitEditAndClose() bool {
+	if !dc.commitEdit() {
+		return false
+	}
+	if dc.navController != nil {
+		dc.navController.PopView()
+	}
 	return true
 }
 
@@ -812,6 +829,7 @@ func DetailViewActions() *ActionRegistry {
 func DetailEditModeActions() *ActionRegistry {
 	r := NewActionRegistry()
 	r.Register(Action{ID: ActionDetailSave, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
+	r.Register(Action{ID: ActionDetailSaveAndClose, Key: tcell.KeyEnter, Label: "Save & Close", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionDetailCancel, Key: tcell.KeyEscape, Label: "Cancel", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionNextField, Key: tcell.KeyTab, Label: "Next", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionPrevField, Key: tcell.KeyBacktab, Label: "Prev", ShowInHeader: true, HideFromPalette: true})
