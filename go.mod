@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/alecthomas/chroma/v2 v2.14.0
 	github.com/atotto/clipboard v0.1.4
-	github.com/boolean-maybe/navidown v0.4.20
+	github.com/boolean-maybe/navidown v0.4.21
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/huh v0.8.0
@@ -21,7 +21,11 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/alecthomas/participle/v2 v2.1.4 // indirect
+require (
+	github.com/BurntSushi/toml v1.5.0 // indirect
+	github.com/alecthomas/participle/v2 v2.1.4 // indirect
+	go.abhg.dev/goldmark/frontmatter v0.3.0 // indirect
+)
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
@@ -72,7 +76,7 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	github.com/yuin/goldmark v1.7.8 // indirect
+	github.com/yuin/goldmark v1.7.13 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
