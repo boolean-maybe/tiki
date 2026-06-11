@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/alecthomas/chroma/v2 v2.14.0
 	github.com/atotto/clipboard v0.1.4
-	github.com/boolean-maybe/navidown v0.4.19
+	github.com/boolean-maybe/navidown v0.4.20
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/huh v0.8.0

@@ -27,10 +27,8 @@ github.com/aymanbagabas/go-udiff v0.3.1 h1:LV+qyBQ2pqe0u42ZsUEtPiCaUoqgA9gYRDs3v
 github.com/aymanbagabas/go-udiff v0.3.1/go.mod h1:G0fsKmG+P6ylD0r6N/KgQD/nWzgfnl8ZBcNLgcbrw8E=
 github.com/aymerick/douceur v0.2.0 h1:Mv+mAeH1Q+n9Fr+oyamOlAkUNPWPlA8PPGR0QAaYuPk=
 github.com/aymerick/douceur v0.2.0/go.mod h1:wlT5vV2O3h55X9m7iVYN0TBM0NH/MmbLnd30/FjWUq4=
-github.com/boolean-maybe/navidown v0.4.19 h1:ZBGEGpXzIbyQcCIrOzIQGQbUQmZake2pRClJ7TDHIbo=
-github.com/boolean-maybe/navidown v0.4.19/go.mod h1:uF4Z/5uTnEtC6ZWyfKRv5Qw8Nir1nfp4kUraggTRfrk=
-github.com/boolean-maybe/ruki v0.1.1 h1:cxKT7NM2uhQsXbTjuubjlIpZJwL097Jr5EZz2dRbhXE=
-github.com/boolean-maybe/ruki v0.1.1/go.mod h1:YEeqP7xY3T5KIOdMpdyyky/kNZraUcq32PYgS6Y3IMs=
+github.com/boolean-maybe/navidown v0.4.20 h1:P6T+rovICzt3ahXeaK6I+E5WuhbUoyUbPQR1ICFNXTY=
+github.com/boolean-maybe/navidown v0.4.20/go.mod h1:uF4Z/5uTnEtC6ZWyfKRv5Qw8Nir1nfp4kUraggTRfrk=
 github.com/boolean-maybe/ruki v0.1.2 h1:pQs/nm8Gq5NqoNMC7eS86oCSPN4LaeXNVvMfICb6hYY=
 github.com/boolean-maybe/ruki v0.1.2/go.mod h1:YEeqP7xY3T5KIOdMpdyyky/kNZraUcq32PYgS6Y3IMs=
 github.com/catppuccin/go v0.3.0 h1:d+0/YicIq+hSTo5oPuRi5kOpqkVA5tAsU6dNhvRu+aY=
