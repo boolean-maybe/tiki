@@ -285,8 +285,9 @@ syntax is shared by board/list and detail views.
 A bare field name sizes to its content. Add a sizing suffix to control width: `:N` pins a fixed
 width, `:fr` lets the column grow to absorb extra space (`2fr` grows twice as fast as `1fr`), and
 `:MIN..MAX` clamps any mode. A trailing `?` (e.g. `tags?`) hides the field and its caption when the
-tiki has no value for it. See [workflow-format.md](../workflow-format.md) for the full cell
-vocabulary and the ascending-floor shedding rule.
+tiki has no value for it. When a row is too narrow to fit every column, columns shed from the right:
+leftmost (core) fields survive longest and rightmost (optional) content drops first. See
+[workflow-format.md](../workflow-format.md) for the full cell vocabulary and the shedding rule.
 
 Any field declared in `workflow.yaml fields:` — plus the audit fields `createdBy`, `createdAt`,
 `updatedAt` — may appear in `layout:`. Fields with typed editors (`status`, `type`, and `priority`

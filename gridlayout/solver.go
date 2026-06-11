@@ -34,15 +34,17 @@ type Plan struct {
 // unbounded `fr` column.
 //
 // Width algorithm:
-//  1. Each column has a base width and a floor. A column's mode is `grow`
-//     iff a single-column SizeGrow anchor sits in it. Non-grow columns are
-//     sized by mode:
-//     fixed = Min; auto = clamp(measure, Min/1, Max/∞). A spanning anchor
+//  1. Each column has a base width. A column's mode is `grow` iff a
+//     single-column SizeGrow anchor sits in it. Non-grow columns are sized by
+//     mode: fixed = Min; auto = clamp(measure, Min/1, Max/∞). A spanning anchor
 //     contributes only a minimum split across its non-grow columns; it never
 //     sets a column's mode.
-//  2. If base widths plus gaps exceed the available width, drop the visible
-//     non-grow column with the smallest floor; ties break right-to-left.
-//     Grow columns drop only after every non-grow column is gone.
+//  2. If required width (non-grow base widths + grow columns' floors + gaps)
+//     exceeds the available width, shed by position priority: drop the
+//     rightmost visible column — grow or not — and retry. Leftmost columns
+//     (the core identity/status fields) survive longest; rightmost (optional)
+//     content sheds first. A floored grow column at the right end sheds before
+//     any interior column rather than clinging on as a useless sliver.
 //  3. Grow columns split the residual width left after fixed/content columns
 //     in proportion to their weights; leftover units go to the last grow.
 //
@@ -76,7 +78,7 @@ func SolveLayout(spec GridSpec, width, gap int, measure func(a Anchor) int, heig
 	}
 
 	grow, weight := computeGrowColumns(spec)
-	base, floor := computeColumnWidths(spec, grow, measure)
+	base := computeColumnWidths(spec, grow, measure)
 	growFloors := computeGrowFloors(spec, grow)
 
 	// required width = non-grow base widths + grow columns' floors. Counting a
@@ -107,7 +109,7 @@ func SolveLayout(spec GridSpec, width, gap int, measure func(a Anchor) int, heig
 	}
 
 	for computeFixed() > width {
-		victim := lowestFloorColumn(cols, plan.Dropped, grow, floor)
+		victim := rightmostVisibleColumn(cols, plan.Dropped)
 		if victim < 0 {
 			break
 		}
@@ -290,19 +292,15 @@ func computeGrowFloors(spec GridSpec, grow []bool) []int {
 	return floors
 }
 
-// computeColumnWidths returns per-column base (preferred) widths and floors
-// (the hard minimum used for shed ordering). Non-grow columns are sized by
-// mode; grow columns get base/floor 0 (their width is assigned from residual).
-// A spanning anchor distributes its minimum across its non-grow columns
-// (remainder to the rightmost), contributing only a minimum.
-func computeColumnWidths(spec GridSpec, grow []bool, measure func(a Anchor) int) (base, floor []int) {
+// computeColumnWidths returns per-column base (preferred) widths. Non-grow
+// columns are sized by mode; grow columns get base 0 (their width is assigned
+// from residual). A spanning anchor distributes its preferred width across its
+// non-grow columns (remainder to the rightmost), contributing only a minimum.
+func computeColumnWidths(spec GridSpec, grow []bool, measure func(a Anchor) int) (base []int) {
 	base = make([]int, spec.Cols)
-	floor = make([]int, spec.Cols)
 	for _, a := range spec.Anchors {
 		want := anchorBaseWidth(a, measure)
-		min := anchorFloor(a)
 		distributeAcrossColumns(a, grow, want, base)
-		distributeAcrossColumns(a, grow, min, floor)
 	}
 	for c := 0; c < spec.Cols; c++ {
 		if grow[c] {
@@ -311,11 +309,8 @@ func computeColumnWidths(spec GridSpec, grow []bool, measure func(a Anchor) int)
 		if base[c] < 1 {
 			base[c] = 1
 		}
-		if floor[c] < 1 {
-			floor[c] = 1
-		}
 	}
-	return base, floor
+	return base
 }
 
 // anchorBaseWidth is the preferred width an anchor wants for its whole span.
@@ -327,26 +322,6 @@ func anchorBaseWidth(a Anchor, measure func(a Anchor) int) int {
 		return growFloor(a, measure)
 	default: // SizeAuto
 		return clampWidth(measure(a), a.Sizing)
-	}
-}
-
-// anchorFloor is the hard minimum an anchor's columns may shrink to, used to
-// order shedding. Fixed = its width; auto = its declared Min (or 1); grow =
-// its min-content floor (or explicit 0 floor).
-func anchorFloor(a Anchor) int {
-	switch a.Sizing.Mode {
-	case SizeFixed:
-		return a.Sizing.Min
-	case SizeGrow:
-		if a.Sizing.MinSet {
-			return a.Sizing.Min
-		}
-		return 1
-	default: // SizeAuto
-		if a.Sizing.MinSet {
-			return a.Sizing.Min
-		}
-		return 1
 	}
 }
 
@@ -516,34 +491,19 @@ func (p Plan) SuppressedAnchorAt(spec GridSpec, name string, row, col int) bool 
 	return false
 }
 
-// lowestFloorColumn returns the visible non-grow column with the smallest
-// floor, breaking ties right-to-left. When no non-grow column remains, it
-// returns the lowest-floor visible grow column (last resort). Returns -1 when
-// no column can be dropped.
-func lowestFloorColumn(cols int, dropped, grow []bool, floor []int) int {
-	victim := pickLowestFloor(cols, dropped, grow, floor, false)
-	if victim >= 0 {
-		return victim
-	}
-	return pickLowestFloor(cols, dropped, grow, floor, true)
-}
-
-func pickLowestFloor(cols int, dropped, grow []bool, floor []int, wantGrow bool) int {
-	victim := -1
-	best := 0
-	for c := 0; c < cols; c++ {
-		if dropped[c] || grow[c] != wantGrow {
-			continue
-		}
-		f := floor[c]
-		if wantGrow {
-			f = 1 // grow columns have no fixed floor in `floor`; treat uniformly
-		}
-		if victim < 0 || f <= best {
-			victim, best = c, f
+// rightmostVisibleColumn returns the highest-index column not yet dropped, or -1
+// when every column is gone. This is the position-priority shedding victim: the
+// layout sheds from the right, so leftmost (core identity/status) columns survive
+// longest and rightmost (optional) content sheds first — grow and non-grow alike.
+// A floored grow column at the right end is therefore shed before any interior
+// column, instead of clinging on as a useless sliver while a core column dies.
+func rightmostVisibleColumn(cols int, dropped []bool) int {
+	for c := cols - 1; c >= 0; c-- {
+		if !dropped[c] {
+			return c
 		}
 	}
-	return victim
+	return -1
 }
 
 // assignGrowWidths splits the residual width among visible grow columns in

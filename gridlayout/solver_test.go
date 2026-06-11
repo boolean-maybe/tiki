@@ -47,8 +47,8 @@ func TestSolveLayout_StretcherAbsorbsResidual(t *testing.T) {
 }
 
 func TestSolveLayout_ShedRightToLeft(t *testing.T) {
-	// equal floors (all :10 fixed have floor 10) -> ascending-floor shedding
-	// degenerates to a tie, broken right-to-left, so col 2 still drops first.
+	// position-priority shedding drops the rightmost visible column first, so
+	// col 2 drops before col 1 or col 0 regardless of their (equal) widths.
 	spec := mustParse(t, [][]string{{"a:10", "b:10", "c:10"}})
 	// Width 25: room for at most 2 cols (10+10+gap=22 OK; 10+10+10+2*2=34 too wide)
 	plan := SolveLayout(spec, 25, 2, measureZero, nil)
@@ -166,25 +166,70 @@ func TestSolveLayout_AutoMaxClamps(t *testing.T) {
 	}
 }
 
-func TestSolveLayout_ShedByAscendingFloor(t *testing.T) {
-	// floors: a=2 (lowest), b=6, c fixed 6. When the row can't fit, a drops first.
+// TestSolveLayout_ShedRightmostFirst pins the position-priority shedding policy:
+// the rightmost visible column sheds first, regardless of its floor. This is the
+// opposite of the retired ascending-floor policy — a narrow rightmost column does
+// NOT survive at the expense of a wider core column on its left. Here col 0 has
+// the smallest floor (2) but the largest index that fits last; col 2 (floor 6) is
+// rightmost and must drop first.
+func TestSolveLayout_ShedRightmostFirst(t *testing.T) {
 	spec := mustParse(t, [][]string{{"a:2..", "b:6..", "c:6"}})
 	measure := func(a Anchor) int { return 6 }
 	plan := SolveLayout(spec, 16, 2, measure, nil) // tight: forces one drop
-	if !plan.Dropped[0] {
-		t.Errorf("lowest-floor col a should drop first: %+v", plan.Dropped)
+	if !plan.Dropped[2] {
+		t.Errorf("rightmost col c should drop first: %+v", plan.Dropped)
 	}
-	if plan.Dropped[1] || plan.Dropped[2] {
-		t.Errorf("higher-floor cols wrongly dropped: %+v", plan.Dropped)
+	if plan.Dropped[0] || plan.Dropped[1] {
+		t.Errorf("leftmost (core) cols wrongly dropped: %+v", plan.Dropped)
+	}
+}
+
+// TestSolveLayout_ShedKeepsCoreDropsNarrowOptional is the regression test for the
+// inverted-shedding defect seen in the smoke test: at a narrow width the kanban
+// Detail box shed every core field (Status/Type/…/Due) and kept only the optional
+// rightmost Tags column. The trigger is a caption-beside-value core field whose
+// CAPTION column is narrow (floor 1): ascending-floor shedding kills the cheap
+// caption column first, then co-shedding drags the wide core value down with it —
+// while a self-contained optional column on the right (caption+value stacked,
+// floor wide) survives untouched.
+//
+// Layout mirrors that shape:
+//
+//	statusCaption(col0, floor 1) | status(col1, floor 16) | tags(col2, floor 12)
+//
+// Under position-priority shedding the rightmost optional column (tags) must shed
+// first, keeping the core status caption+value pair. Under the old policy col0
+// (floor 1) dropped first and co-shedding then dropped col1 too, leaving only tags.
+func TestSolveLayout_ShedKeepsCoreDropsNarrowOptional(t *testing.T) {
+	spec := mustParse(t, [][]string{{"status.caption", "status:16..", "tags?:12.."}})
+	measure := func(a Anchor) int {
+		if a.Name == "status" && a.Display != DisplayCaption {
+			return 16
+		}
+		if a.Name == "tags" {
+			return 12
+		}
+		return 6 // "Status" caption
+	}
+	// width 30: room for the status caption(6) + value(16) + 1 gap = 23, but not
+	// also tags(12). The optional rightmost tags column must shed; the core
+	// status caption+value pair must both survive.
+	plan := SolveLayout(spec, 30, 2, measure, nil)
+	if plan.Dropped[0] || plan.Dropped[1] {
+		t.Errorf("core status caption(col0) and value(col1) must survive: %+v", plan.Dropped)
+	}
+	if !plan.Dropped[2] {
+		t.Errorf("optional rightmost tags column must shed first: %+v", plan.Dropped)
 	}
 }
 
 // TestSolveLayout_CoShedCaptionWithValue verifies the hard rule that a field's
-// `.caption` and its value shed together. Layout: a caption-beside-value pair
-// (status.caption | status) next to a wide pinned column. When the value column
-// must drop for width, its caption column drops too — no orphaned caption.
+// `.caption` and its value shed together. Layout: a wide pinned column on the
+// left, then a caption-beside-value pair (status.caption | status) on the right.
+// Position-priority shedding drops the rightmost column (status value) first;
+// co-shedding then drops its caption column too — no orphaned caption survives.
 func TestSolveLayout_CoShedCaptionWithValue(t *testing.T) {
-	spec := mustParse(t, [][]string{{"status.caption", "status", "keep:20"}})
+	spec := mustParse(t, [][]string{{"keep:20", "status.caption", "status"}})
 	measure := func(a Anchor) int {
 		if a.Name == "keep" {
 			return 20
@@ -193,10 +238,10 @@ func TestSolveLayout_CoShedCaptionWithValue(t *testing.T) {
 	}
 	// Width fits only the pinned "keep" column plus gaps — the status pair must go.
 	plan := SolveLayout(spec, 22, 2, measure, nil)
-	if !plan.Dropped[0] || !plan.Dropped[1] {
-		t.Fatalf("status caption(col0) and value(col1) must both drop: %+v", plan.Dropped)
+	if !plan.Dropped[1] || !plan.Dropped[2] {
+		t.Fatalf("status caption(col1) and value(col2) must both drop: %+v", plan.Dropped)
 	}
-	if plan.Dropped[2] {
+	if plan.Dropped[0] {
 		t.Errorf("pinned keep column wrongly dropped: %+v", plan.Dropped)
 	}
 }
@@ -241,17 +286,17 @@ func TestSolveLayout_CoShedSuppressesOrphanInMixedColumn(t *testing.T) {
 	}
 }
 
-// TestSolveLayout_GrowFloorForcesNeighbourShed verifies the grow-floor rule:
-// a grow column with an explicit floor (:MIN..fr) counts that floor toward
-// required width, so when space is tight a droppable neighbour sheds to give
-// the grow column its floor — rather than the grow column shrinking to a
-// useless sliver. A plain :fr (no floor) does NOT force that shed; it just
-// absorbs the residual.
-func TestSolveLayout_GrowFloorForcesNeighbourShed(t *testing.T) {
-	// keep(pinned 18) + opt(droppable, floor 1) + deps(grow, floor 16).
-	// At width 38: required-with-floor = 18 + 6 + 16 + 2*gap = 44 > 38, so the
-	// lowest-floor non-grow column (opt) sheds; afterward keep(18) + deps(16) +
-	// 1 gap = 36 <= 38, so keep and deps both survive.
+// TestSolveLayout_GrowFloorCountsTowardRequiredWidth verifies the grow-floor
+// rule under position-priority shedding: a grow column with an explicit floor
+// (:MIN..fr) counts that floor toward required width, so the layout knows it is
+// over-wide and must shed. Under position-priority the rightmost column sheds —
+// and a floored grow column at the right end is the first to go, rather than
+// surviving as a useless sliver while a core column on its left dies.
+func TestSolveLayout_GrowFloorCountsTowardRequiredWidth(t *testing.T) {
+	// keep(pinned 18) + opt(droppable, floor 1) + deps(grow, floor 16, rightmost).
+	// At width 38: required-with-floor = 18 + 6 + 16 + 2*gap = 44 > 38. The
+	// rightmost column is deps (the grow column), so it sheds first; afterward
+	// keep(18) + opt(6) + 1 gap = 25 <= 38, so keep and opt both survive.
 	spec := mustParse(t, [][]string{{"keep:18", "opt:1..", "deps:16..fr"}})
 	measure := func(a Anchor) int {
 		switch a.Name {
@@ -263,29 +308,27 @@ func TestSolveLayout_GrowFloorForcesNeighbourShed(t *testing.T) {
 		return 16
 	}
 	plan := SolveLayout(spec, 38, 2, measure, nil)
-	if !plan.Dropped[1] {
-		t.Errorf("droppable neighbour should shed to satisfy grow floor: widths=%v dropped=%+v", plan.ColumnWidths, plan.Dropped)
+	if !plan.Dropped[2] {
+		t.Errorf("rightmost floored grow column should shed first: widths=%v dropped=%+v", plan.ColumnWidths, plan.Dropped)
 	}
-	if plan.Dropped[0] || plan.Dropped[2] {
-		t.Errorf("pinned keep and grow deps must survive: %+v", plan.Dropped)
-	}
-	if plan.ColumnWidths[2] < 16 {
-		t.Errorf("grow deps width = %d, want >= its floor 16", plan.ColumnWidths[2])
+	if plan.Dropped[0] || plan.Dropped[1] {
+		t.Errorf("leftmost columns must survive: %+v", plan.Dropped)
 	}
 
-	// Plain :fr (no floor): the neighbour is NOT forced out; deps just shrinks.
-	spec2 := mustParse(t, [][]string{{"keep:18", "opt:1..", "deps:fr"}})
-	plan2 := SolveLayout(spec2, 30, 2, func(a Anchor) int {
-		switch a.Name {
-		case "keep":
+	// A grow column wide enough to fit at its floor is NOT shed: keep(18) +
+	// deps floor(16) + gap(2) = 36 <= 40, so nothing drops and deps absorbs slack.
+	spec2 := mustParse(t, [][]string{{"keep:18", "deps:16..fr"}})
+	plan2 := SolveLayout(spec2, 40, 2, func(a Anchor) int {
+		if a.Name == "keep" {
 			return 18
-		case "opt":
-			return 6
 		}
-		return 1
+		return 16
 	}, nil)
-	if plan2.Dropped[1] {
-		t.Errorf("plain :fr must not force a neighbour shed: %+v", plan2.Dropped)
+	if plan2.Dropped[0] || plan2.Dropped[1] {
+		t.Errorf("both columns fit and must survive: %+v", plan2.Dropped)
+	}
+	if plan2.ColumnWidths[1] < 16 {
+		t.Errorf("grow deps width = %d, want >= its floor 16", plan2.ColumnWidths[1])
 	}
 }
 

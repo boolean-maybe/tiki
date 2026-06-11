@@ -201,14 +201,14 @@ Width and shedding semantics:
   single-cell `…`.
 - A `:fr` column will not shrink below its content (min-content) unless given an explicit `:0..`
   floor. A `:fr` column may also be given a usable **grow floor** (e.g. `:16..fr`): the solver
-  counts that floor toward required width, so a grow column that can't be granted its floor is shed
-  (or forces a neighbour to shed) instead of shrinking to a useless sliver. This lets one grow
-  column both absorb slack at wide widths and shed cleanly when narrow. A plain `:fr` (no floor)
-  keeps absorbing whatever residual remains and never forces a shed.
-- If the terminal can't fit the row, the column with the **lowest floor** is dropped; ties break
-  right-to-left. Drop order therefore follows ascending floor — a column survives longer the higher
-  its floor. Mark a column droppable with a low (or `0`) floor; pin one by giving it a high floor or
-  a fixed `:N`.
+  counts that floor toward required width, so a grow column that can't be granted its floor makes
+  the row register as over-wide and shed instead of shrinking to a useless sliver. This lets one
+  grow column both absorb slack at wide widths and shed cleanly when narrow. A plain `:fr` (no
+  floor) contributes nothing to required width — it absorbs whatever residual remains.
+- If the terminal can't fit the row, columns shed by **position priority**: the rightmost visible
+  column is dropped first (grow or not), then the solver retries. Leftmost columns survive longest,
+  so place core fields on the left and optional content on the right. Drop order follows column
+  position, left-surviving — it does not depend on a column's floor or width.
 - **A field's value and its `.caption` always shed together.** Caption and value may sit in
   different columns (caption-beside-value layouts); when either is dropped by the width algorithm,
   the other is dropped too, so a label never survives with no value beside or beneath it. The
