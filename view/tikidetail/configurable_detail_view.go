@@ -356,17 +356,16 @@ func (cv *ConfigurableDetailView) focusActiveEditor() {
 }
 
 // fieldHasValue reports whether tk carries a non-empty value for the named
-// field. Emptiness is defined by the same value-formatting path the view
-// renders (genericFieldValueString), so a field hidden via the `?` suffix is
-// hidden exactly when it would otherwise render its empty placeholder. Unknown
+// field. Emptiness is the typed predicate fieldIsEmpty (date→IsZero, list→
+// len==0, string→==""), not a formatted-string comparison — so a field hidden
+// via the `?` suffix is hidden exactly when it has no underlying value. Unknown
 // fields are treated as having no value.
 func fieldHasValue(tk *tikipkg.Tiki, name string) bool {
 	fd, ok := workflow.Field(name)
 	if !ok {
 		return false
 	}
-	// "—" is the empty placeholder genericFieldValueString emits for every type.
-	return genericFieldValueString(fd, tk, FieldRenderContext{}) != "—"
+	return !fieldIsEmpty(tk, fd)
 }
 
 // specForTiki returns the layout spec to render for tk: the parsed template

@@ -121,14 +121,12 @@ func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext, role, modifier st
 	return gridbox.NewTruncatingTextView().SetText(titleText)
 }
 
-// wordListColumn wraps a WordList of the given words in the standard list
-// column frame (1-cell left/right padding). It is the generic primitive for a
-// stringList field's value — a plain word-wrapping text column, no selection
-// background, no per-row chrome. The padding is mirrored by listColumnPadding
-// in the width measure, keeping measure and render in lockstep.
+// wordListColumn wraps a WordList of the given words. It is the generic
+// primitive for a stringList field's value — a plain word-wrapping text column,
+// no padding, no selection background, no per-row chrome — so the value's first
+// cell aligns with its `.caption` cell (which carries no padding either).
 func wordListColumn(words []string) tview.Primitive {
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
-	col.SetBorderPadding(0, 0, 1, 1)
 	col.AddItem(component.NewWordList(words), 0, 1, false)
 	return col
 }
@@ -153,7 +151,6 @@ func tikiIDListColumn(ids []string, tikiStore store.Store) tview.Primitive {
 	}
 
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
-	col.SetBorderPadding(0, 0, 1, 1)
 	// SetSelectable(false): a metadata-grid value is static, not an interactive
 	// list — without this the list highlights row 0 by default, painting a
 	// stray selection background behind the first entry.

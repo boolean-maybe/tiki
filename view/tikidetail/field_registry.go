@@ -88,12 +88,26 @@ type FieldEditor func(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(st
 // declared row span.
 type FieldHeightFn func(tk *tikipkg.Tiki, width int) int
 
+// FieldEmptyFn reports whether tk holds no value for the named field. It is the
+// typed emptiness predicate (date→IsZero, list→len==0, string→==""), keyed off
+// the semantic type — NOT a formatted string. A nil FieldEmptyFn means the type
+// is never empty (it always renders a concrete value, e.g. recurrence→"None"),
+// so such fields are never `?`-hidden.
+type FieldEmptyFn func(tk *tikipkg.Tiki, name string) bool
+
 // TypeUI bundles the rendering and editing primitives for a semantic type.
+// IsEmpty and EmptyPlaceholder are the per-type halves of the empty-value
+// contract: IsEmpty answers "has no value", EmptyPlaceholder is the default
+// render string for that empty state (a per-field FieldDescriptor.EmptyPlaceholder
+// overrides it). Both feed emptyPlaceholder / fieldIsEmpty so renderers and the
+// width measure agree on what an empty cell draws.
 type TypeUI struct {
-	Render     FieldRenderer
-	Edit       FieldEditor
-	HeightFn   FieldHeightFn
-	Capability EditorCapability
+	Render           FieldRenderer
+	Edit             FieldEditor
+	HeightFn         FieldHeightFn
+	Capability       EditorCapability
+	IsEmpty          FieldEmptyFn
+	EmptyPlaceholder string
 }
 
 // FieldDescriptor describes a single configurable detail-view field.
@@ -150,13 +164,6 @@ func FieldHeight(name string, tk *tikipkg.Tiki, width int) int {
 	return ui.HeightFn(tk, width)
 }
 
-// listColumnPadding is the horizontal chrome (BorderPadding(0,0,1,1) = 1 left +
-// 1 right) that the list-value column primitives (wordListColumn /
-// tikiIDListColumn) wrap around a list value. The width measure adds it back so
-// the solver reserves room for it — the symmetric counterpart of
-// stringListHeight subtracting it before wrapping.
-const listColumnPadding = 2
-
 // MeasureFieldValue returns the visible content width (in cells) of a field's
 // rendered value for tk, used by the grid solver to size `auto` columns. It
 // reuses genericFieldValueString — the same value-formatting path the view
@@ -172,7 +179,8 @@ const listColumnPadding = 2
 //     token here under-reserved the column and the rendered title clipped
 //     against the box frame — the measure must see what tikiIDListColumn draws.
 //
-// Both add listColumnPadding for the column container's BorderPadding(0,0,1,1).
+// The list-value columns carry no padding (their first cell aligns with the
+// `.caption` cell), so the measure is the bare content width.
 func MeasureFieldValue(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) int {
 	fd, ok := workflow.Field(name)
 	if !ok {
@@ -186,9 +194,15 @@ func MeasureFieldValue(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) in
 	}
 	switch fd.Type {
 	case workflow.TypeListString:
-		return measureStringListField(name, tk) + listColumnPadding
+		return measureStringListField(name, tk)
 	case workflow.TypeListRef:
-		return measureTikiIDListField(name, tk, ctx.Store) + listColumnPadding
+		return measureTikiIDListField(name, tk, ctx.Store)
+	}
+	// an empty scalar renders its placeholder ("None"/"Unknown"/"─"/…), not the
+	// "—" sentinel genericFieldValueString emits — measure the SAME string the
+	// renderer draws so the solver reserves the cell's true width.
+	if fieldIsEmpty(tk, fd) {
+		return tview.TaggedStringWidth(emptyPlaceholder(name, semanticForValueType(fd.Type)))
 	}
 	return tview.TaggedStringWidth(genericFieldValueString(fd, tk, ctx))
 }
@@ -394,66 +408,158 @@ func registerBuiltinTypes() {
 		Edit:       editAssigneeValue,
 		HeightFn:   singleRowHeight,
 		Capability: EditorImplemented,
+		IsEmpty:    stringFieldEmpty,
+		// no per-type default: the "─" fallback in emptyPlaceholder applies;
+		// per-field overrides supply "Unassigned"/"Unknown".
 	}
 	typeRegistry[SemanticInteger] = TypeUI{
-		Render:     renderIntegerValue,
-		HeightFn:   singleRowHeight,
-		Capability: EditorStub,
+		Render:           renderIntegerValue,
+		HeightFn:         singleRowHeight,
+		Capability:       EditorStub,
+		IsEmpty:          intFieldEmpty,
+		EmptyPlaceholder: "─",
 	}
 	typeRegistry[SemanticBoolean] = TypeUI{
 		Render:     renderBooleanValue,
 		HeightFn:   singleRowHeight,
 		Capability: EditorStub,
+		// IsEmpty nil: boolean is a stub that always renders a concrete value.
 	}
 	typeRegistry[SemanticDate] = TypeUI{
-		Render:     renderDateValue,
-		Edit:       editDueValue,
-		HeightFn:   singleRowHeight,
-		Capability: EditorImplemented,
+		Render:           renderDateValue,
+		Edit:             editDueValue,
+		HeightFn:         singleRowHeight,
+		Capability:       EditorImplemented,
+		IsEmpty:          timeFieldEmpty,
+		EmptyPlaceholder: "None",
 	}
 	typeRegistry[SemanticDateTime] = TypeUI{
-		Render:     renderDateTimeValue,
-		HeightFn:   singleRowHeight,
-		Capability: EditorStub,
+		Render:           renderDateTimeValue,
+		HeightFn:         singleRowHeight,
+		Capability:       EditorStub,
+		IsEmpty:          timeFieldEmpty,
+		EmptyPlaceholder: "Unknown",
 	}
 	typeRegistry[SemanticRecurrence] = TypeUI{
 		Render:     renderRecurrenceValue,
 		Edit:       editRecurrenceValue,
 		HeightFn:   singleRowHeight,
 		Capability: EditorImplemented,
+		// IsEmpty nil: an empty recurrence renders "None" via RecurrenceDisplay,
+		// so it is never `?`-hidden.
 	}
 	typeRegistry[SemanticEnum] = TypeUI{
-		Render:     renderEnumValue,
-		Edit:       editEnumValue,
-		HeightFn:   singleRowHeight,
-		Capability: EditorImplemented,
+		Render:           renderEnumValue,
+		Edit:             editEnumValue,
+		HeightFn:         singleRowHeight,
+		Capability:       EditorImplemented,
+		IsEmpty:          stringFieldEmpty,
+		EmptyPlaceholder: "─",
 	}
 	typeRegistry[SemanticStringList] = TypeUI{
-		Render:     renderStringListValue,
-		Edit:       editTagsValue,
-		HeightFn:   stringListHeight,
-		Capability: EditorImplemented,
+		Render:           renderStringListValue,
+		Edit:             editTagsValue,
+		HeightFn:         stringListHeight,
+		Capability:       EditorImplemented,
+		IsEmpty:          listFieldEmpty,
+		EmptyPlaceholder: "(none)",
 	}
 	typeRegistry[SemanticTikiIDList] = TypeUI{
-		Render:     renderTikiIDListValue,
-		HeightFn:   tikiIDListHeight,
-		Capability: EditorStub,
+		Render:           renderTikiIDListValue,
+		HeightFn:         tikiIDListHeight,
+		Capability:       EditorStub,
+		IsEmpty:          listFieldEmpty,
+		EmptyPlaceholder: "(none)",
 	}
+}
+
+// typed emptiness predicates shared across semantic types. Each reads the
+// underlying value via the tiki accessor — no string formatting, no sentinel.
+func stringFieldEmpty(tk *tikipkg.Tiki, name string) bool {
+	v, _, _ := tk.StringField(name)
+	return v == ""
+}
+func timeFieldEmpty(tk *tikipkg.Tiki, name string) bool {
+	t, _, _ := tk.TimeField(name)
+	return t.IsZero()
+}
+func listFieldEmpty(tk *tikipkg.Tiki, name string) bool {
+	v, _, _ := tk.StringSliceField(name)
+	return len(v) == 0
+}
+func intFieldEmpty(tk *tikipkg.Tiki, name string) bool {
+	_, present, _ := tk.IntField(name)
+	return !present
+}
+
+// semanticForValueType bridges the workflow catalog's ValueType to the
+// detail-view registry's SemanticType, so emptiness/placeholder traits resolve
+// even for catalog-only fields that have no FieldDescriptor (e.g. user-declared
+// enums). It generalizes the TypeEnum routing renderConfiguredField already
+// does. The string family (TypeString/TypeID/TypeRef/TypeDuration) and any
+// unmapped type fall through to SemanticText — string emptiness — matching
+// genericFieldValueString's default branch.
+func semanticForValueType(t workflow.ValueType) SemanticType {
+	switch t {
+	case workflow.TypeEnum:
+		return SemanticEnum
+	case workflow.TypeInt:
+		return SemanticInteger
+	case workflow.TypeBool:
+		return SemanticBoolean
+	case workflow.TypeDate:
+		return SemanticDate
+	case workflow.TypeTimestamp:
+		return SemanticDateTime
+	case workflow.TypeRecurrence:
+		return SemanticRecurrence
+	case workflow.TypeListString:
+		return SemanticStringList
+	case workflow.TypeListRef:
+		return SemanticTikiIDList
+	}
+	return SemanticText
+}
+
+// fieldIsEmpty reports whether tk holds no value for the workflow field, via the
+// semantic type's typed IsEmpty predicate. Types whose TypeUI declares no
+// IsEmpty (recurrence, boolean) are never empty. This is the single emptiness
+// authority — fieldHasValue and the empty-cell width measure both call it,
+// replacing the old genericFieldValueString(...) != "—" string compare.
+func fieldIsEmpty(tk *tikipkg.Tiki, fd workflow.FieldDef) bool {
+	ui, ok := LookupType(semanticForValueType(fd.Type))
+	if !ok || ui.IsEmpty == nil {
+		return false
+	}
+	return ui.IsEmpty(tk, fd.Name)
+}
+
+// emptyPlaceholder resolves the text drawn when a field is empty: the
+// descriptor's per-field EmptyPlaceholder override, else the semantic type's
+// per-type default, else "─". It is the single source of truth so renderers and
+// MeasureFieldValue draw/measure identical bytes.
+func emptyPlaceholder(name string, semantic SemanticType) string {
+	if fd, ok := LookupField(name); ok && fd.EmptyPlaceholder != "" {
+		return fd.EmptyPlaceholder
+	}
+	if ui, ok := LookupType(semantic); ok && ui.EmptyPlaceholder != "" {
+		return ui.EmptyPlaceholder
+	}
+	return "─"
 }
 
 // singleRowHeight is the HeightFn for fixed one-line fields.
 func singleRowHeight(_ *tikipkg.Tiki, _ int) int { return 1 }
 
-// stringListHeight uses WordList wrap to compute the wrapped row count.
-// Subtracts 2 from width to account for the BorderPadding(0,0,1,1) on the
-// list-value column (wordListColumn). Returns 1 for empty tags so the
-// "(none)" placeholder still gets a row.
+// stringListHeight uses WordList wrap to compute the wrapped row count. The
+// list-value column carries no padding, so the wrap width is the column width
+// as-is. Returns 1 for empty tags so the "(none)" placeholder still gets a row.
 func stringListHeight(tk *tikipkg.Tiki, width int) int {
 	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
 	if len(tags) == 0 {
 		return 1
 	}
-	inner := width - 2
+	inner := width
 	if inner < 1 {
 		inner = 1
 	}
@@ -677,7 +783,7 @@ func renderIntegerValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitiv
 		return placeholderRow("(unknown)")
 	}
 	v, present, _ := tk.IntField(fd.Name)
-	value := "─"
+	value := emptyPlaceholder(fd.Name, SemanticInteger)
 	if present {
 		value = fmt.Sprintf("%d", v)
 	}
@@ -694,12 +800,7 @@ func renderDateValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 		return placeholderRow("(unknown)")
 	}
 	t, _, _ := tk.TimeField(fd.Name)
-	// "—" (not "None") for an empty date: matches the canonical empty
-	// placeholder genericFieldValueString emits and the emptiness test in
-	// fieldHasValue, so a `?`-hidden date hides exactly when this would show
-	// empty, and a non-hidden empty date reads consistently with every other
-	// field instead of a stray "None" that truncates to "N" in a tight column.
-	value := "—"
+	value := emptyPlaceholder(fd.Name, SemanticDate)
 	if !t.IsZero() {
 		value = t.Format("2006-01-02")
 	}
@@ -711,7 +812,7 @@ func renderDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primiti
 	if !ok {
 		return placeholderRow("(unknown)")
 	}
-	value := "Unknown"
+	value := emptyPlaceholder(fd.Name, SemanticDateTime)
 	if fd.Get != nil {
 		if t, ok := fd.Get(tk).(time.Time); ok && !t.IsZero() {
 			value = t.Format("2006-01-02 15:04")
@@ -720,14 +821,10 @@ func renderDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primiti
 	return valueOnlyLine(value, ctx.Roles)
 }
 
-// textEmptyPlaceholder returns the empty-value placeholder for a text field,
-// reading the descriptor's EmptyPlaceholder trait and falling back to the
-// default "─" when the field declares none (or is unknown).
+// textEmptyPlaceholder returns the empty-value placeholder for a text field —
+// a thin wrapper over emptyPlaceholder pinned to the text semantic.
 func textEmptyPlaceholder(name string) string {
-	if fd, ok := LookupField(name); ok && fd.EmptyPlaceholder != "" {
-		return fd.EmptyPlaceholder
-	}
-	return "─"
+	return emptyPlaceholder(name, SemanticText)
 }
 
 func renderRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
@@ -760,7 +857,7 @@ func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	}
 
 	value, _, _ := tk.StringField(name)
-	display := "─"
+	display := emptyPlaceholder(name, SemanticEnum)
 	if value != "" {
 		if hasWFD {
 			if ctx.Display == gridlayout.DisplayVisual {
@@ -772,10 +869,11 @@ func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 			display = tview.Escape(value)
 		}
 	} else if hasFD && fd.EmptyPlaceholder != "" {
-		// the descriptor's empty-placeholder marker, styled muted at render
-		// time from ctx.Roles (registration is theme-independent — see the
-		// EmptyPlaceholder comment on the type descriptor).
-		display = ctx.Roles.TextMuted().Tag() + fd.EmptyPlaceholder + "[-]"
+		// a descriptor-declared placeholder (e.g. type→"(none)") is styled muted
+		// at render time from ctx.Roles (registration is theme-independent — see
+		// the EmptyPlaceholder comment on the type descriptor). Enums with no
+		// per-field override keep the bare per-type default set above.
+		display = ctx.Roles.TextMuted().Tag() + emptyPlaceholder(name, SemanticEnum) + "[-]"
 	}
 
 	focused := ctx.Mode == RenderModeEdit && editField != "" && ctx.FocusedField == editField
@@ -840,7 +938,7 @@ func editEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 func renderStringListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	values, _, _ := tk.StringSliceField(ctx.FieldName)
 	if len(values) == 0 {
-		return valueOnlyLine("(none)", ctx.Roles)
+		return valueOnlyLine(emptyPlaceholder(ctx.FieldName, SemanticStringList), ctx.Roles)
 	}
 	return wordListColumn(values)
 }
@@ -854,7 +952,7 @@ func renderStringListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primi
 func renderTikiIDListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	ids, _, _ := tk.StringSliceField(ctx.FieldName)
 	if len(ids) == 0 {
-		return valueOnlyLine("(none)", ctx.Roles)
+		return valueOnlyLine(emptyPlaceholder(ctx.FieldName, SemanticTikiIDList), ctx.Roles)
 	}
 	if ctx.Store == nil {
 		return valueOnlyLine(strings.Join(ids, ", "), ctx.Roles)
