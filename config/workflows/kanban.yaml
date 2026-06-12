@@ -154,12 +154,22 @@ views:
       - key: "m"
         label: "Assign to me"
         action: update where id = id() set assignee=user()
+      - key: "d"
+        label: "Add dependency"
+        action: update where id = id() set dependsOn = dependsOn + choose(select where has(type) and type != "project" and id != id() and id not in outer.dependsOn)
+      - key: "D"
+        label: "Remove dependency"
+        action: update where id = id() set dependsOn = dependsOn - choose(select where id in outer.dependsOn)
       - key: "+"
         label: "Priority up"
         action: update where id = id() set priority = prev_enum(priority)
       - key: "-"
         label: "Priority down"
         action: update where id = id() set priority = next_enum(priority)
+      - key: "Delete"
+        label: Delete
+        action: delete where id = id()
+        require: ["selection:one"]
 
   - name: Recent
     kind: board
@@ -193,12 +203,22 @@ views:
       - key: "m"
         label: "Assign to me"
         action: update where id = id() set assignee=user()
+      - key: "d"
+        label: "Add dependency"
+        action: update where id = id() set dependsOn = dependsOn + choose(select where has(type) and type != "project" and id != id() and id not in outer.dependsOn)
+      - key: "D"
+        label: "Remove dependency"
+        action: update where id = id() set dependsOn = dependsOn - choose(select where id in outer.dependsOn)
       - key: "+"
         label: "Priority up"
         action: update where id = id() set priority = prev_enum(priority)
       - key: "-"
         label: "Priority down"
         action: update where id = id() set priority = next_enum(priority)
+      - key: "Delete"
+        label: Delete
+        action: delete where id = id()
+        require: ["selection:one"]
 
   - name: Roadmap
     kind: board
@@ -256,6 +276,10 @@ views:
       - key: "-"
         label: "Priority down"
         action: update where id = id() set priority = next_enum(priority)
+      - key: "Delete"
+        label: Delete
+        action: delete where id = id()
+        require: ["selection:one"]
 
   - name: Docs
     kind: wiki
@@ -278,6 +302,12 @@ views:
       - key: "R"
         label: "Make recurring"
         action: update where id = id() set recurrence=daily() due=next_date(daily())
+      - key: "d"
+        label: "Add dependency"
+        action: update where id = id() set dependsOn = dependsOn + choose(select where has(type) and type != "project" and id != id() and id not in outer.dependsOn)
+      - key: "D"
+        label: "Remove dependency"
+        action: update where id = id() set dependsOn = dependsOn - choose(select where id in outer.dependsOn)
 
   - name: Project
     kind: detail

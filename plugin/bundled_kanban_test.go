@@ -400,6 +400,197 @@ func findChooseAction(t *testing.T, plugins []Plugin, viewName, key string) *Plu
 	return nil
 }
 
+// TestBundledKanban_AddDependencyFilter pins the generic "Add dependency" action
+// (key "d") present on the Kanban board, Recent board, and Detail view. Its
+// choose filter must surface workflow tikis while excluding: projects
+// (type != "project"), plain docs (has(type)), the tiki being edited itself
+// (id != id()), and tikis already depended on (id not in outer.dependsOn).
+func TestBundledKanban_AddDependencyFilter(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	src := filepath.Join(filepath.Dir(wd), "config", "workflows", "kanban.yaml")
+	if _, err := os.Stat(src); err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+
+	// the tiki under edit: SELF01, already depends on DEP001.
+	self := tikipkg.New()
+	self.SetID("SELF01")
+	self.SetTitle("Editing This")
+	self.Set("type", "story")
+	self.Set("status", "ready")
+	self.Set("dependsOn", []string{"DEP001"})
+
+	dep := tikipkg.New()
+	dep.SetID("DEP001")
+	dep.SetTitle("Already A Dep")
+	dep.Set("type", "story")
+	dep.Set("status", "ready")
+
+	other := tikipkg.New()
+	other.SetID("TASK01")
+	other.SetTitle("Eligible Task")
+	other.Set("type", "story")
+	other.Set("status", "ready")
+
+	project := tikipkg.New()
+	project.SetID("PROJ01")
+	project.SetTitle("A Project")
+	project.Set("type", "project")
+	project.Set("status", "ready")
+
+	plainDoc := tikipkg.New()
+	plainDoc.SetID("DOKI01")
+	plainDoc.SetTitle("Plain Doc")
+	// no workflow fields
+
+	all := []*tikipkg.Tiki{self, dep, other, project, plainDoc}
+
+	for _, viewName := range []string{"Kanban", "Recent", "Detail"} {
+		t.Run(viewName, func(t *testing.T) {
+			action := findChooseAction(t, plugins, viewName, "d")
+			if action.ChooseFilter == nil {
+				t.Fatalf("%q view's \"d\" action has no ChooseFilter", viewName)
+			}
+			factory := ruki.DocumentFactory(func() ruki.Document { return tikipkg.WrapDoc(tikipkg.New()) })
+			executor := ruki.NewExecutor(testSchema(), factory, nil,
+				ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
+			input := ruki.NewSingleSelectionInput(self.ID())
+			candidateDocs, err := executor.EvalSubQueryFilter(action.ChooseFilter, tikipkg.WrapDocs(all), input)
+			if err != nil {
+				t.Fatalf("EvalSubQueryFilter: %v", err)
+			}
+			ids := map[string]bool{}
+			for _, ct := range tikipkg.UnwrapDocs(candidateDocs) {
+				ids[ct.ID()] = true
+			}
+			if !ids["TASK01"] {
+				t.Errorf("expected eligible TASK01 in candidates, got %v", ids)
+			}
+			if ids["SELF01"] {
+				t.Errorf("tiki must not depend on itself: SELF01 in candidates %v", ids)
+			}
+			if ids["DEP001"] {
+				t.Errorf("already-a-dependency DEP001 must be excluded: %v", ids)
+			}
+			if ids["PROJ01"] {
+				t.Errorf("project PROJ01 must be excluded: %v", ids)
+			}
+			if ids["DOKI01"] {
+				t.Errorf("plain doc DOKI01 must be excluded (needs has(type)): %v", ids)
+			}
+		})
+	}
+}
+
+// TestBundledKanban_RemoveDependencyFilter pins the "Remove dependency" action
+// (key "D") on the Kanban board, Recent board, and Detail view. Its choose
+// filter must surface ONLY the tikis the edited tiki currently depends on
+// (id in outer.dependsOn) — so the picker becomes a list of removable deps.
+func TestBundledKanban_RemoveDependencyFilter(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	src := filepath.Join(filepath.Dir(wd), "config", "workflows", "kanban.yaml")
+	if _, err := os.Stat(src); err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+
+	// SELF01 depends on DEP001 only. DEP002 exists but is not a dependency.
+	self := tikipkg.New()
+	self.SetID("SELF01")
+	self.SetTitle("Editing This")
+	self.Set("type", "story")
+	self.Set("status", "ready")
+	self.Set("dependsOn", []string{"DEP001"})
+
+	dep := tikipkg.New()
+	dep.SetID("DEP001")
+	dep.SetTitle("Current Dependency")
+	dep.Set("type", "story")
+	dep.Set("status", "ready")
+
+	notDep := tikipkg.New()
+	notDep.SetID("DEP002")
+	notDep.SetTitle("Not A Dependency")
+	notDep.Set("type", "story")
+	notDep.Set("status", "ready")
+
+	all := []*tikipkg.Tiki{self, dep, notDep}
+
+	for _, viewName := range []string{"Kanban", "Recent", "Detail"} {
+		t.Run(viewName, func(t *testing.T) {
+			action := findChooseAction(t, plugins, viewName, "D")
+			if action.ChooseFilter == nil {
+				t.Fatalf("%q view's \"D\" action has no ChooseFilter", viewName)
+			}
+			factory := ruki.DocumentFactory(func() ruki.Document { return tikipkg.WrapDoc(tikipkg.New()) })
+			executor := ruki.NewExecutor(testSchema(), factory, nil,
+				ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
+			input := ruki.NewSingleSelectionInput(self.ID())
+			candidateDocs, err := executor.EvalSubQueryFilter(action.ChooseFilter, tikipkg.WrapDocs(all), input)
+			if err != nil {
+				t.Fatalf("EvalSubQueryFilter: %v", err)
+			}
+			ids := map[string]bool{}
+			for _, ct := range tikipkg.UnwrapDocs(candidateDocs) {
+				ids[ct.ID()] = true
+			}
+			if !ids["DEP001"] {
+				t.Errorf("current dependency DEP001 must be a removal candidate: %v", ids)
+			}
+			if ids["DEP002"] {
+				t.Errorf("non-dependency DEP002 must not be a removal candidate: %v", ids)
+			}
+			if ids["SELF01"] {
+				t.Errorf("self SELF01 must not be a removal candidate: %v", ids)
+			}
+		})
+	}
+}
+
+// TestBundledKanban_DependencyActionsAreVisible asserts the new dependency
+// actions are footer-visible (ShowInHeader) on all three views and that they
+// are ruki actions carrying a choose filter. A hot:false action would register
+// and fire but stay invisible to the user.
+func TestBundledKanban_DependencyActionsAreVisible(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	src := filepath.Join(filepath.Dir(wd), "config", "workflows", "kanban.yaml")
+	if _, err := os.Stat(src); err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+
+	for _, viewName := range []string{"Kanban", "Recent", "Detail"} {
+		for _, key := range []string{"d", "D"} {
+			action := findChooseAction(t, plugins, viewName, key)
+			if action.Kind != ActionKindRuki {
+				t.Errorf("%s/%q: Kind = %v, want ActionKindRuki", viewName, key, action.Kind)
+			}
+			if !action.ShowInHeader {
+				t.Errorf("%s/%q: ShowInHeader=false, would be hidden from footer", viewName, key)
+			}
+		}
+	}
+}
+
 func idList(tikis []*tikipkg.Tiki) []string {
 	out := make([]string, 0, len(tikis))
 	for _, t := range tikis {

@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"context"
-	"log/slog"
 	"strings"
 
 	"github.com/boolean-maybe/ruki"
@@ -367,25 +365,6 @@ func (pb *pluginBase) handleSearch(query string, selectFirst func() bool) {
 // to the destination view. Persistence happens on commit.
 func createDraftTiki(s store.Store) (*tikipkg.Tiki, error) {
 	return s.NewTikiTemplate()
-}
-
-func (pb *pluginBase) handleDeleteTiki(filteredTikis func(int) []*tikipkg.Tiki) bool {
-	tikiID := pb.getSelectedTikiID(filteredTikis)
-	if tikiID == "" {
-		return false
-	}
-	tk := pb.tikiStore.GetTiki(tikiID)
-	if tk == nil {
-		return false
-	}
-	if err := pb.mutationGate.DeleteTiki(context.Background(), tk); err != nil {
-		slog.Error("failed to delete tiki", "tiki_id", tikiID, "error", err)
-		if pb.statusline != nil {
-			pb.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
-		}
-		return false
-	}
-	return true
 }
 
 func filterTikisBySearch(tikis []*tikipkg.Tiki, searchMap map[string]bool) []*tikipkg.Tiki {

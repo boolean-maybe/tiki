@@ -15,7 +15,8 @@ import (
 // TestMeasureFieldValue_EmptyDateMatchesRenderedWidth is the regression guard
 // for the original bug: an empty date used to MEASURE the "—" sentinel (width 1)
 // while it RENDERS "None" (width 4), so a content-sized column under-reserved and
-// clipped to "N". The measure must equal the drawn placeholder width.
+// clipped to "N". The measure must cover the drawn placeholder width PLUS the
+// one breathing cell the truncating view reserves (it draws to width-1).
 func TestMeasureFieldValue_EmptyDateMatchesRenderedWidth(t *testing.T) {
 	tk := tikipkg.New() // due never set → empty date
 
@@ -26,12 +27,12 @@ func TestMeasureFieldValue_EmptyDateMatchesRenderedWidth(t *testing.T) {
 	}
 
 	got := MeasureFieldValue(tikipkg.FieldDue, tk, ctx)
-	want := tview.TaggedStringWidth(rendered)
+	want := tview.TaggedStringWidth(rendered) + scalarBreathingCell
 	if got != want {
-		t.Errorf("MeasureFieldValue(empty due) = %d, want %d (rendered width of %q)", got, want, rendered)
+		t.Errorf("MeasureFieldValue(empty due) = %d, want %d (rendered %q + breathing cell)", got, want, rendered)
 	}
-	if got != 4 {
-		t.Errorf("MeasureFieldValue(empty due) = %d, want 4 (len of \"None\")", got)
+	if got != 4+scalarBreathingCell {
+		t.Errorf("MeasureFieldValue(empty due) = %d, want %d (\"None\" + breathing)", got, 4+scalarBreathingCell)
 	}
 }
 
@@ -42,8 +43,8 @@ func TestMeasureFieldValue_EmptyDateTimeMatchesRenderedWidth(t *testing.T) {
 
 	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles(), FieldName: "createdAt"}
 	got := MeasureFieldValue("createdAt", tk, ctx)
-	if got != len("Unknown") {
-		t.Errorf("MeasureFieldValue(empty createdAt) = %d, want %d (len of \"Unknown\")", got, len("Unknown"))
+	if want := len("Unknown") + scalarBreathingCell; got != want {
+		t.Errorf("MeasureFieldValue(empty createdAt) = %d, want %d (\"Unknown\" + breathing)", got, want)
 	}
 }
 

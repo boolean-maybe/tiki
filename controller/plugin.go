@@ -114,8 +114,6 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 		return pc.handleMoveTiki(-1)
 	case ActionMoveTikiRight:
 		return pc.handleMoveTiki(1)
-	case ActionDeleteTiki:
-		return pc.handleDeleteTiki(pc.GetFilteredTikisForLane)
 	default:
 		if keyStr := getPluginActionKeyStr(actionID); keyStr != "" {
 			return pc.handlePluginAction(actionID)

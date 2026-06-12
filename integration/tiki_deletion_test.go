@@ -12,7 +12,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// TestTikiDeletion_FromKanban verifies 'd' deletes tiki from kanban
+// TestTikiDeletion_FromKanban verifies the Delete key deletes a tiki from kanban
 func TestTikiDeletion_FromKanban(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
@@ -44,8 +44,8 @@ func TestTikiDeletion_FromKanban(t *testing.T) {
 		t.Fatalf("TIKI-1 should be visible before delete")
 	}
 
-	// Press 'd' to delete first tiki
-	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
+	// Press Delete to delete first tiki
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
 	// Reload and verify tiki deleted
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -109,7 +109,7 @@ func TestTikiDeletion_SelectionMoves(t *testing.T) {
 	}
 
 	// Delete TIKI-2
-	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
 	// Selection should move to next tiki (TIKI-3, which is now at index 1)
 	selectedIndex := kanbanConfig.GetSelectedIndex()
@@ -155,7 +155,7 @@ func TestTikiDeletion_LastTikiInLane(t *testing.T) {
 	}
 
 	// Delete the only tiki
-	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
 	// Reload
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -205,13 +205,13 @@ func TestTikiDeletion_MultipleSequential(t *testing.T) {
 	ta.Draw()
 
 	// Delete first tiki
-	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
 	// Delete first tiki again (was TIKI-2, now at top)
-	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
 	// Delete first tiki again (was TIKI-3, now at top)
-	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
 	// Reload and verify only 2 tikis remain
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -264,7 +264,7 @@ func TestTikiDeletion_FromDifferentLane(t *testing.T) {
 	}
 
 	// Delete tiki
-	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
 	// Reload and verify deleted
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -277,7 +277,9 @@ func TestTikiDeletion_FromDifferentLane(t *testing.T) {
 	}
 }
 
-// TestTikiDeletion_CannotDeleteFromTikiDetail verifies 'd' doesn't work in tiki detail
+// TestTikiDeletion_CannotDeleteFromTikiDetail verifies the Delete key does not
+// delete a tiki while the configurable detail view is focused — the global
+// delete action only fires on board/list views.
 func TestTikiDeletion_CannotDeleteFromTikiDetail(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
@@ -307,8 +309,8 @@ func TestTikiDeletion_CannotDeleteFromTikiDetail(t *testing.T) {
 		t.Fatalf("expected detail view %s, got %v", wantDetail, currentView.ViewID)
 	}
 
-	// Press 'd' (should not delete from tiki detail view)
-	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
+	// Press Delete (should not delete from the detail view)
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
 	// Reload and verify tiki still exists
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -317,12 +319,7 @@ func TestTikiDeletion_CannotDeleteFromTikiDetail(t *testing.T) {
 
 	tiki := ta.TikiStore.GetTiki("000001")
 	if tiki == nil {
-		t.Errorf("TIKI-1 should NOT be deleted from tiki detail view")
-	}
-
-	// Verify we're still on tiki detail (or moved somewhere else, but tiki exists)
-	if tiki == nil {
-		t.Errorf("tiki should still exist after pressing 'd' in tiki detail")
+		t.Errorf("tiki should NOT be deleted from the detail view")
 	}
 }
 
@@ -355,7 +352,7 @@ func TestTikiDeletion_WithMultipleLanes(t *testing.T) {
 	ta.Draw()
 
 	// Delete TIKI-1 from todo lane
-	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
 	// Reload
 	if err := ta.TikiStore.Reload(); err != nil {

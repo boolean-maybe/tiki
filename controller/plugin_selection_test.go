@@ -547,6 +547,7 @@ func TestPluginController_HandleDeleteTiki(t *testing.T) {
 	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
+		Actions:    []plugin.PluginAction{deleteSelectedAction(t)},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
 	pluginConfig.SetLaneLayout([]int{1}, nil)
@@ -558,12 +559,25 @@ func TestPluginController_HandleDeleteTiki(t *testing.T) {
 	gate.SetStore(tikiStore)
 	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil, schema)
 
-	if !pc.HandleAction(ActionDeleteTiki) {
+	if !pc.HandleAction(pluginActionID("Delete")) {
 		t.Error("expected HandleAction(delete) to return true")
 	}
 
 	if tikiStore.GetTiki("0000T1") != nil {
 		t.Error("tiki should have been deleted")
+	}
+}
+
+// deleteSelectedAction builds the workflow-declared "Delete" action — the
+// global `delete where id = id()` binding (require: selection:one) that
+// replaced the former hardcoded ActionDeleteTiki.
+func deleteSelectedAction(t *testing.T) plugin.PluginAction {
+	t.Helper()
+	return plugin.PluginAction{
+		Key: tcell.KeyDelete, KeyStr: "Delete",
+		Label:   "Delete",
+		Action:  mustParseStmt(t, `delete where id = id()`),
+		Require: []string{"selection:one"},
 	}
 }
 
@@ -573,6 +587,7 @@ func TestPluginController_HandleDeleteTiki_Empty(t *testing.T) {
 	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
+		Actions:    []plugin.PluginAction{deleteSelectedAction(t)},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
 	pluginConfig.SetLaneLayout([]int{1}, nil)
@@ -582,7 +597,7 @@ func TestPluginController_HandleDeleteTiki_Empty(t *testing.T) {
 	gate.SetStore(tikiStore)
 	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil, schema)
 
-	if pc.HandleAction(ActionDeleteTiki) {
+	if pc.HandleAction(pluginActionID("Delete")) {
 		t.Error("expected false when no tiki is selected")
 	}
 }
@@ -595,6 +610,7 @@ func TestPluginController_HandleDeleteTiki_Rejected(t *testing.T) {
 	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
+		Actions:    []plugin.PluginAction{deleteSelectedAction(t)},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
 	pluginConfig.SetLaneLayout([]int{1}, nil)
@@ -610,7 +626,7 @@ func TestPluginController_HandleDeleteTiki_Rejected(t *testing.T) {
 	})
 	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, newMockNavigationController(), statusline, schema)
 
-	if pc.HandleAction(ActionDeleteTiki) {
+	if pc.HandleAction(pluginActionID("Delete")) {
 		t.Error("expected false when delete is rejected")
 	}
 

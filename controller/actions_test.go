@@ -500,16 +500,19 @@ func TestLookupRune_ConflictDetection(t *testing.T) {
 	r := PluginViewActions()
 
 	// built-in plugin view keys should be found
-	conflicting := []rune{'k', 'j', 'h', 'l', 'd', '/'}
+	conflicting := []rune{'k', 'j', 'h', 'l', '/'}
 	for _, ch := range conflicting {
 		if _, ok := r.LookupRune(ch); !ok {
 			t.Errorf("expected built-in action for rune %q", ch)
 		}
 	}
 
-	// non-conflicting key should not be found
-	if _, ok := r.LookupRune('b'); ok {
-		t.Errorf("rune 'b' should not conflict with built-in actions")
+	// non-conflicting keys should not be found. 'd' is now free: delete was
+	// migrated to a global workflow action, so it is no longer a built-in.
+	for _, ch := range []rune{'b', 'd'} {
+		if _, ok := r.LookupRune(ch); ok {
+			t.Errorf("rune %q should not conflict with built-in actions", ch)
+		}
 	}
 
 	// global actions
@@ -731,9 +734,10 @@ func TestPluginViewActions_NavHiddenFromPalette(t *testing.T) {
 	for _, a := range paletteActions {
 		found[a.ID] = true
 	}
-	// open and new-tiki are now workflow-declared `kind: view` actions. The
-	// remaining built-in semantic actions still surface in the palette.
-	for _, want := range []ActionID{ActionDeleteTiki, ActionSearch} {
+	// open, new-tiki, and delete are now workflow-declared actions (`kind: view`
+	// for open/new, a global `delete where id = id()` for delete). The remaining
+	// built-in semantic actions still surface in the palette.
+	for _, want := range []ActionID{ActionSearch} {
 		if !found[want] {
 			t.Errorf("expected palette-visible action %v", want)
 		}

@@ -26,7 +26,6 @@ const (
 const (
 	ActionMoveTikiLeft  ActionID = "move_tiki_left"
 	ActionMoveTikiRight ActionID = "move_tiki_right"
-	ActionDeleteTiki    ActionID = "delete_tiki"
 	ActionNewTiki       ActionID = "new_tiki"
 	ActionNavLeft       ActionID = "nav_left"
 	ActionNavRight      ActionID = "nav_right"
@@ -751,17 +750,17 @@ func PluginViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRune, Rune: 'l', Label: "→", HideFromPalette: true})
 
 	// plugin actions (shown in header)
-	idReq := []Requirement{RequireID}
 	// Enter is intentionally not bound here. Phase 1 retired the built-in
 	// "open tiki in detail" shortcut: the open keybinding is now declared by
 	// the workflow as a `kind: view` action (typically `key: Enter, view: Detail`).
-	// Boards without such an action have no Enter behavior — by design.
+	// Boards without such an action have no Enter behavior — by design. Delete
+	// was likewise migrated: it is a global workflow action (`delete where
+	// id = id()`), no longer a hardcoded `d` binding here.
 	notSingleLane := "!" + RequireSingleLane
 	moveReq := []Requirement{RequireID, notSingleLane}
 	hideOnSingleLane := []Requirement{notSingleLane}
 	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: moveReq, HideRequire: hideOnSingleLane})
 	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: moveReq, HideRequire: hideOnSingleLane})
-	r.Register(Action{ID: ActionDeleteTiki, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
 	r.Register(Action{ID: ActionExecute, Key: tcell.KeyRune, Rune: '!', Label: "Execute", ShowInHeader: true})
 

@@ -304,7 +304,7 @@ func TestPluginActions_OpenTiki_EnterKey(t *testing.T) {
 	}
 }
 
-func TestPluginActions_DeleteTiki_DKey(t *testing.T) {
+func TestPluginActions_DeleteTiki_DeleteKey(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
@@ -322,10 +322,10 @@ func TestPluginActions_DeleteTiki_DKey(t *testing.T) {
 		return
 	}
 
-	// Press 'd' to delete (assumes first tiki is selected)
+	// Press Delete (assumes first tiki is selected)
 	// Note: We need to ensure DELETE is selected, which depends on sort order
 	// For simplicity, we'll just verify the delete action works
-	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
 	// Verify: At least one tiki was deleted
 	_ = ta.TikiStore.Reload()
@@ -576,7 +576,7 @@ func TestPluginActions_DeleteTiki_UpdatesSelection(t *testing.T) {
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
 	// Delete it
-	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
 	// Verify: selection resets (typically to 0)
 	// The exact behavior may vary, but selection should be valid

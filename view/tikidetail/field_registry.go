@@ -202,9 +202,22 @@ func MeasureFieldValue(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) in
 	// "—" sentinel genericFieldValueString emits — measure the SAME string the
 	// renderer draws so the solver reserves the cell's true width.
 	if fieldIsEmpty(tk, fd) {
-		return tview.TaggedStringWidth(emptyPlaceholder(name, semanticForValueType(fd.Type)))
+		return scalarCellWidth(emptyPlaceholder(name, semanticForValueType(fd.Type)))
 	}
-	return tview.TaggedStringWidth(genericFieldValueString(fd, tk, ctx))
+	return scalarCellWidth(genericFieldValueString(fd, tk, ctx))
+}
+
+// scalarBreathingCell is the single column truncatingTextView.Draw reserves at
+// the right edge of every scalar value cell (it truncates to width-1 so text
+// never butts against the box border). The measure must add it back so the
+// solver reserves content+1 — otherwise an N-cell value gets an N-cell column,
+// the draw clips it to N-1, and a full-width datetime renders "2026-06-11 20:…".
+const scalarBreathingCell = 1
+
+// scalarCellWidth is the on-screen footprint of a scalar value: its rendered
+// content width plus the breathing cell the truncating view reserves.
+func scalarCellWidth(rendered string) int {
+	return tview.TaggedStringWidth(rendered) + scalarBreathingCell
 }
 
 // measureStringListField returns the longest single token width across a string
@@ -474,12 +487,25 @@ func registerBuiltinTypes() {
 }
 
 // typed emptiness predicates shared across semantic types. Each reads the
-// underlying value via the tiki accessor — no string formatting, no sentinel.
+// underlying value via the canonical accessor (the descriptor's Get func when
+// registered, else the tiki accessor) — no string formatting, no sentinel.
+// Consulting the descriptor Get is what lets computed system fields (createdAt /
+// updatedAt) report emptiness from their struct-backed value rather than from
+// the frontmatter map, which never holds them; otherwise they always measured
+// as empty and their column was sized to the "Unknown" placeholder.
 func stringFieldEmpty(tk *tikipkg.Tiki, name string) bool {
+	if fd, ok := LookupField(name); ok && fd.Get != nil {
+		s, _ := fd.Get(tk).(string)
+		return s == ""
+	}
 	v, _, _ := tk.StringField(name)
 	return v == ""
 }
 func timeFieldEmpty(tk *tikipkg.Tiki, name string) bool {
+	if fd, ok := LookupField(name); ok && fd.Get != nil {
+		t, _ := fd.Get(tk).(time.Time)
+		return t.IsZero()
+	}
 	t, _, _ := tk.TimeField(name)
 	return t.IsZero()
 }
@@ -638,6 +664,23 @@ func renderGenericWorkflowField(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx Fiel
 	return valueOnlyLine(value, ctx.Roles)
 }
 
+// fieldRawValue resolves a field's raw value from its canonical source. The
+// registry descriptor's Get func is that source when one is registered — it is
+// the accessor the renderers use, and for computed system fields (createdAt /
+// updatedAt, backed by tk.CreatedAt()/UpdatedAt() struct fields rather than the
+// frontmatter map) it is the ONLY source. Plain frontmatter fields with no
+// descriptor Get fall back to tk.Get. Routing both the value formatter and the
+// emptiness check through here keeps the width measure aligned with what the
+// renderer draws — without it a computed timestamp measured its empty
+// placeholder ("Unknown", 7 cells) while the renderer drew the full datetime
+// (16 cells), starving the column so it clipped to "2026-06-11…".
+func fieldRawValue(name string, tk *tikipkg.Tiki) (any, bool) {
+	if fd, ok := LookupField(name); ok && fd.Get != nil {
+		return fd.Get(tk), true
+	}
+	return tk.Get(name)
+}
+
 // genericFieldValueString formats a workflow field's value as a single-line
 // string, dispatching on declared type. Empty/absent values render as a dash.
 // User-controlled string values are escaped against tview's dynamic-color
@@ -653,7 +696,7 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRe
 	if ctx.Display == gridlayout.DisplayCount {
 		return listFieldCountText(fd.Name, tk)
 	}
-	raw, ok := tk.Get(fd.Name)
+	raw, ok := fieldRawValue(fd.Name, tk)
 	if !ok {
 		return "—"
 	}

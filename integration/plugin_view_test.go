@@ -214,8 +214,8 @@ func TestPluginView_DeleteTiki(t *testing.T) {
 		t.Fatalf("TIKI-1 should be visible before delete")
 	}
 
-	// Press 'd' to delete first tiki (TIKI-1)
-	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
+	// Press Delete to delete first tiki (TIKI-1)
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
 	// Reload and verify tiki is deleted
 	if err := ta.TikiStore.Reload(); err != nil {
