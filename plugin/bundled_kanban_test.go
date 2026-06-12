@@ -502,6 +502,58 @@ func TestBundledKanban_ProjectStatusColumnHasFloor(t *testing.T) {
 	}
 }
 
+// TestBundledKanban_ProjectSystemFieldsUseFieldCaptions guards against the
+// orphaned-value regression where the Project view's createdBy/createdAt/
+// updatedAt column used literal captions ("Author"/"Created"/"Updated")
+// instead of field.caption cells. Literal captions carry no field name, so
+// they do not participate in caption↔value co-shedding (see CLAUDE.md): at
+// narrow widths the caption column sheds while the value column survives,
+// leaving an unlabeled "booleanmay… / date / date" column. Each system field
+// must appear as exactly one DisplayCaption anchor and one value anchor so the
+// solver pairs and sheds them together.
+func TestBundledKanban_ProjectSystemFieldsUseFieldCaptions(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	src := filepath.Join(filepath.Dir(wd), "config", "workflows", "kanban.yaml")
+	if _, err := os.Stat(src); err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+	var project *DetailPlugin
+	for _, p := range plugins {
+		if dp, ok := p.(*DetailPlugin); ok && dp.Name == "Project" {
+			project = dp
+			break
+		}
+	}
+	if project == nil {
+		t.Fatal("bundled kanban does not contain a Project view")
+	}
+
+	for _, field := range []string{"createdBy", "createdAt", "updatedAt"} {
+		var captionAnchors, valueAnchors int
+		for _, a := range project.Layout.Anchors {
+			if a.Kind != gridlayout.AnchorField || a.Name != field {
+				continue
+			}
+			if a.Display == gridlayout.DisplayCaption {
+				captionAnchors++
+				continue
+			}
+			valueAnchors++
+		}
+		if captionAnchors != 1 || valueAnchors != 1 {
+			t.Errorf("%s: caption anchors=%d value anchors=%d, want 1 and 1 (field.caption, not a literal)",
+				field, captionAnchors, valueAnchors)
+		}
+	}
+}
+
 // TestBundledKanban_RoadmapShowsTaskCount asserts the Roadmap board card
 // surfaces the epic's linked-task count via a `dependsOn.count` segment after
 // the title. An epic's child tasks are its dependsOn references (see the

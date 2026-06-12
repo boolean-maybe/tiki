@@ -42,6 +42,7 @@ fields:
         visual: "\U0001F525"
   - name: severity
     type: enum
+    caption: "Severity"
     values:
       - value: critical
       - value: high
@@ -50,21 +51,27 @@ fields:
       - value: low
   - name: environment
     type: enum
+    caption: "Env"
     values:
       - value: prod
       - value: staging
       - value: dev
   - name: reportedBy
     type: text
+    caption: "Reporter"
   - name: foundIn
     type: text
+    caption: "Found in"
   - name: dueBy
     type: datetime
+    caption: "Due"
   - name: regression
     type: boolean
+    caption: "Regression"
     default: false
   - name: escalations
     type: integer
+    caption: "Escalations"
     default: 0
   # See kanban.yaml for the rationale on declaration order: high → low so
   # ruki's < / > / order-by treat smaller rank as more urgent.
@@ -286,11 +293,11 @@ views:
     layout: |
       <highlight>title | --                                 | --           | --          | --              | --           | --      | --
       _                | _                                  | _            | _           | _               | _            | _       | _
-      "Status:"        | status.label + " " + status.visual | "Severity:"  | severity    | "Reporter:"     | reportedBy   | "Tags:" | tags
-      "Type:"          | type.label + " " + type.visual     | "Env:"       | environment | "Found in:"     | foundIn      | ^       | ^
-      "Priority:"      | priority                           | "Due:"       | dueBy       | "Regression:"   | regression   | ^       | ^
-      "Author:"        | createdBy                          | "Created:"   | createdAt   | "Escalations:"  | escalations  | ^       | ^
-      "Assignee:"      | assignee                           | "Updated:"   | updatedAt   | _               | _            | ^       | ^
+      <text.label>status.caption     | status.label + " " + status.visual | <text.label>severity.caption    | severity    | <text.label>reportedBy.caption | reportedBy   | <text.label>tags.caption | tags
+      <text.label>type.caption       | type.label + " " + type.visual     | <text.label>environment.caption | environment | <text.label>foundIn.caption    | foundIn      | ^                        | ^
+      <text.label>priority.caption   | priority                           | <text.label>dueBy.caption       | dueBy       | <text.label>regression.caption | regression   | ^                        | ^
+      <text.muted>createdBy.caption  | createdBy                          | <text.muted>createdAt.caption   | createdAt   | <text.label>escalations.caption | escalations | ^                        | ^
+      <text.label>assignee.caption   | assignee                           | <text.muted>updatedAt.caption   | updatedAt   | _                              | _            | ^                        | ^
 
 triggers:
   - description: critical bugs must specify environment
