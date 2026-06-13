@@ -927,3 +927,85 @@ func TestBundledKanban_DetailCaptionAnchorsAlignWithNames(t *testing.T) {
 		}
 	}
 }
+
+// TestBundledKanban_DetailListDependencies pins the "List dependencies" action
+// (key "L") on the Detail view. It mirrors the Project view's "List tasks"
+// action: a kind:view action targeting Detail whose choose filter selects the
+// viewed tiki's dependsOn members. Selecting a candidate reopens Detail on it.
+func TestBundledKanban_DetailListDependencies(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	src := filepath.Join(filepath.Dir(wd), "config", "workflows", "kanban.yaml")
+	if _, err := os.Stat(src); err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+
+	action := findChooseAction(t, plugins, "Detail", "L")
+	if action.Kind != ActionKindView {
+		t.Errorf("Detail \"L\" action Kind = %v, want %v", action.Kind, ActionKindView)
+	}
+	if action.TargetView != "Detail" {
+		t.Errorf("Detail \"L\" action TargetView = %q, want %q", action.TargetView, "Detail")
+	}
+	if action.Label != "List dependencies" {
+		t.Errorf("Detail \"L\" action Label = %q, want %q", action.Label, "List dependencies")
+	}
+	if !action.ShowInHeader {
+		t.Error("Detail \"L\" action has ShowInHeader=false; it would be hidden from the footer")
+	}
+
+	// the viewed tiki depends on DEP001 only; DEP001 and OTHER1 both exist in
+	// the store. The choose filter (select where id in target.dependsOn) must
+	// yield exactly [DEP001].
+	self := tikipkg.New()
+	self.SetID("SELF01")
+	self.SetTitle("Viewer")
+	self.Set("type", "story")
+	self.Set("status", "ready")
+	self.Set("dependsOn", []string{"DEP001"})
+
+	dep := tikipkg.New()
+	dep.SetID("DEP001")
+	dep.SetTitle("A dependency")
+	dep.Set("type", "story")
+	dep.Set("status", "ready")
+
+	other := tikipkg.New()
+	other.SetID("OTHER1")
+	other.SetTitle("Unrelated")
+	other.Set("type", "story")
+	other.Set("status", "ready")
+
+	all := []*tikipkg.Tiki{self, dep, other}
+
+	if action.ChooseFilter == nil {
+		t.Fatal("Detail \"L\" action has no ChooseFilter")
+	}
+	factory := ruki.DocumentFactory(func() ruki.Document { return tikipkg.WrapDoc(tikipkg.New()) })
+	executor := ruki.NewExecutor(testSchema(), factory, nil,
+		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
+	input := ruki.NewSingleSelectionInput(self.ID())
+	candidateDocs, err := executor.EvalSubQueryFilter(action.ChooseFilter, tikipkg.WrapDocs(all), input)
+	if err != nil {
+		t.Fatalf("EvalSubQueryFilter: %v", err)
+	}
+	ids := map[string]bool{}
+	for _, ct := range tikipkg.UnwrapDocs(candidateDocs) {
+		ids[ct.ID()] = true
+	}
+	if !ids["DEP001"] {
+		t.Errorf("expected dependency DEP001 in candidates, got %v", ids)
+	}
+	if ids["SELF01"] {
+		t.Errorf("viewed tiki SELF01 must not appear in its own dependency list: %v", ids)
+	}
+	if ids["OTHER1"] {
+		t.Errorf("unrelated OTHER1 must be excluded (not in dependsOn): %v", ids)
+	}
+}

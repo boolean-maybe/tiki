@@ -308,6 +308,11 @@ views:
       - key: "D"
         label: "Remove dependency"
         action: update where id = id() set dependsOn = dependsOn - choose(select where id in outer.dependsOn)
+      - key: "L"
+        label: "List dependencies"
+        kind: view
+        view: Detail
+        choose: select where id in target.dependsOn
 
   - name: Project
     kind: detail
