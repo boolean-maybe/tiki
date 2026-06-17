@@ -111,6 +111,72 @@ func TestConfigurableDetailView_FlushFocusedEditor_FlushesAllEditors(t *testing.
 	}
 }
 
+// TestConfigurableDetailView_EditModeHonorsTagsRowSpan pins the fix for the
+// "can never leave the first row when editing tags" bug. The tags value cell
+// spans 3 rows via `^`, but the grid's height callback used to size it to the
+// rendered value's wrapped row count — 1 row for an empty/short tags field. A
+// 1-row tview.TextArea cannot move the cursor to a second line. In edit mode,
+// the focused editable tags anchor must instead get its full declared RowSpan.
+func TestConfigurableDetailView_EditModeHonorsTagsRowSpan(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI121")
+	// Deliberately leave tags empty: this is the case that used to collapse
+	// the editor to a single, un-leaveable row.
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID(),
+		// tags spans rows 2-3 via `^`; status occupies the left column so it
+		// is the first editable field EnterEditMode lands on.
+		detailPluginFromGrid(t, [][]string{
+			{"status", "tags"},
+			{"type", "^"},
+			{"priority", "^"},
+		}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+	if !cv.EnterEditMode() {
+		t.Fatal("EnterEditMode")
+	}
+
+	// Walk focus to tags.
+	for cv.GetFocusedFieldName() != "tags" {
+		if !cv.FocusNextField() {
+			t.Fatal("never focused tags")
+		}
+	}
+
+	tagsAnchor := anchorNamed(t, cv.spec, "tags")
+	if tagsAnchor.RowSpan <= 1 {
+		t.Fatalf("test setup: tags anchor should span >1 row, got %d", tagsAnchor.RowSpan)
+	}
+	if got := cv.anchorHeight(tagsAnchor, tk, 20); got != tagsAnchor.RowSpan {
+		t.Errorf("focused tags editor height = %d, want full span %d (collapsed editor traps the cursor on row 1)",
+			got, tagsAnchor.RowSpan)
+	}
+
+	// Sanity: an unfocused multi-row field keeps view-mode height (the
+	// stored-value row count), so only the focused editor is inflated.
+	cv.focusedIdx = 0 // back to status
+	if got := cv.anchorHeight(tagsAnchor, tk, 20); got != 1 {
+		t.Errorf("unfocused empty tags height = %d, want 1 (view-mode height)", got)
+	}
+}
+
+func anchorNamed(t *testing.T, spec gridlayout.GridSpec, name string) gridlayout.Anchor {
+	t.Helper()
+	for _, a := range spec.Anchors {
+		if a.Name == name {
+			return a
+		}
+	}
+	t.Fatalf("anchor %q not found in spec", name)
+	return gridlayout.Anchor{}
+}
+
 // TestBuildFieldPrimitive_FocusOnlyOnFocusedRow pins the orchestration-
 // layer contract: only the row at focusedIdx should render with the
 // focus marker. Earlier "tests" of this behavior called renderEnumValue

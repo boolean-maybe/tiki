@@ -575,6 +575,29 @@ func TestMatchBinding_CtrlLetterNormalization(t *testing.T) {
 	}
 }
 
+func TestMatchBinding_DeleteBackspaceEquivalence(t *testing.T) {
+	// a workflow `key: "Delete"` registers under KeyDelete (forward-delete),
+	// but the Mac main delete key sends KeyBackspace2. All "delete-ish" keys
+	// must collapse to one equivalence class so the binding fires regardless
+	// of which physical key the platform reports.
+	registry := NewActionRegistry()
+	registry.Register(Action{ID: "test_delete", Key: tcell.KeyDelete})
+
+	for _, key := range []tcell.Key{tcell.KeyDelete, tcell.KeyBackspace, tcell.KeyBackspace2} {
+		if a := registry.MatchBinding(key, 0, 0); a == nil || a.ID != "test_delete" {
+			t.Errorf("key %v should match the Delete-bound action", tcell.KeyNames[key])
+		}
+	}
+
+	// the reverse direction: a `key: "Backspace"` binding must also match a
+	// forward-delete event.
+	bsRegistry := NewActionRegistry()
+	bsRegistry.Register(Action{ID: "test_backspace", Key: tcell.KeyBackspace2})
+	if a := bsRegistry.MatchBinding(tcell.KeyDelete, 0, 0); a == nil || a.ID != "test_backspace" {
+		t.Error("KeyDelete should match the Backspace-bound action")
+	}
+}
+
 func TestMatchBinding_ExactRune(t *testing.T) {
 	registry := NewActionRegistry()
 	registry.Register(Action{

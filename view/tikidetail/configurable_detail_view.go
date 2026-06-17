@@ -397,7 +397,7 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 
 	spec := cv.specForTiki(tk)
 	primitives := cv.buildAnchorPrimitivesForSpec(spec, tk, ctx)
-	heightOf := func(a gridlayout.Anchor, w int) int { return FieldHeight(a.Name, tk, w) }
+	heightOf := func(a gridlayout.Anchor, w int) int { return cv.anchorHeight(a, tk, w) }
 	measure := func(a gridlayout.Anchor) int { return MeasureAnchor(a, tk, ctx) }
 
 	container := tview.NewFlex().SetDirection(tview.FlexRow)
@@ -410,6 +410,21 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 	).SetBorderColor(roles.BorderIdle().TCell())
 	frame.SetBorderPadding(1, 0, 2, 2)
 	return frame
+}
+
+// anchorHeight is the grid's height callback. In view mode it is the rendered
+// value's wrapped row count (FieldHeight). In edit mode, a focused editable
+// field whose layout cell spans multiple rows (via `^`, e.g. tags) gets that
+// full declared span instead — without this its editor would be sized to the
+// stored value's height (1 row for empty/short tags), and a 1-row tview.TextArea
+// cannot move the cursor off the first line. The span is what the layout author
+// reserved for editing; honoring it keeps the editor footprint stable
+// regardless of how many tags currently exist.
+func (cv *ConfigurableDetailView) anchorHeight(a gridlayout.Anchor, tk *tikipkg.Tiki, w int) int {
+	if cv.editMode && a.RowSpan > 1 && a.Name == cv.GetFocusedFieldName() && cv.isEditableLayoutField(a.Name) {
+		return a.RowSpan
+	}
+	return FieldHeight(a.Name, tk, w)
 }
 
 // buildAnchorPrimitivesForSpec produces one tview.Primitive per anchor in the

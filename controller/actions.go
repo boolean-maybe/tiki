@@ -539,9 +539,12 @@ func (r *ActionRegistry) LookupRune(ch rune) (Action, bool) {
 	return a, ok
 }
 
-// normalizeBinding collapses equivalent Ctrl+letter encodings to a canonical form.
-// Canonical form: KeyCtrlX + ModCtrl (where X is the ctrl key constant 1-26).
-// This normalizes: KeyCtrlX+0, KeyCtrlX+ModCtrl, and Key='X'+ModCtrl to the same form.
+// normalizeBinding collapses equivalent key encodings to a canonical form.
+// Ctrl+letter → KeyCtrlX + ModCtrl (where X is the ctrl key constant 1-26),
+// normalizing KeyCtrlX+0, KeyCtrlX+ModCtrl, and Key='X'+ModCtrl alike. The
+// backspace/delete family (KeyBackspace, KeyBackspace2, KeyDelete) → KeyDelete,
+// so a Delete- or Backspace-bound action fires no matter which the platform
+// reports for the physical delete key.
 func normalizeBinding(key tcell.Key, ch rune, mod tcell.ModMask) (tcell.Key, rune, tcell.ModMask) {
 	mod = mod & (tcell.ModShift | tcell.ModCtrl | tcell.ModAlt | tcell.ModMeta)
 
@@ -555,6 +558,17 @@ func normalizeBinding(key tcell.Key, ch rune, mod tcell.ModMask) (tcell.Key, run
 		if key >= 'a' && key <= 'z' {
 			return key - 'a' + tcell.KeyCtrlA, 0, mod
 		}
+	}
+
+	// collapse the backspace/delete family to one canonical key. A workflow
+	// `key: "Delete"` registers under KeyDelete, but the Mac main delete key
+	// sends KeyBackspace2 (and some terminals send KeyBackspace); collapsing
+	// them here lets a Delete- or Backspace-bound action fire regardless of
+	// which the platform reports. Text-editing backspace is unaffected —
+	// it is diverted to the focused widget upstream of the action registry
+	// (input_router.go isTextInputKey), so it never reaches this lookup.
+	if key == tcell.KeyBackspace || key == tcell.KeyBackspace2 {
+		return tcell.KeyDelete, 0, mod
 	}
 
 	return key, ch, mod
