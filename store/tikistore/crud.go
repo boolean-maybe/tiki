@@ -167,22 +167,11 @@ func (s *TikiStore) deleteTikiLocked(id string) bool {
 	// use the loaded file path so a renamed/moved file still gets cleaned up.
 	path := s.pathForTiki(existing)
 
-	// try git rm first if git is available
-	removed := false
-	if s.gitUtil != nil {
-		if err := s.gitUtil.Remove(path); err == nil {
-			removed = true
-		} else {
-			slog.Debug("failed to git remove tiki file, falling back to os.Remove", "tiki_id", id, "path", path, "error", err)
-		}
-	}
-
-	// fall back to os.Remove if git rm failed or unavailable
-	if !removed {
-		if err := os.Remove(path); err != nil {
-			slog.Error("file deletion failed, tiki preserved in memory", "tiki_id", id, "path", path, "error", err)
-			return false
-		}
+	// git integration is read-only: delete only the working-tree file, never
+	// stage the removal. When cwd is a repo the user stages/commits themselves.
+	if err := os.Remove(path); err != nil {
+		slog.Error("file deletion failed, tiki preserved in memory", "tiki_id", id, "path", path, "error", err)
+		return false
 	}
 
 	delete(s.tikis, id)

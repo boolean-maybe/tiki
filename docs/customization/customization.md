@@ -171,7 +171,8 @@ This shows every document in `status = "backlog"`, sorts by priority and then id
 in 4 columns inside a single lane. The `actions:` list defines a keyboard shortcut `b` that moves the
 selected document to the board by setting its status to `ready`.
 
-A documentation view is simply a `kind: wiki` entry pointing at a relative Markdown file under `.doc/`:
+A documentation view is simply a `kind: wiki` entry pointing at a Markdown file relative to the scan root
+(the current directory):
 
 ```yaml
 views:
@@ -183,8 +184,8 @@ views:
     key: "F2"
 ```
 
-Path resolution is relative to `.doc/` — this example loads `.doc/index.md`. You can nest any depth:
-`path: "architecture/index.md"` loads `.doc/architecture/index.md`.
+Path resolution is relative to the scan root — this example loads `./index.md`. You can nest any depth:
+`path: "architecture/index.md"` loads `./architecture/index.md`.
 
 ### Multi-lane board
 

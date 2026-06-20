@@ -17,8 +17,8 @@ func TestLoadDiagnostics_CategorizesAllRejectionKinds(t *testing.T) {
 	// good file — will load.
 	mustWrite(t, dir, "GOOD01.md", "---\nid: GOOD01\ntitle: ok\ntype: story\nstatus: ready\npriority: high\n---\nbody\n")
 
-	// missing id.
-	mustWrite(t, dir, "missing.md", "---\ntitle: no id\n---\nbody\n")
+	// no-id file: ordinary wiki content, skipped silently (no diagnostic).
+	mustWrite(t, dir, "noid.md", "---\ntitle: no id\n---\nbody\n")
 
 	// invalid id — TIKI- prefixed: no longer a recognized identity, so it
 	// lands in the generic invalid bucket alongside other malformed values.
@@ -49,10 +49,13 @@ func TestLoadDiagnostics_CategorizesAllRejectionKinds(t *testing.T) {
 	}
 
 	want := map[LoadReason]int{
-		LoadReasonMissingID:   1,
 		LoadReasonInvalidID:   2, // TIKI-LEG001 and AB both go here
 		LoadReasonDuplicateID: 1,
 		LoadReasonParseError:  1,
+	}
+	// the no-id file must not appear as a rejection at all.
+	if len(diag.Rejections()) != 4 {
+		t.Errorf("expected 4 rejections (no-id file skipped silently), got %d", len(diag.Rejections()))
 	}
 	for reason, count := range want {
 		if got := byReason[reason]; got != count {
@@ -64,20 +67,17 @@ func TestLoadDiagnostics_CategorizesAllRejectionKinds(t *testing.T) {
 // TestLoadDiagnostics_SummaryFormatsEachReasonGroup verifies that Summary()
 // produces a multi-line report grouping rejections by reason, and that each
 // guidance line appears iff a rejection of the matching kind is present.
-// With missing + invalid + duplicate rejections, all three guidance lines
-// must show up.
+// With invalid + duplicate + parse rejections, the duplicate and manual-edit
+// guidance lines must show up.
 func TestLoadDiagnostics_SummaryFormatsEachReasonGroup(t *testing.T) {
 	diag := newLoadDiagnostics()
-	diag.record("/a/missing.md", LoadReasonMissingID, "missing")
 	diag.record("/a/invalid.md", LoadReasonInvalidID, "invalid")
 	diag.record("/a/dup.md", LoadReasonDuplicateID, "duplicate")
+	diag.record("/a/broken.md", LoadReasonParseError, "parse")
 
 	out := diag.Summary()
 	if !strings.Contains(out, "3 file(s) failed to load") {
 		t.Errorf("summary missing count line: %s", out)
-	}
-	if !strings.Contains(out, "missing id (1)") {
-		t.Errorf("summary missing 'missing id' group: %s", out)
 	}
 	if !strings.Contains(out, "invalid id (1)") {
 		t.Errorf("summary missing 'invalid id' group: %s", out)
@@ -85,14 +85,18 @@ func TestLoadDiagnostics_SummaryFormatsEachReasonGroup(t *testing.T) {
 	if !strings.Contains(out, "duplicate id (1)") {
 		t.Errorf("summary missing 'duplicate id' group: %s", out)
 	}
-	if !strings.Contains(out, "Add an `id:` frontmatter field") {
-		t.Errorf("summary missing add-id hint when missing ids are present: %s", out)
+	if !strings.Contains(out, "parse error (1)") {
+		t.Errorf("summary missing 'parse error' group: %s", out)
 	}
 	if !strings.Contains(out, "Assign a fresh bare id") {
 		t.Errorf("summary missing duplicate-id hint when duplicate ids are present: %s", out)
 	}
 	if !strings.Contains(out, "manual edits") {
 		t.Errorf("summary missing manual-edit guidance when invalid is present: %s", out)
+	}
+	// an id-less file is never a rejection, so the add-id hint must never appear.
+	if strings.Contains(out, "Add an `id:`") {
+		t.Errorf("summary must not suggest add-id hint (id-less files are not rejected): %s", out)
 	}
 	// explicit negative: no legacy TIKI- wording anywhere in the report.
 	if strings.Contains(out, "legacy") || strings.Contains(out, "TIKI-") {
@@ -121,24 +125,10 @@ func TestLoadDiagnostics_SummaryOmitsFixHintWhenOnlyInvalid(t *testing.T) {
 	}
 }
 
-// TestLoadDiagnostics_SummaryOmitsManualNoteWhenOnlyMissing verifies the
-// mirror case: when every rejection is a missing id, the user sees the
-// add-id hint and is not bothered by the "manual edits" sentence.
-func TestLoadDiagnostics_SummaryOmitsManualNoteWhenOnlyMissing(t *testing.T) {
-	diag := newLoadDiagnostics()
-	diag.record("/a/missing.md", LoadReasonMissingID, "missing")
-
-	out := diag.Summary()
-	if !strings.Contains(out, "Add an `id:`") {
-		t.Errorf("summary missing add-id hint: %s", out)
-	}
-	if strings.Contains(out, "manual edits") {
-		t.Errorf("summary must not mention manual edits when only missing ids are present: %s", out)
-	}
-	if strings.Contains(out, "Assign a fresh bare id") {
-		t.Errorf("summary must not mention duplicate-id hint when only missing ids are present: %s", out)
-	}
-}
+// note: the former TestLoadDiagnostics_SummaryOmitsManualNoteWhenOnlyMissing
+// was removed. Id-less files are no longer a rejection reason (they are
+// ordinary wiki content, skipped silently), so there is no "only missing ids"
+// case for the summary to format.
 
 // TestLoadDiagnostics_SummaryOffersAssignWhenOnlyDuplicates verifies that
 // the banner surfaces the "assign a fresh id" guidance for duplicates
@@ -176,6 +166,25 @@ func TestLoadDiagnostics_EmptyWhenCleanLoad(t *testing.T) {
 	}
 	if diag.Summary() != "" {
 		t.Errorf("clean load Summary should be empty, got: %q", diag.Summary())
+	}
+}
+
+// TestIDLessFileSilentlySkipped verifies that a markdown file with no
+// frontmatter id is treated as ordinary (wiki) content: it is not indexed as
+// a managed tiki and produces no load diagnostic.
+func TestIDLessFileSilentlySkipped(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, dir, "notes.md", "# Just prose\n\nno frontmatter here\n")
+
+	s, err := NewTikiStore(dir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+	if got := len(s.GetAllTikis()); got != 0 {
+		t.Fatalf("expected 0 tikis, got %d", got)
+	}
+	if s.LoadDiagnostics().HasIssues() {
+		t.Fatalf("id-less file must not produce diagnostics: %s", s.LoadDiagnostics().Summary())
 	}
 }
 

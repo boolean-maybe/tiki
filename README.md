@@ -13,8 +13,8 @@ Follow me on X: [![X Badge](https://img.shields.io/badge/-%23000000.svg?style=fl
 What `tiki` does:
 
 - Standalone **Markdown viewer** with images, Mermaid diagrams, and link/TOC navigation
-- Keep, search, view and version Markdown documents in the **git repo** — everything lives under a single
-  `.doc/` tree, identified by a bare frontmatter `id`
+- Keep, search, view and version Markdown documents in your repo — `tiki` reads every `.md` file under the
+  current directory, identifying documents by a bare frontmatter `id`
 - **Wiki-style** documentation with arbitrary folder hierarchy and multiple entry points
 - Keep a **to-do list** with priorities, status, assignee and size
 - Issue management with **Kanban/Scrum** style board
@@ -95,12 +95,12 @@ cd /tmp && tiki demo
 
 this will open a demo project. Once done you can try your own:
 
-Run `tiki init my-directory` to initialize a project, then `cd my-directory` and run `tiki` to start
+`cd` into any directory of Markdown and run `tiki` — there is no setup step.
 
 Move a task around the board with `Shift ←/Shift →`.
 
 ### AI skills
-You will be prompted to install skills for
+Copy the bundled skill into your AI tool's skills directory to enable
 - [Claude Code](https://code.claude.com)
 - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 - [Codex](https://openai.com/codex)
@@ -123,9 +123,9 @@ Read more [quick capture docs](docs/quick-capture.md).
 
 ## The tiki model
 
-One format, one workspace: every item `tiki` manages is a Markdown file with YAML frontmatter under
-`.doc/`. There is one entity — a **tiki** — defined by an `id`, a `title`, a markdown body, and a free-form
-field map.
+One format, one workspace: every item `tiki` manages is a Markdown file with YAML frontmatter under the
+current directory. There is one entity — a **tiki** — defined by an `id`, a `title`, a markdown body, and a
+free-form field map.
 
 ```md
 ---
@@ -140,8 +140,9 @@ Markdown body.
 
 - **Identity is in the frontmatter.** Every tiki has a bare 6-character uppercase `id` (e.g. `ABC123`).
   The file path is mutable organization, not identity — move or rename files freely, the `id` follows the tiki.
-- **`.doc/**/*.md` is scanned.** The whole tree is loaded recursively. Workflow config files (`workflow.yaml`,
-  `config.yaml`) and non-Markdown assets are excluded.
+- **`./**/*.md` is scanned.** The whole tree under the current directory is loaded recursively. `.git/`,
+  dotted directories, `.gitignore`/`.tikiignore` matches, the workflow config files (`workflow.yaml`,
+  `config.yaml`), and non-Markdown assets are excluded.
 - **Fields are open.** Beyond `id` and `title`, frontmatter is a generic field map. Schema-known fields
   (`status`, `type`, `priority`, `points`, `tags`, `dependsOn`, `due`, `recurrence`, `assignee`) get typed
   coercion; unknown keys are preserved as-is. Absence is meaningful — a tiki with no `status` is not the
@@ -149,7 +150,8 @@ Markdown body.
 - **Views decide behavior via filters.** Board and list views narrow the workspace with ruki `select`
   statements (e.g. `where has(status)`); wiki and detail views render bodies. There is no hidden
   classification — what you query is what you see.
-- **Git-controlled.** Tikis are added, updated, and removed via git as you work. History is preserved.
+- **Git-aware, read-only.** When the directory is a git repository, `tiki` reads history (commit times,
+  authorship) but never stages or commits — versioning your tikis stays in your hands.
 
 ## The tiki TUI
 
@@ -159,8 +161,8 @@ Press `?` to open the Action Palette and discover every available action.
 
 ## AI skills
 
-`tiki` adds optional [agent skills](https://agentskills.io/home) to the repo upon initialization.
-If installed you can:
+`tiki` ships optional [agent skills](https://agentskills.io/home) you copy into your AI tool manually
+(see [AI collaboration](docs/ai.md)). Once installed you can:
 
 - work with [Claude Code](https://code.claude.com),
   [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Codex](https://openai.com/codex), and

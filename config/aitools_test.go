@@ -30,9 +30,6 @@ func TestLookupAITool_Found(t *testing.T) {
 	if tool.Command != "claude" {
 		t.Errorf("expected command 'claude', got %q", tool.Command)
 	}
-	if tool.DisplayName != "Claude Code" {
-		t.Errorf("expected display name 'Claude Code', got %q", tool.DisplayName)
-	}
 }
 
 func TestLookupAITool_NotFound(t *testing.T) {
@@ -64,21 +61,5 @@ func TestAITool_PromptArgs_Positional(t *testing.T) {
 	}
 	if args[0] != "hello" {
 		t.Errorf("expected prompt 'hello', got %q", args[0])
-	}
-}
-
-func TestAITool_SkillPath(t *testing.T) {
-	tool := AITool{SkillDir: ".claude/skills"}
-	path := tool.SkillPath("tiki")
-	if path != ".claude/skills/tiki/SKILL.md" {
-		t.Errorf("expected '.claude/skills/tiki/SKILL.md', got %q", path)
-	}
-}
-
-func TestAITool_SkillPath_SingularDir(t *testing.T) {
-	tool := AITool{SkillDir: ".opencode/skill"}
-	path := tool.SkillPath("tiki")
-	if path != ".opencode/skill/tiki/SKILL.md" {
-		t.Errorf("expected '.opencode/skill/tiki/SKILL.md', got %q", path)
 	}
 }

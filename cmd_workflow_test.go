@@ -45,10 +45,10 @@ func TestParseScopeArgs(t *testing.T) {
 			scope:      config.ScopeGlobal,
 		},
 		{
-			name:       "local with positional",
+			name:       "local alias maps to current",
 			args:       []string{"workflow", "--local"},
 			positional: "workflow",
-			scope:      config.ScopeLocal,
+			scope:      config.ScopeCurrent,
 		},
 		{
 			name:       "scope before positional",
@@ -67,10 +67,10 @@ func TestParseScopeArgs(t *testing.T) {
 			wantErr: errHelpRequested,
 		},
 		{
-			name:       "missing scope defaults to local",
+			name:       "missing scope defaults to current",
 			args:       []string{"config"},
 			positional: "config",
-			scope:      config.ScopeLocal,
+			scope:      config.ScopeCurrent,
 		},
 		{
 			name:      "unknown flag",
@@ -88,9 +88,9 @@ func TestParseScopeArgs(t *testing.T) {
 			errSubstr: "only one scope allowed",
 		},
 		{
-			name:  "no args defaults to local",
+			name:  "no args defaults to current",
 			args:  nil,
-			scope: config.ScopeLocal,
+			scope: config.ScopeCurrent,
 		},
 	}
 

@@ -6,20 +6,19 @@ import (
 	"testing"
 )
 
-// TestWalkDocuments_ExcludesReservedTopLevelDirs guards the walker against
-// treating asset and bundled-workflow directories as document directories.
-// A stray `.md` inside `.doc/assets/` or `.doc/workflows/` must not appear
-// in the result, or the store would strict-load it and the repair command
-// would flag it — even though the user never intended it as a document.
-func TestWalkDocuments_ExcludesReservedTopLevelDirs(t *testing.T) {
+// TestWalkDocuments_RespectsIgnoreFiles verifies the walker prunes paths
+// matched by .gitignore and .tikiignore at the scan root, for both ignored
+// directories (pruned wholesale) and ignored individual files.
+func TestWalkDocuments_RespectsIgnoreFiles(t *testing.T) {
 	root := t.TempDir()
 
+	mustWrite(t, filepath.Join(root, ".gitignore"), "node_modules/\n")
+	mustWrite(t, filepath.Join(root, ".tikiignore"), "DRAFT0.md\n")
+
 	mustWrite(t, filepath.Join(root, "AAAAAA.md"), "valid doc\n")
-	mustWrite(t, filepath.Join(root, "assets", "image.md"), "asset caption\n")
-	mustWrite(t, filepath.Join(root, "workflows", "kanban.md"), "bundled sample\n")
-	// A nested `assets` folder must NOT be excluded — only the top-level
-	// reserved name is pruned. This protects user-authored subtrees.
-	mustWrite(t, filepath.Join(root, "projects", "assets", "BBBBBB.md"), "real doc\n")
+	mustWrite(t, filepath.Join(root, "DRAFT0.md"), "draft, ignored via .tikiignore\n")
+	mustWrite(t, filepath.Join(root, "node_modules", "ZZZZZZ.md"), "ignored via .gitignore\n")
+	mustWrite(t, filepath.Join(root, "projects", "BBBBBB.md"), "real doc\n")
 
 	paths, err := WalkDocuments(root)
 	if err != nil {
@@ -33,18 +32,17 @@ func TestWalkDocuments_ExcludesReservedTopLevelDirs(t *testing.T) {
 	}
 
 	want := map[string]bool{
-		"AAAAAA.md":                 true,
-		"projects/assets/BBBBBB.md": true,
+		"AAAAAA.md":          true,
+		"projects/BBBBBB.md": true,
 	}
 	for w := range want {
 		if !got[w] {
 			t.Errorf("expected %s in walk result; got %v", w, got)
 		}
 	}
-	// must NOT include:
-	for _, excluded := range []string{"assets/image.md", "workflows/kanban.md"} {
+	for _, excluded := range []string{"DRAFT0.md", "node_modules/ZZZZZZ.md"} {
 		if got[excluded] {
-			t.Errorf("walk result unexpectedly included reserved path %s", excluded)
+			t.Errorf("walk result unexpectedly included ignored path %s", excluded)
 		}
 	}
 }

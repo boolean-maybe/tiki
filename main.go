@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "embed"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -19,9 +18,6 @@ import (
 	"github.com/boolean-maybe/tiki/store/tikistore"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 )
-
-//go:embed ai/skills/tiki/SKILL.md
-var tikiSkillMdContent string
 
 // main runs the application bootstrap and starts the TUI.
 func main() {
@@ -53,11 +49,6 @@ func main() {
 			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}
-	}
-
-	// Handle init command — must run before InitPaths (chdir may change cwd)
-	if len(os.Args) > 1 && os.Args[1] == "init" {
-		os.Exit(runInit(os.Args[2:]))
 	}
 
 	// Initialize paths early - this must succeed for the application to function
@@ -105,14 +96,8 @@ func main() {
 		return
 	}
 
-	// Check if project is initialized before launching TUI
-	if !config.IsProjectInitialized() {
-		printUsage()
-		return
-	}
-
 	// Bootstrap application
-	result, err := bootstrap.Bootstrap(tikiSkillMdContent)
+	result, err := bootstrap.Bootstrap()
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
@@ -185,8 +170,7 @@ type ExecOpts struct {
 }
 
 // parseExecArgs parses `tiki exec` arguments, accepting a single ruki
-// statement plus an optional `--format table|json` flag. Follows the
-// parseInitArgs style.
+// statement plus an optional `--format table|json` flag.
 //
 // Supports the standard `--` end-of-options marker: every arg after `--` is
 // treated as positional, so ruki statements that legitimately start with `-`
@@ -302,18 +286,6 @@ func runExec(args []string) int {
 		return exitStartupFailure
 	}
 
-	if config.GetStoreGit() {
-		if err := bootstrap.EnsureGitRepo(); err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
-			return exitStartupFailure
-		}
-	}
-
-	if !config.IsProjectInitialized() {
-		_, _ = fmt.Fprintln(os.Stderr, "error: project not initialized: run 'tiki init' first")
-		return exitStartupFailure
-	}
-
 	if err := config.InstallDefaultWorkflow(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "warning: install default workflow: %v\n", err)
 	}
@@ -377,16 +349,15 @@ count(select where status != "done")'
 `)
 }
 
-// printUsage prints usage information when tiki is run in an uninitialized repo.
+// printUsage prints command-line usage information.
 func printUsage() {
 	fmt.Print(`tiki - Terminal-based document management with workflow support
 
 Usage:
-  tiki                       Launch TUI in initialized repo
-  tiki init [dir] [options]    Initialize project (exits without launching TUI)
+  tiki                       Launch TUI over Markdown in the current directory
   tiki exec [--format table|json] '<statement>'    Execute a ruki query and exit
-  tiki workflow reset [target]  Reset config files (--global, --local, --current)
-  tiki workflow install <source> Install a workflow (--global, --local, --current)
+  tiki workflow reset [target]  Reset config files (--global, --current)
+  tiki workflow install <source> Install a workflow (--global, --current)
   tiki demo                  Launch demo project (extracts embedded files on first run)
   tiki file.md/URL           View markdown file or image
   echo "Title" | tiki        Create a document from piped input
@@ -397,7 +368,5 @@ Usage:
 
 Options:
   --log-level <level>   Set log level (debug, info, warn, error)
-
-Run 'tiki init' to initialize this repository.
 `)
 }

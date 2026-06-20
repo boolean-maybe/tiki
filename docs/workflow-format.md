@@ -383,7 +383,7 @@ Old configs are rejected with specific errors that point at the new syntax. The 
 |------------------------------------------------|-------------------------------------------------------|
 | `type: tiki`                                   | `kind: board` (or `kind: list` for 1-lane views)      |
 | `type: doki` + `fetcher: file` + `url: x.md`   | `kind: wiki` + `path: x.md`                           |
-| `type: doki` + `fetcher: internal` + `text:`   | write a `.md` file under `.doc/` and use `kind: wiki` |
+| `type: doki` + `fetcher: internal` + `text:`   | write a `.md` file under the cwd and use `kind: wiki`  |
 | `views.plugins:` wrapper                       | top-level `views:` list                               |
 | `views.actions:`                               | top-level `actions:`                                  |
 | `view: compact`/`view: expanded` on a view     | declare a `layout:` field on the board/list view      |

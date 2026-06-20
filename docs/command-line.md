@@ -6,59 +6,16 @@
 tiki [command] [options]
 ```
 
-Running `tiki` with no arguments launches the TUI in an initialized project.
+Running `tiki` with no arguments launches the TUI over the current directory. There is no project setup
+step — `tiki` recursively reads every `.md` file under the cwd, skipping `.git/`, dotted directories, and
+paths matched by `.gitignore`/`.tikiignore`. See [Installation](install.md#scan-scope) for the full scan
+model.
 
 ## Commands
 
-### init
-
-Initialize a tiki project. Creates the unified `.doc/` directory and writes a welcome tiki at
-`.doc/<ID>.md`. Every tiki — whether it carries workflow fields or just `id` and `title` — lives in the
-same directory tree; identity lives in the tiki's frontmatter (`id:`), not in the file path.
-
-If the target directory does not exist, it is created. If the directory is not a git repository, `git init` is run
-automatically, unless `store.git` is set to `false` (see [Configuration](config.md)).
-
-```
-tiki init [directory] [-w|--workflow <source>] [--ai-skill <list>] [-n|--non-interactive]
-```
-
-| Option | Description |
-|---|---|
-| `directory` | Target directory (default: current directory) |
-| `-w`, `--workflow <source>` | Install a workflow (embedded name, file path, or URL) |
-| `--ai-skill <list>` | AI skills to install, comma-separated (e.g. `claude,gemini`) |
-| `-n`, `--non-interactive` | Skip prompts, use only flags and defaults |
-
-The welcome tiki is written when its frontmatter is compatible with the active workflow. Under a custom workflow
-whose statuses don't match, it is silently skipped.
-
-```bash
-# interactive init with AI skill selection
-tiki init
-
-# initialize a subdirectory (creates dir, and git repo if store.git is enabled)
-tiki init my-project
-
-# install a bundled workflow by name
-tiki init -w todo
-
-# initialize a subdirectory with a bundled workflow
-tiki init -w kanban my-project
-
-# install from a local file
-tiki init -w ./custom-workflow.yaml
-
-# install from a URL
-tiki init -w https://example.com/workflow.yaml
-
-# fully non-interactive
-tiki init -n --ai-skill claude,gemini
-```
-
 ### exec
 
-Execute a [ruki](ruki/index.md) query and exit. Requires an initialized project.
+Execute a [ruki](ruki/index.md) query and exit.
 
 ```bash
 tiki exec [--format table|json] [--] '<ruki-statement>'
@@ -99,23 +56,23 @@ tiki workflow reset [target] [--scope]
 - `config` — config.yaml
 - `workflow` — workflow.yaml
 
-**Scopes** (default: `--local`):
+**Scopes** (default: `--current`):
 - `--global` — user config directory
-- `--local` — project config directory (`.doc/`)
-- `--current` — current working directory
+- `--current` — current working directory (the scan root)
+- `--local` — deprecated alias for `--current` (the project tier and the cwd tier are the same directory now)
 
 For `--global`, workflow.yaml is overwritten with the default. config.yaml is deleted (built-in defaults take over).
 
-For `--local` and `--current`, files are deleted so the next tier in the [precedence chain](config.md#precedence) takes effect.
+For `--current`, files are deleted so the next tier in the [precedence chain](config.md#precedence) takes effect.
 
 ```bash
 # restore all global config to defaults
 tiki workflow reset --global
 
-# remove project workflow overrides (falls back to global)
-tiki workflow reset workflow --local
+# remove the cwd workflow override (falls back to global)
+tiki workflow reset workflow --current
 
-# remove cwd config override
+# remove the cwd config override
 tiki workflow reset config --current
 ```
 
@@ -131,17 +88,17 @@ tiki workflow install <source> [--scope]
 **Sources:** bundled name (`kanban`, `todo`, `bug-tracker`), file path (`./custom.yaml`),
 or URL (`https://example.com/workflow.yaml`).
 
-**Scopes** (default: `--local`):
+**Scopes** (default: `--current`):
 - `--global` — user config directory
-- `--local` — project config directory (`.doc/`)
-- `--current` — current working directory
+- `--current` — current working directory (the scan root)
+- `--local` — deprecated alias for `--current`
 
 ```bash
 # install the kanban workflow globally
 tiki workflow install kanban --global
 
-# install from a local file
-tiki workflow install ./custom.yaml --local
+# install from a local file into the current directory
+tiki workflow install ./custom.yaml --current
 
 # install from a URL
 tiki workflow install https://example.com/workflow.yaml --global

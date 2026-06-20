@@ -11,19 +11,18 @@ and a visual theme — all tailored to the way your team works.
 
 ## Before you start
 
-Everything in this guide goes into your project's `.doc/` directory:
+Everything in this guide goes into your project directory (the directory you run `tiki` in):
 
-- `.doc/workflow.yaml` — your workflow customization
-- `.doc/config.yaml` — appearance and display settings
+- `./workflow.yaml` — your workflow customization
+- `./config.yaml` — appearance and display settings
 
-tiki looks for configuration in three places:
+tiki looks for configuration in two places:
 
-1. **User config** (`~/.config/tiki/`)
-2. **The project directory** (`.doc/`) — can be saved to git
-3. **The current directory** (`./`) — local overrides
+1. **User config** (`~/.config/tiki/`) — your personal defaults
+2. **The current directory** (`./`) — per-project overrides committed alongside the repo
 
-The more specific location wins. In this tutorial we work with `.doc/` so
-the customizations are project-level and travel with your repo.
+The more specific location wins. In this tutorial we work in the project directory so
+the customizations travel with your repo.
 
 > **YAML spacing matters.** Use two spaces for each level of indentation, never
 > tabs. If something does not work, check your spacing first — it is almost
@@ -33,8 +32,8 @@ the customizations are project-level and travel with your repo.
 
 ## 1. Meet your default workflow
 
-Before changing anything, let us look at what ships with tiki. When you
-run `tiki init`, you get a workflow with:
+Before changing anything, let us look at what ships with tiki. With no `workflow.yaml`
+present, tiki uses its embedded default workflow:
 
 **Five statuses** — the stages a task moves through:
 
@@ -79,7 +78,7 @@ Statuses are defined in `workflow.yaml` as a `fields:` entry named `status` with
 one important thing to know: **when you define statuses, you replace the entire list**. That means you need
 to include all the statuses you want — the originals plus your new ones.
 
-Create `.doc/workflow.yaml` with this content:
+Create `./workflow.yaml` with this content:
 
 ```yaml
 fields:
@@ -141,7 +140,7 @@ dependencies, cleaning up old branches, or writing documentation.
 Types work the same way as statuses: **when you define types, you replace the
 entire list**.
 
-Add this to your `.doc/workflow.yaml`, right after the status field entry:
+Add this to your `./workflow.yaml`, right after the status field entry:
 
 ```yaml
   - name: type
@@ -399,7 +398,7 @@ Custom fields let you add your own data to every task. Let us add three:
 - **component** — which part of the system? (frontend, backend, or infra)
 - **estimate** — how many hours do you think this will take?
 
-Add a `fields:` section to your `.doc/workflow.yaml`:
+Add a `fields:` section to your `./workflow.yaml`:
 
 ```yaml
 fields:
@@ -579,7 +578,7 @@ you navigate to via links) instead of a list of tasks:
     key: "F2"
 ```
 
-`path:` is resolved relative to `.doc/`, so this loads `.doc/index.md` as the
+`path:` is resolved relative to the scan root (the current directory), so this loads `./index.md` as the
 entry point. You navigate from there by following links — plain Markdown links
 to relative paths, or `[[ID]]` wikilinks to other managed documents.
 
@@ -595,14 +594,14 @@ example, an architecture notes section:
 ```
 
 This creates a separate view at F7 pointing to a different starting file. You
-would create `.doc/architecture/index.md` with links to your architecture
+would create `./architecture/index.md` with links to your architecture
 documents.
 
 ---
 
 ## 10. Look and feel
 
-Appearance settings live in a separate file: `.doc/config.yaml`. This file
+Appearance settings live in a separate file: `./config.yaml`. This file
 merges field by field — you only need to include what you want to change.
 
 ### Picking a theme
@@ -668,12 +667,12 @@ each view declares its layout directly.
 
 ## 11. The complete customized workflow
 
-Here is everything we have built, combined into a single `.doc/workflow.yaml`.
+Here is everything we have built, combined into a single `./workflow.yaml`.
 You can use this as a starting point and adjust it to your needs.
 
 ```yaml
 # --- Customized team workflow ---
-# Place this file at .doc/workflow.yaml in your project
+# Place this file at ./workflow.yaml in your project
 
 fields:
   # Statuses: the lifecycle of a task
@@ -874,7 +873,7 @@ triggers:
         update where id = new.id set priority="high"
 ```
 
-And the companion `.doc/config.yaml`:
+And the companion `./config.yaml`:
 
 ```yaml
 appearance:

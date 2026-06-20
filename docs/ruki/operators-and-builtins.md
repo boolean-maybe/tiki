@@ -285,8 +285,8 @@ Runtime notes:
   `filepaths()` is additionally rejected inside trigger guards and actions, mirroring the rule for `ids()`.
 - `user()` returns the current Tiki identity. Resolution order:
   configured `identity.name` or `identity.email` (via `config.yaml` or
-  `TIKI_IDENTITY_NAME` / `TIKI_IDENTITY_EMAIL`), then the git user when
-  `store.git` is `true`, then the OS account username. Either config field
+  `TIKI_IDENTITY_NAME` / `TIKI_IDENTITY_EMAIL`), then the git user when the
+  scan root is a git repository, then the OS account username. Either config field
   alone is sufficient — when only email is set, it is used as the display
   string. When none of those sources yields a value, `user()` returns an
   error (`user() is unavailable (no current user configured)`). See

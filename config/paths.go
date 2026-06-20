@@ -6,10 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
-
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -18,9 +15,6 @@ var (
 
 	// ErrPathManagerInit indicates that the PathManager failed to initialize
 	ErrPathManagerInit = errors.New("failed to initialize path manager")
-
-	// ErrInvalidDocDir indicates that the configured store.dir value is invalid
-	ErrInvalidDocDir = errors.New("invalid store.dir")
 )
 
 // PathManager manages all file system paths for tiki
@@ -28,7 +22,6 @@ type PathManager struct {
 	configDir   string // User config directory
 	cacheDir    string // User cache directory
 	projectRoot string // Current working directory
-	docDirName  string // Relative document directory name (default ".doc")
 }
 
 // newPathManager creates and initializes a new PathManager
@@ -48,24 +41,10 @@ func newPathManager() (*PathManager, error) {
 		return nil, fmt.Errorf("get project root: %w", err)
 	}
 
-	docDirName := defaultDocDirName
-	if demoDocDirOverride != "" {
-		docDirName = demoDocDirOverride
-	} else {
-		resolved, resolveErr := resolveUserConfiguredDocDir(configDir)
-		if resolveErr != nil {
-			return nil, fmt.Errorf("resolve store.dir: %w", resolveErr)
-		}
-		if resolved != "" {
-			docDirName = resolved
-		}
-	}
-
 	return &PathManager{
 		configDir:   configDir,
 		cacheDir:    cacheDir,
 		projectRoot: projectRoot,
-		docDirName:  docDirName,
 	}, nil
 }
 
@@ -168,19 +147,16 @@ func (pm *PathManager) ConfigFile() string {
 	return filepath.Join(pm.configDir, "config.yaml")
 }
 
-// DocDir returns the unified document root. All managed markdown
-// documents live somewhere under this directory — this is the single scan
-// root for the document store. Defaults to ".doc" but configurable via
-// user-level store.dir.
+// DocDir returns the document scan/write root, which is the current working
+// directory itself. All `.md` files under it are candidate documents.
 func (pm *PathManager) DocDir() string {
-	return filepath.Join(pm.projectRoot, pm.docDirName)
+	return pm.projectRoot
 }
 
-// ProjectConfigDir returns the project-level config directory.
-// Identical to DocDir by construction — workflow.yaml and config.yaml live
-// alongside document files at the unified root.
+// ProjectConfigDir returns the project-level config directory — the project
+// root, where a cwd workflow.yaml/config.yaml live.
 func (pm *PathManager) ProjectConfigDir() string {
-	return filepath.Join(pm.projectRoot, pm.docDirName)
+	return pm.projectRoot
 }
 
 // UserConfigWorkflowFile returns the path to workflow.yaml in the user config directory
@@ -188,11 +164,9 @@ func (pm *PathManager) UserConfigWorkflowFile() string {
 	return filepath.Join(pm.configDir, defaultWorkflowFilename)
 }
 
-// EnsureDirs creates all necessary directories with appropriate permissions.
-// Fresh projects get a flat `.doc/` root with no subdirectories created by
-// init — users organize content however they want underneath. Existing
-// projects with subdirectories under `.doc/` continue to work; nothing
-// removes them and the loader walks the tree recursively.
+// EnsureDirs creates the user config and cache directories. The document scan
+// root is the current working directory, which already exists, so nothing is
+// created for it.
 func (pm *PathManager) EnsureDirs() error {
 	// Create user config directory
 	//nolint:gosec // G301: 0755 is appropriate for config directory
@@ -203,12 +177,6 @@ func (pm *PathManager) EnsureDirs() error {
 	// Create user cache directory (non-fatal if it fails)
 	//nolint:gosec // G301: 0755 is appropriate for cache directory
 	_ = os.MkdirAll(pm.cacheDir, 0755)
-
-	// Create the unified document root.
-	//nolint:gosec // G301: 0755 is appropriate for project document directory
-	if err := os.MkdirAll(pm.DocDir(), 0755); err != nil {
-		return fmt.Errorf("create document directory %s: %w", pm.DocDir(), err)
-	}
 
 	return nil
 }
@@ -256,14 +224,12 @@ func InitPaths() error {
 
 // ResetPathManager resets the path manager singleton for testing purposes.
 // This allows tests to reinitialize paths with different environment variables.
-// Also clears the demo doc-dir override so tests do not leak state.
 func ResetPathManager() {
 	pathManagerMu.Lock()
 	defer pathManagerMu.Unlock()
 	pathManager = nil
 	pathManagerErr = nil
 	pathManagerOnce = sync.Once{}
-	demoDocDirOverride = ""
 }
 
 // mustGetPathManager returns the global PathManager or panics if not initialized.
@@ -290,18 +256,13 @@ func GetCacheDir() string {
 	return mustGetPathManager().CacheDir()
 }
 
-// GetDocDir returns the unified document root (default ".doc", configurable
-// via user-level store.dir). This is the single scan root for the document
-// store; brand-new documents are written at <doc-dir>/<ID>.md, while loading
-// is filename-agnostic — every `.md` under the doc dir is loaded and the id
-// comes from the frontmatter `id:` field.
+// GetDocDir returns the document scan/write root — the current working
+// directory. This is the single scan root for the document store; brand-new
+// documents are written at <cwd>/<ID>.md, while loading is filename-agnostic —
+// every `.md` under the root is loaded and the id comes from the frontmatter
+// `id:` field.
 func GetDocDir() string {
 	return mustGetPathManager().DocDir()
-}
-
-// GetProjectConfigDir returns the project-level config directory (same as doc dir)
-func GetProjectConfigDir() string {
-	return mustGetPathManager().ProjectConfigDir()
 }
 
 // GetUserConfigWorkflowFile returns the path to workflow.yaml in the user config directory
@@ -314,94 +275,6 @@ const configFilename = "config.yaml"
 
 // defaultWorkflowFilename is the default name for the workflow configuration file
 const defaultWorkflowFilename = "workflow.yaml"
-
-// defaultDocDirName is the built-in document directory name when no user config overrides it.
-const defaultDocDirName = ".doc"
-
-// demoDocDirOverride forces a specific doc dir name during demo mode.
-// Set via setDemoDocDirOverride, cleared via ResetPathManager.
-var demoDocDirOverride string
-
-// SetDemoDocDirOverride forces the path manager to use the given doc dir name,
-// bypassing user config. Used only by the demo command. Must be called after
-// ResetPathManager and before InitPaths.
-func SetDemoDocDirOverride(name string) {
-	demoDocDirOverride = name
-}
-
-// GetDocDirName returns the configured relative document directory name (e.g. ".doc", "docs").
-func GetDocDirName() string {
-	return mustGetPathManager().docDirName
-}
-
-// ValidateDocDir checks that name is a valid relative document directory name.
-// Rejects empty, absolute, ".." segments, and paths that resolve to the project root.
-func ValidateDocDir(name string) error {
-	if name == "" {
-		return fmt.Errorf("%w: empty directory name", ErrInvalidDocDir)
-	}
-	if filepath.IsAbs(name) {
-		return fmt.Errorf("%w: must be a relative path", ErrInvalidDocDir)
-	}
-	if containsDotDot(name) {
-		return fmt.Errorf("%w: must not contain '..' segments", ErrInvalidDocDir)
-	}
-	cleaned := filepath.Clean(name)
-	if cleaned == "." {
-		return fmt.Errorf("%w: must not resolve to the project root", ErrInvalidDocDir)
-	}
-	return nil
-}
-
-// containsDotDot reports whether the path contains a ".." segment.
-func containsDotDot(path string) bool {
-	cleaned := filepath.ToSlash(path)
-	for _, seg := range strings.Split(cleaned, "/") {
-		if seg == ".." {
-			return true
-		}
-	}
-	return false
-}
-
-// userDocDirConfig is the minimal YAML shape for the early user-config pre-read.
-type userDocDirConfig struct {
-	Store struct {
-		Dir string `yaml:"dir"`
-	} `yaml:"store"`
-}
-
-// resolveUserConfiguredDocDir reads only the user config file and returns the
-// configured store.dir value, or empty string if unset/missing. Returns an error
-// for invalid directory names. YAML parse errors or type mismatches are treated
-// as "unset" (the full config loader will report them later).
-func resolveUserConfiguredDocDir(configDir string) (string, error) {
-	path := filepath.Join(configDir, configFilename)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", nil
-		}
-		return "", fmt.Errorf("reading user config %s: %w", path, err)
-	}
-
-	var cfg userDocDirConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		// YAML that doesn't fit our minimal shape (e.g. a bare scalar) is not
-		// fatal here — the full config loader will catch actual parse errors.
-		return "", nil
-	}
-
-	dir := cfg.Store.Dir
-	if dir == "" {
-		return "", nil
-	}
-
-	if err := ValidateDocDir(dir); err != nil {
-		return "", err
-	}
-	return dir, nil
-}
 
 // findHighestPriorityFile returns the highest-priority existing file from
 // the standard search order: user config → project config → cwd.
@@ -428,14 +301,18 @@ func findHighestPriorityFile(candidates []string) string {
 	return best
 }
 
-// workflowCandidates returns the standard workflow.yaml search paths
-// in priority order: user config (lowest) → project config → cwd (highest).
+// workflowCandidates returns the standard workflow.yaml search paths in
+// priority order: user config (lowest) → cwd (highest). The scan root is the
+// current working directory, so a project-level workflow.yaml lives at the cwd
+// root — there is no separate ".doc" project tier. When neither file exists the
+// embedded default is seeded into the user config at launch
+// (config.InstallDefaultWorkflow), so the chain still resolves to the embedded
+// default in practice.
 func workflowCandidates() []string {
 	pm := mustGetPathManager()
 	return []string{
 		pm.UserConfigWorkflowFile(),
-		filepath.Join(pm.ProjectConfigDir(), defaultWorkflowFilename),
-		defaultWorkflowFilename, // relative to cwd
+		filepath.Join(pm.ProjectConfigDir(), defaultWorkflowFilename), // cwd root
 	}
 }
 
@@ -443,7 +320,7 @@ func workflowCandidates() []string {
 // and returns both the winning path and its classified scope. This is the
 // single source of truth — FindWorkflowFile and FindWorkflowFiles delegate here.
 func findWorkflowFileWithScope() (string, Scope) {
-	scopes := []Scope{ScopeGlobal, ScopeLocal, ScopeCurrent}
+	scopes := []Scope{ScopeGlobal, ScopeCurrent}
 	candidates := workflowCandidates()
 
 	var bestPath string
@@ -498,8 +375,6 @@ func WorkflowScopeLabel(scope Scope) string {
 	switch scope {
 	case ScopeGlobal:
 		return "global"
-	case ScopeLocal:
-		return "project"
 	case ScopeCurrent:
 		return "local"
 	default:

@@ -1,0 +1,377 @@
+version: "0.6.0"
+description: |
+  Kanban-style workflow for small-team software work. Four statuses
+  (Inbox → Ready → In Progress → Done) and four task types
+  (Story, Bug, Spike, Project). Includes an "assign to me" action.
+fields:
+  - name: status
+    type: enum
+    caption: "Status"
+    values:
+      - value: inbox
+        label: Inbox
+        visual: "📥"
+        default: true
+      - value: ready
+        label: Ready
+        visual: "📋"
+      - value: inProgress
+        label: "In Progress"
+        visual: "⚙️"
+      - value: done
+        label: Done
+        visual: "✅"
+  - name: type
+    type: enum
+    caption: "Type"
+    values:
+      - value: story
+        label: Story
+        visual: "🌀"
+        default: true
+      - value: bug
+        label: Bug
+        visual: "💥"
+      - value: spike
+        label: Spike
+        visual: "🔍"
+      - value: project
+        label: Project
+        visual: "🗂️"
+  - name: priority
+    type: enum
+    caption: "Priority"
+    values:
+      - {value: high, label: High, visual: "🔴"}
+      - {value: medium-high, label: "Medium High", visual: "🟠"}
+      - {value: medium, label: Medium, visual: "🟡", default: true}
+      - {value: medium-low, label: "Medium Low", visual: "🟢"}
+      - {value: low, label: Low, visual: "🔵"}
+  - name: points
+    type: enum
+    caption: "Points"
+    values:
+      - {value: "11", label: "11", visual: "<action>❚❚❚❚❚❚❚❚❚❚❚"}
+      - {value: "7",  label: "7",  visual: "<action>❚❚❚❚❚❚❚<muted>❘❘❘❘"}
+      - {value: "3",  label: "3",  visual: "<action>❚❚❚<muted>❘❘❘❘❘❘❘❘", default: true}
+      - {value: "1",  label: "1",  visual: "<action>❚<muted>❘❘❘❘❘❘❘❘❘❘"}
+  - name: tags
+    type: stringList
+    caption: "Tags"
+    default: ["idea"]
+  - name: dependsOn
+    type: tikiIdList
+    caption: "Deps"
+  - name: due
+    type: date
+    caption: "Due"
+  - name: recurrence
+    type: recurrence
+    caption: "Recurrence"
+  - name: assignee
+    type: text
+    caption: "Assignee"
+
+actions:
+  - key: "y"
+    label: "Copy ID"
+    action: select id where id = id() | clipboard()
+  - key: "Y"
+    label: "Copy content"
+    action: select title, description where filepath = filepath() | clipboard()
+  - key: "o"
+    label: "Open in VS Code"
+    action: select filepath where filepath = filepath() | run("code \"$1\"")
+    hot: false
+  - key: "u"
+    label: "Flag urgent"
+    action: update where id = id() set priority="high" tags=tags+["urgent"]
+    hot: false
+  - key: "A"
+    label: "Assign to..."
+    action: update where id = id() set assignee=input()
+    input: string
+    hot: false
+  - key: "t"
+    label: "Add tag"
+    action: update where filepath = filepath() set tags=tags+[input()]
+    input: string
+    hot: false
+  - key: "T"
+    label: "Remove tag"
+    action: update where filepath = filepath() set tags=tags-[input()]
+    input: string
+    hot: false
+  - key: Ctrl-Q
+    label: "Quick create"
+    action: create title=input()
+    input: string
+    hot: false
+
+views:
+  - name: Kanban
+    kind: board
+    description: "Move tiki to change status, search, create or delete\nShift Left/Right to move"
+    default: true
+    key: "F1"
+    layout: |
+      type.visual + " " + id
+      <text.secondary>title
+      "priority " + priority.visual + "  points " + points.visual
+    lanes:
+      - name: Inbox
+        filter: select where status = "inbox" and type != "project" and has(priority) order by priority, createdAt
+        action: update where id = id() set status="inbox"
+      - name: Ready
+        filter: select where status = "ready" and type != "project" and has(priority) order by priority, createdAt
+        action: update where id = id() set status="ready"
+      - name: In Progress
+        filter: select where status = "inProgress" and type != "project" and has(priority) order by priority, createdAt
+        action: update where id = id() set status="inProgress"
+      - name: Done
+        filter: select where status = "done" and type != "project" and has(priority) order by priority, createdAt
+        action: update where id = id() set status="done"
+    actions:
+      - key: Enter
+        label: Open
+        kind: view
+        view: Detail
+        require: ["selection:one"]
+      - key: "a"
+        label: "Add to project"
+        action: update where id = choose(select where type = "project" and outer.id not in dependsOn) set dependsOn = dependsOn + id()
+      - key: "e"
+        label: Edit
+        kind: view
+        view: Detail
+        mode: edit
+        require: ["selection:one"]
+      - key: "n"
+        label: New
+        kind: view
+        view: Detail
+        mode: new
+      - key: "m"
+        label: "Assign to me"
+        action: update where id = id() set assignee=user()
+      - key: "d"
+        label: "Add dependency"
+        action: update where id = id() set dependsOn = dependsOn + choose(select where has(type) and type != "project" and id != id() and id not in outer.dependsOn)
+      - key: "D"
+        label: "Remove dependency"
+        action: update where id = id() set dependsOn = dependsOn - choose(select where id in outer.dependsOn)
+      - key: "+"
+        label: "Priority up"
+        action: update where id = id() set priority = prev_enum(priority)
+      - key: "-"
+        label: "Priority down"
+        action: update where id = id() set priority = next_enum(priority)
+      - key: "Delete"
+        label: Delete
+        action: delete where id = id()
+        require: ["selection:one"]
+
+  - name: Recent
+    kind: board
+    description: "Tasks changed in the last 24 hours, most recent first"
+    key: Ctrl-R
+    layout: |
+      type.visual + " " + id
+      <text.secondary>title
+      "priority " + priority.visual + "  points " + points.visual
+    lanes:
+      - name: Recent
+        columns: 4
+        filter: select where now() - updatedAt < 24hour and has(type) and type != "project" order by updatedAt desc
+    actions:
+      - key: Enter
+        label: Open
+        kind: view
+        view: Detail
+        require: ["selection:one"]
+      - key: "e"
+        label: Edit
+        kind: view
+        view: Detail
+        mode: edit
+        require: ["selection:one"]
+      - key: "n"
+        label: New
+        kind: view
+        view: Detail
+        mode: new
+      - key: "m"
+        label: "Assign to me"
+        action: update where id = id() set assignee=user()
+      - key: "d"
+        label: "Add dependency"
+        action: update where id = id() set dependsOn = dependsOn + choose(select where has(type) and type != "project" and id != id() and id not in outer.dependsOn)
+      - key: "D"
+        label: "Remove dependency"
+        action: update where id = id() set dependsOn = dependsOn - choose(select where id in outer.dependsOn)
+      - key: "+"
+        label: "Priority up"
+        action: update where id = id() set priority = prev_enum(priority)
+      - key: "-"
+        label: "Priority down"
+        action: update where id = id() set priority = next_enum(priority)
+      - key: "Delete"
+        label: Delete
+        action: delete where id = id()
+        require: ["selection:one"]
+
+  - name: Roadmap
+    kind: board
+    description: "Projects organized by Now, Next, and Later horizons"
+    key: "F4"
+    layout: |
+      type.visual + " " + id
+      <text.secondary>title
+      <text.muted>dependsOn.count + <text.muted>" tasks"
+      _
+      <text.muted>"tags: " + <text.value>tags
+      "priority " + priority.visual + "  points " + points.visual
+    lanes:
+      - name: Now
+        columns: 1
+        width: 25
+        filter: select where type = "project" and status = "ready" and has(priority) and has(points) order by priority, points
+        action: update where id = id() set status="ready"
+      - name: Next
+        columns: 1
+        width: 25
+        filter: select where type = "project" and status = "inbox" and has(priority) and priority = "high" and has(points) order by priority, points
+        action: update where id = id() set status="inbox" priority="high"
+      - name: Later
+        columns: 2
+        width: 50
+        filter: select where type = "project" and status = "inbox" and has(priority) and priority > "high" and has(points) order by priority, points
+        action: update where id = id() set status="inbox" priority="medium-high"
+    actions:
+      - key: Enter
+        label: Open
+        kind: view
+        view: Project
+        require: ["selection:one"]
+      - key: "l"
+        label: "Add tiki to project"
+        action: update where id = id() set dependsOn = dependsOn + choose(select where has(type) and type != "project" and id not in outer.dependsOn)
+      - key: "e"
+        label: Edit
+        kind: view
+        view: Project
+        mode: edit
+        require: ["selection:one"]
+      - key: "n"
+        label: New
+        kind: view
+        view: Detail
+        mode: new
+      - key: "m"
+        label: "Assign to me"
+        action: update where id = id() set assignee=user()
+      - key: "+"
+        label: "Priority up"
+        action: update where id = id() set priority = prev_enum(priority)
+      - key: "-"
+        label: "Priority down"
+        action: update where id = id() set priority = next_enum(priority)
+      - key: "Delete"
+        label: Delete
+        action: delete where id = id()
+        require: ["selection:one"]
+
+  - name: Docs
+    kind: wiki
+    description: "Project notes and documentation files"
+    path: "index.md"
+    key: "F2"
+
+  - name: Detail
+    kind: detail
+    description: "View and edit selected task"
+    require: ["selection:one"]
+    layout: |
+      <highlight>title             | --                                        | --                            | --            | --                             | --          | --                       | --
+      _                            | _                                         | _                             | _             | _                              | _           | _                        | _
+      <text.label>status.caption   | (status.label + " " + status.visual):16.. | <text.label>assignee.caption  | assignee:18.. | <text.label>due.caption        | due:12..    | <text.label>tags.caption | <text.label>dependsOn.caption
+      <text.label>type.caption     | type.label + " " + type.visual            | <text.muted>createdBy.caption | createdBy     | <text.label>recurrence.caption | recurrence? | tags?:18..               | dependsOn?:16..fr
+      <text.label>priority.caption | priority                                  | <text.muted>createdAt.caption | createdAt     | _                              | _           | ^                        | ^
+      <text.label>points.caption   | points                                    | <text.muted>updatedAt.caption | updatedAt     | _                              | _           | ^                        | ^
+    actions:
+      - key: "R"
+        label: "Make recurring"
+        action: update where id = id() set recurrence=daily() due=next_date(daily())
+      - key: "d"
+        label: "Add dependency"
+        action: update where id = id() set dependsOn = dependsOn + choose(select where has(type) and type != "project" and id != id() and id not in outer.dependsOn)
+      - key: "D"
+        label: "Remove dependency"
+        action: update where id = id() set dependsOn = dependsOn - choose(select where id in outer.dependsOn)
+      - key: "L"
+        label: "List dependencies"
+        kind: view
+        view: Detail
+        choose: select where id in target.dependsOn
+
+  - name: Project
+    kind: detail
+    description: "View and edit selected project"
+    require: ["selection:one"]
+    layout: |
+      <highlight>title             | --                                 | --                    | --        | --                       | --    | --                                                                                                                                                                                                                                                                                    | --
+      _                            | _                                  | _                     | _         | _                        | _     | _                                                                                                                                                                                                                                                                                     | _
+      <text.label>status.caption   | (status.label + " " + status.visual):16.. | <text.muted>createdBy.caption  | createdBy | <text.label>tags.caption | tags? | (<text.muted>"Projects gather related tasks — stories, bugs, and spikes — into a single unit of planning. Press " + <status.warn>"<L>" + <text.muted>" to see every task linked to this project. Move it across Now, Next, and Later as priorities shift; it auto-completes when all its tasks are done."):fr | _
+      <text.label>priority.caption | priority                           | <text.muted>createdAt.caption  | createdAt | ^                        | ^     | ^                                                                                                                                                                                                                                                                                     | _
+      <text.label>points.caption   | points                             | <text.muted>updatedAt.caption  | updatedAt | ^                        | ^     | ^                                                                                                                                                                                                                                                                                     | _
+    actions:
+      - key: "L"
+        label: "List tasks"
+        kind: view
+        view: Detail
+        choose: select where id in target.dependsOn
+      - key: "a"
+        label: "Add to project"
+        action: update where id = id() set dependsOn = dependsOn + choose(select where has(type) and type != "project" and id not in outer.dependsOn)
+
+triggers:
+  - description: block completion with open dependencies
+    ruki: >
+      before update
+        where new.status = "done" and new.dependsOn any status != "done"
+        deny "cannot complete: has open dependencies"
+  - description: tasks must pass through in-progress before completion
+    ruki: >
+      before update
+        where new.status = "done" and old.status != "inProgress"
+        deny "tasks must be in-progress before marking done"
+  - description: remove deleted task from dependency lists
+    ruki: >
+      after delete
+        update where old.id in dependsOn set dependsOn = dependsOn - [old.id]
+  - description: clean up completed tasks after 24 hours
+    ruki: >
+      every 1day
+        delete where status = "done" and updatedAt < now() - 1day
+  - description: tasks must have an assignee before starting
+    ruki: >
+      before update
+        where new.status = "inProgress" and new.assignee is empty
+        deny "assign someone before moving to in-progress"
+  - description: auto-complete projects when all child tasks finish
+    ruki: >
+      after update
+        where new.status = "done" and new.type != "project"
+        update where type = "project" and new.id in dependsOn and dependsOn all status = "done"
+        set status="done"
+  - description: cannot delete tasks that are actively being worked
+    ruki: >
+      before delete
+        where old.status = "inProgress"
+        deny "cannot delete an in-progress task — move to inbox or done first"
+  - description: spawn next occurrence when recurring task completes
+    ruki: >
+      after update
+        where new.status = "done" and old.recurrence is not empty
+        create title=old.title priority=old.priority tags=old.tags
+               recurrence=old.recurrence due=next_date(old.recurrence) status="inbox"

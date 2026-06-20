@@ -37,13 +37,12 @@ The mapping rule is mechanical:
 2. Replace each `.` in the config key with `_`
 3. Uppercase the result
 
-So `store.git` becomes `TIKI_STORE_GIT`, `logging.level` becomes `TIKI_LOGGING_LEVEL`,
+So `store.name` becomes `TIKI_STORE_NAME`, `logging.level` becomes `TIKI_LOGGING_LEVEL`,
 and `appearance.theme` becomes `TIKI_APPEARANCE_THEME`.
 
 Environment variables take precedence over every config file:
 
 ```bash
-TIKI_STORE_GIT=false tiki init /tmp/sandbox     # one-off project without git
 TIKI_LOGGING_LEVEL=debug tiki                   # temporarily verbose logs
 TIKI_APPEARANCE_THEME=dracula tiki              # try a theme without editing files
 ```
@@ -53,23 +52,22 @@ changes take effect on the next run — not retroactively for a running process.
 
 ## Precedence
 
-`tiki` looks for configuration in three locations, from least specific to most specific:
+`tiki` looks for configuration in two locations, from least specific to most specific:
 
 1. **User config directory** (platform-specific, see [above](#configuration-directories)) - your personal defaults
-2. **Project config directory** (`.doc/`) - shared with the team via git
-3. **Current working directory** (`./`) - local overrides, useful during development
+2. **Current working directory** (`./`) - the scan root; per-project overrides committed alongside the repo
 
-The single highest-priority file wins — no merging across files. This means each project can have
+The single highest-priority file wins — no merging across files. This means each directory can have
 its own workflow, statuses, and views that differ from your personal defaults. A design-team project
 might use statuses like "Draft / Review / Approved" while an engineering project uses
-"Backlog / In Progress / Done" — each defined in their own `.doc/workflow.yaml`.
+"Backlog / In Progress / Done" — each defined in their own `./workflow.yaml`.
 
 ### config.yaml
 
 The single highest-priority `config.yaml` found is loaded. Values not specified in that file fall
 back to built-in defaults (not inherited from lower-priority files).
 
-Search order: user config dir → `.doc/config.yaml` (project) → cwd. Last match wins.
+Search order: user config dir → `./config.yaml` (cwd). Last match wins.
 
 ### workflow.yaml
 
@@ -77,7 +75,8 @@ The single highest-priority `workflow.yaml` found is loaded. All workflow-backed
 global actions, triggers) come from that one file. Lower-priority files are ignored entirely.
 See [Workflow format versions](workflow-format.md) for schema evolution.
 
-Search order: user config dir → `.doc/workflow.yaml` (project) → cwd. Last match wins.
+Search order: user config dir → `./workflow.yaml` (cwd). Last match wins. When neither file exists, the
+embedded default (kanban) workflow is used.
 
 - Missing `fields:` entry `name: status` in the winning file is an error.
 - Missing `fields:` entry `name: type` in the winning file is an error.
@@ -134,21 +133,14 @@ ai:
 # Store backend configuration
 store:
   name: tiki                 # Store engine name
-  git: true                  # Enable git integration: true (default), false
-                             # When false, `tiki init` and `tiki demo` skip
-                             # `git init`, task saves do not auto-stage, the
-                             # status line omits the branch name, and task
-                             # history (which is derived from commits) is empty.
-                             # Author attribution still works in no-git mode via
-                             # the `identity` block or the OS account username.
 
 # Tiki identity — used by `user()` and task attribution
 identity:
   name: "Your Name"          # Display name for the current user
   email: "you@example.com"   # Email for the current user
                              # Both fields are optional. When unset, tiki falls
-                             # back to git's user.name/user.email (if git is
-                             # enabled) and then to the OS account username.
+                             # back to git's user.name/user.email (when the scan
+                             # root is a repo) and then to the OS account username.
                              # Environment overrides: TIKI_IDENTITY_NAME,
                              # TIKI_IDENTITY_EMAIL.
 ```
@@ -160,8 +152,8 @@ identity, in order:
 
 1. Configured `identity.name` / `identity.email` (or `TIKI_IDENTITY_NAME` /
    `TIKI_IDENTITY_EMAIL` environment variables).
-2. Git user from `git config user.name` / `user.email`, when `store.git` is
-   `true` and git is available.
+2. Git user from `git config user.name` / `user.email`, when the scan root is a
+   git repository and git is available.
 3. OS account username from `os/user.Current()`, falling back to `$USER` /
    `$LOGNAME` / `$USERNAME`. The OS fallback never invents a display name —
    it returns the raw account username so behavior is predictable across
@@ -173,7 +165,7 @@ consistently. The git layer is subject to the same promotion rule.
 
 When none of those sources resolve, `user()` returns an "unavailable" error
 and the "User" header stat displays `n/a`. Setting the `identity` block is
-the recommended way to enable `user()` in no-git workflows.
+the recommended way to enable `user()` when the scan root is not a git repository.
 
 ### workflow.yaml
 

@@ -24,20 +24,16 @@ func setupLoadWorkflowFieldsTest(t *testing.T) (cwdDir string) {
 		t.Fatal(err)
 	}
 
-	projectDir := t.TempDir()
-	docDir := filepath.Join(projectDir, ".doc")
-	if err := os.MkdirAll(docDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-
 	cwdDir = t.TempDir()
 	originalDir, _ := os.Getwd()
 	t.Cleanup(func() { _ = os.Chdir(originalDir) })
 	_ = os.Chdir(cwdDir)
 
+	// projectRoot mirrors the runtime invariant projectRoot == cwd, so the
+	// cwd-root workflow.yaml is the project candidate.
 	ResetPathManager()
 	pm := mustGetPathManager()
-	pm.projectRoot = projectDir
+	pm.projectRoot = cwdDir
 
 	return cwdDir
 }
@@ -167,11 +163,10 @@ fields:
 
 func TestLoadWorkflowFields_HighestPriorityFileWins(t *testing.T) {
 	cwdDir := setupLoadWorkflowFieldsTest(t)
-	pm := mustGetPathManager()
 
-	// write fields in project config (lower priority)
-	projectWorkflow := filepath.Join(pm.ProjectConfigDir(), "workflow.yaml")
-	if err := os.WriteFile(projectWorkflow, []byte(`
+	// write fields in user config (lower priority)
+	userWorkflow := filepath.Join(GetConfigDir(), "workflow.yaml")
+	if err := os.WriteFile(userWorkflow, []byte(`
 fields:
   - name: score
     type: integer
@@ -179,7 +174,7 @@ fields:
 		t.Fatal(err)
 	}
 
-	// write different fields in cwd (highest priority)
+	// write different fields at the cwd root (highest priority)
 	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(`
 fields:
   - name: notes
@@ -192,12 +187,12 @@ fields:
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// only cwd fields should be loaded
+	// only cwd-root fields should be loaded
 	if _, ok := workflow.Field("notes"); !ok {
-		t.Error("expected 'notes' from cwd workflow")
+		t.Error("expected 'notes' from cwd-root workflow")
 	}
 	if _, ok := workflow.Field("score"); ok {
-		t.Error("expected 'score' from project workflow to NOT be loaded")
+		t.Error("expected 'score' from user workflow to NOT be loaded")
 	}
 }
 

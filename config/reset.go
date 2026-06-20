@@ -15,7 +15,6 @@ type ResetTarget string
 
 const (
 	ScopeGlobal  Scope = "global"
-	ScopeLocal   Scope = "local"
 	ScopeCurrent Scope = "current"
 
 	TargetAll      ResetTarget = ""
@@ -74,11 +73,6 @@ func resolveDir(scope Scope) (string, error) {
 	switch scope {
 	case ScopeGlobal:
 		return GetConfigDir(), nil
-	case ScopeLocal:
-		if !IsProjectInitialized() {
-			return "", fmt.Errorf("not in an initialized tiki project (run 'tiki init' first)")
-		}
-		return GetProjectConfigDir(), nil
 	case ScopeCurrent:
 		cwd, err := os.Getwd()
 		if err != nil {

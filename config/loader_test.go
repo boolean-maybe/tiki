@@ -213,11 +213,7 @@ header:
 	}
 
 	projectDir := t.TempDir()
-	docDir := filepath.Join(projectDir, ".doc")
-	if err := os.MkdirAll(docDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(docDir, "config.yaml"), []byte(`
+	if err := os.WriteFile(filepath.Join(projectDir, "config.yaml"), []byte(`
 logging:
   level: debug
 `), 0644); err != nil {
@@ -266,11 +262,7 @@ logging:
 
 	// project config
 	projectDir := t.TempDir()
-	docDir := filepath.Join(projectDir, ".doc")
-	if err := os.MkdirAll(docDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(docDir, "config.yaml"), []byte(`
+	if err := os.WriteFile(filepath.Join(projectDir, "config.yaml"), []byte(`
 logging:
   level: warn
 `), 0644); err != nil {
@@ -330,7 +322,7 @@ header:
 	appConfig = nil
 	ResetPathManager()
 	pm := mustGetPathManager()
-	pm.projectRoot = cwdDir // no .doc/ dir here
+	pm.projectRoot = cwdDir // no project config.yaml here
 
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -424,7 +416,6 @@ func TestLoadConfigStore(t *testing.T) {
 	configContent := `
 store:
   name: tiki
-  git: false
 `
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("failed to create test config: %v", err)
@@ -446,14 +437,8 @@ store:
 	if cfg.Store.Name != "tiki" {
 		t.Errorf("expected store.name 'tiki', got '%s'", cfg.Store.Name)
 	}
-	if cfg.Store.Git != false {
-		t.Errorf("expected store.git false, got %v", cfg.Store.Git)
-	}
 	if got := GetStoreName(); got != "tiki" {
 		t.Errorf("GetStoreName() = '%s', want 'tiki'", got)
-	}
-	if got := GetStoreGit(); got != false {
-		t.Errorf("GetStoreGit() = %v, want false", got)
 	}
 }
 
@@ -474,14 +459,8 @@ func TestLoadConfigStoreDefaults(t *testing.T) {
 	if cfg.Store.Name != "tiki" {
 		t.Errorf("expected default store.name 'tiki', got '%s'", cfg.Store.Name)
 	}
-	if cfg.Store.Git != true {
-		t.Errorf("expected default store.git true, got %v", cfg.Store.Git)
-	}
 	if got := GetStoreName(); got != "tiki" {
 		t.Errorf("GetStoreName() = '%s', want 'tiki'", got)
-	}
-	if got := GetStoreGit(); got != true {
-		t.Errorf("GetStoreGit() = %v, want true", got)
 	}
 }
 
@@ -577,110 +556,6 @@ func TestLoadConfigIdentityEnvOverride(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_ProjectStoreDirIgnored(t *testing.T) {
-	userDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", userDir)
-	userTikiDir := filepath.Join(userDir, "tiki")
-	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-	// user config sets docs as doc dir
-	if err := os.WriteFile(filepath.Join(userTikiDir, "config.yaml"), []byte("store:\n  dir: docs\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	projectDir := t.TempDir()
-	docDir := filepath.Join(projectDir, "docs")
-	if err := os.MkdirAll(docDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-	// project config tries to override doc dir
-	if err := os.WriteFile(filepath.Join(docDir, "config.yaml"), []byte("store:\n  dir: other\n  git: false\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	cwdDir := t.TempDir()
-	originalDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(originalDir) }()
-	_ = os.Chdir(cwdDir)
-
-	appConfig = nil
-	ResetPathManager()
-	if err := InitPaths(); err != nil {
-		t.Fatalf("InitPaths: %v", err)
-	}
-	pm := mustGetPathManager()
-	pm.projectRoot = projectDir
-
-	cfg, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig failed: %v", err)
-	}
-
-	// the doc dir must still be "docs" from user config, not "other"
-	if got := GetDocDirName(); got != "docs" {
-		t.Errorf("GetDocDirName() = %q, want 'docs' (project store.dir must not change it)", got)
-	}
-	// the project config's store.git value is still honored for runtime config
-	if cfg.Store.Git != false {
-		t.Errorf("expected store.git false from project config, got %v", cfg.Store.Git)
-	}
-}
-
-func TestLoadConfig_CwdStoreDirIgnored(t *testing.T) {
-	userDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", userDir)
-	userTikiDir := filepath.Join(userDir, "tiki")
-	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-
-	// cwd config tries to set store.dir
-	cwdDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(cwdDir, "config.yaml"), []byte("store:\n  dir: other\n  git: false\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	originalDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(originalDir) }()
-	_ = os.Chdir(cwdDir)
-
-	appConfig = nil
-	ResetPathManager()
-	if err := InitPaths(); err != nil {
-		t.Fatalf("InitPaths: %v", err)
-	}
-
-	_, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig failed: %v", err)
-	}
-
-	// doc dir must be default ".doc" since user config has no store.dir
-	if got := GetDocDirName(); got != ".doc" {
-		t.Errorf("GetDocDirName() = %q, want '.doc' (cwd store.dir must not change it)", got)
-	}
-}
-
-func TestLoadConfigStoreEnvOverride(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	originalDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(originalDir) }()
-	_ = os.Chdir(tmpDir)
-
-	appConfig = nil
-	t.Setenv("TIKI_STORE_GIT", "false")
-
-	cfg, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig failed: %v", err)
-	}
-
-	if cfg.Store.Git != false {
-		t.Errorf("expected store.git false from env override, got %v", cfg.Store.Git)
-	}
-	if got := GetStoreGit(); got != false {
-		t.Errorf("GetStoreGit() = %v, want false", got)
-	}
-}
+// note: the former TestLoadConfigStoreEnvOverride was removed. The store.git
+// flag (and its TIKI_STORE_GIT env override) no longer exists — git
+// integration is automatic and read-only, with no enable/disable switch.

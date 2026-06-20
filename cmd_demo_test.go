@@ -48,7 +48,6 @@ func countFiles(t *testing.T, root string) int {
 
 func TestRunDemo_MaterializesAllFiles(t *testing.T) {
 	setupDemoTest(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 
 	if err := runDemo(); err != nil {
 		t.Fatalf("runDemo: %v", err)
@@ -67,27 +66,29 @@ func TestRunDemo_MaterializesAllFiles(t *testing.T) {
 		t.Errorf("file count = %d, want at least 90", got)
 	}
 
-	for _, rel := range []string{".doc", ".gitignore", ".doc/workflow.yaml"} {
+	// the demo ships flat: workflow.yaml and .gitignore at the root, no .doc.
+	for _, rel := range []string{".gitignore", "workflow.yaml"} {
 		if _, err := os.Stat(filepath.Join(demoRoot, rel)); err != nil {
 			t.Errorf("missing expected entry %q: %v", rel, err)
 		}
 	}
+	if _, err := os.Stat(filepath.Join(demoRoot, ".doc")); !os.IsNotExist(err) {
+		t.Error("tiki-demo must not contain a .doc directory")
+	}
 }
 
 // TestRunDemo_DemoLoadsCleanlyUnderStrictIDs is the regression gate for the
-// embedded demo dataset under the Phase 8 unified layout. It proves:
+// embedded demo dataset under the flat layout. It proves:
 //
 //  1. every demo document (workflow + plain, flat and nested) carries a valid
 //     bare id in frontmatter — no missing/legacy/invalid-id diagnostics
 //     when loaded through the strict store;
-//  2. the store resolves a known id to a real `.md` path under `.doc/`,
+//  2. the store resolves a known id to a real `.md` path under the demo root,
 //     regardless of the filename chosen — identity comes from frontmatter,
 //     not from filename. Demo files use human-readable topical names; this
 //     test must keep passing whether filenames are `<ID>.md` or topical.
-//  3. the demo never creates the legacy `.doc/tiki/` or `.doc/doki/` roots.
 func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 	setupDemoTest(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 
 	if err := runDemo(); err != nil {
 		t.Fatalf("runDemo: %v", err)
@@ -96,12 +97,11 @@ func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 	// runDemo materialized workflow.yaml; the store needs the status / type
 	// / custom-field registries loaded from it before parsing any doc.
 	if err := config.LoadWorkflowFields(); err != nil {
-		t.Fatalf("LoadWorkflowRegistries: %v", err)
+		t.Fatalf("LoadWorkflowFields: %v", err)
 	}
 
-	// runDemo chdirs into tiki-demo, so .doc is relative to cwd.
-	docRoot := filepath.Join(".", ".doc")
-	store, err := tikistore.NewTikiStore(docRoot)
+	// runDemo chdirs into tiki-demo, so the scan root is cwd.
+	store, err := tikistore.NewTikiStore(".")
 	if err != nil {
 		t.Fatalf("NewTikiStore on demo: %v", err)
 	}
@@ -119,10 +119,9 @@ func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 		t.Errorf("workflow tiki count after demo load = %d, want >= 40", got)
 	}
 
-	// Sanity: a known tiki id from the demo must resolve to a `.md` file flat
-	// at the document root (not under a `tiki/` subdir). Filename is opaque —
-	// identity comes from frontmatter — so we don't assert a specific name,
-	// only the location shape.
+	// Sanity: a known tiki id from the demo must resolve to a `.md` file under
+	// the demo root. Filename is opaque — identity comes from frontmatter — so
+	// we don't assert a specific name, only that it is a .md path.
 	demoTiki := store.GetTiki("XVG0FN")
 	if demoTiki == nil {
 		t.Fatal("demo tiki XVG0FN missing after load")
@@ -133,16 +132,6 @@ func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 	if !strings.HasSuffix(demoTiki.Path(), ".md") {
 		t.Errorf("tiki XVG0FN resolved to %s, want a .md path", demoTiki.Path())
 	}
-	if !strings.Contains(demoTiki.Path(), string(filepath.Separator)+".doc"+string(filepath.Separator)) {
-		t.Errorf("tiki XVG0FN resolved to %s, want path under .doc/", demoTiki.Path())
-	}
-
-	// Phase 8 invariant: demo must not create legacy subdirectories.
-	for _, legacy := range []string{".doc/tiki", ".doc/doki"} {
-		if _, err := os.Stat(legacy); err == nil {
-			t.Errorf("legacy directory %s must not exist in unified demo", legacy)
-		}
-	}
 }
 
 // TestRunDemo_WritesEmbeddedKanbanWorkflow pins the single-source-of-truth
@@ -151,14 +140,13 @@ func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 // not a version literal — so the test survives future kanban updates.
 func TestRunDemo_WritesEmbeddedKanbanWorkflow(t *testing.T) {
 	setupDemoTest(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 
 	if err := runDemo(); err != nil {
 		t.Fatalf("runDemo: %v", err)
 	}
 
-	// runDemo chdirs into tiki-demo, so .doc/workflow.yaml is relative to cwd.
-	got, err := os.ReadFile(filepath.Join(".doc", "workflow.yaml"))
+	// runDemo chdirs into tiki-demo, so workflow.yaml is at the cwd root.
+	got, err := os.ReadFile("workflow.yaml")
 	if err != nil {
 		t.Fatalf("read workflow: %v", err)
 	}
@@ -173,16 +161,14 @@ func TestRunDemo_WritesEmbeddedKanbanWorkflow(t *testing.T) {
 // "overwrite on every launch".
 func TestRunDemo_PreservesExistingWorkflowEdits(t *testing.T) {
 	setupDemoTest(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 
-	// pre-populate tiki-demo/.doc/workflow.yaml with a sentinel that is
+	// pre-populate tiki-demo/workflow.yaml with a sentinel that is
 	// guaranteed to differ from the embedded kanban.
-	dir := filepath.Join(demoDirName, ".doc")
-	if err := os.MkdirAll(dir, 0o750); err != nil {
+	if err := os.MkdirAll(demoDirName, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	custom := []byte("version: 9.9.9\n# user's edits\n")
-	wfPath := filepath.Join(dir, "workflow.yaml")
+	wfPath := filepath.Join(demoDirName, "workflow.yaml")
 	if err := os.WriteFile(wfPath, custom, 0o644); err != nil {
 		t.Fatalf("seed workflow: %v", err)
 	}
@@ -191,8 +177,8 @@ func TestRunDemo_PreservesExistingWorkflowEdits(t *testing.T) {
 		t.Fatalf("runDemo: %v", err)
 	}
 
-	// cwd is now inside tiki-demo, so workflow.yaml is at ./.doc/workflow.yaml.
-	got, err := os.ReadFile(filepath.Join(".doc", "workflow.yaml"))
+	// cwd is now inside tiki-demo, so workflow.yaml is at ./workflow.yaml.
+	got, err := os.ReadFile("workflow.yaml")
 	if err != nil {
 		t.Fatalf("read workflow: %v", err)
 	}
@@ -202,15 +188,14 @@ func TestRunDemo_PreservesExistingWorkflowEdits(t *testing.T) {
 }
 
 // TestRunDemo_HealsMissingWorkflowOnReuse guards the stranded-half-init
-// scenario: an existing tiki-demo/ dir without .doc/workflow.yaml (e.g. from
+// scenario: an existing tiki-demo/ dir without workflow.yaml (e.g. from
 // an interrupted prior run or a user deletion) must self-heal by writing the
 // embedded kanban rather than leaving the demo in a state where
-// FindWorkflowFile silently falls back to user-config or cwd scope.
+// FindWorkflowFile silently falls back to user-config scope.
 func TestRunDemo_HealsMissingWorkflowOnReuse(t *testing.T) {
 	setupDemoTest(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 
-	// pre-create tiki-demo/ with a sentinel but no .doc/workflow.yaml
+	// pre-create tiki-demo/ with a sentinel but no workflow.yaml
 	if err := os.MkdirAll(demoDirName, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -223,7 +208,7 @@ func TestRunDemo_HealsMissingWorkflowOnReuse(t *testing.T) {
 		t.Fatalf("runDemo: %v", err)
 	}
 
-	got, err := os.ReadFile(filepath.Join(".doc", "workflow.yaml"))
+	got, err := os.ReadFile("workflow.yaml")
 	if err != nil {
 		t.Fatalf("read healed workflow: %v", err)
 	}
@@ -241,14 +226,12 @@ func TestRunDemo_HealsMissingWorkflowOnReuse(t *testing.T) {
 // local edits to existing assets survive, but missing bundled assets reappear.
 func TestRunDemo_HealsMissingAssetsOnReuse(t *testing.T) {
 	setupDemoTest(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 
-	docDir := filepath.Join(demoDirName, ".doc")
-	if err := os.MkdirAll(docDir, 0o750); err != nil {
-		t.Fatalf("mkdir doc dir: %v", err)
+	if err := os.MkdirAll(demoDirName, 0o750); err != nil {
+		t.Fatalf("mkdir demo dir: %v", err)
 	}
 	doc := []byte("---\nid: 3GDPPQ\ntitle: diagram doc\nstatus: inbox\n---\n\n![diagram](assets/api-grpc-api.svg)\n")
-	if err := os.WriteFile(filepath.Join(docDir, "fleet-certificate-rotation.md"), doc, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(demoDirName, "fleet-certificate-rotation.md"), doc, 0o644); err != nil {
 		t.Fatalf("write demo doc: %v", err)
 	}
 
@@ -256,45 +239,40 @@ func TestRunDemo_HealsMissingAssetsOnReuse(t *testing.T) {
 		t.Fatalf("runDemo: %v", err)
 	}
 
-	assetPath := filepath.Join(".doc", "assets", "api-grpc-api.svg")
+	assetPath := filepath.Join("assets", "api-grpc-api.svg")
 	if _, err := os.Stat(assetPath); err != nil {
 		t.Fatalf("expected missing demo asset to be healed at %s: %v", assetPath, err)
 	}
 }
 
-// TestRunDemo_UnifiedLayout pins the demo-shape contract end-to-end:
-// the extracted demo must have no `.doc/tiki` or `.doc/doki` subtrees, must
-// place workflow documents flat at `.doc/` (with human-readable filenames —
-// identity comes from frontmatter, not the filename), and must keep shared
-// media under `.doc/assets/`. If a regression brings the old split-tree
-// layout back (via embed changes, bootstrap changes, or a stray copy step)
-// this fails loudly.
-func TestRunDemo_UnifiedLayout(t *testing.T) {
+// TestRunDemo_FlatLayout pins the demo-shape contract end-to-end: the extracted
+// demo must have no .doc subtree, must place workflow documents flat at the demo
+// root (with human-readable filenames — identity comes from frontmatter, not the
+// filename), and must keep shared media under assets/. If a regression brings the
+// old .doc layout back (via embed changes or a stray copy step) this fails loudly.
+func TestRunDemo_FlatLayout(t *testing.T) {
 	setupDemoTest(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 
 	if err := runDemo(); err != nil {
 		t.Fatalf("runDemo: %v", err)
 	}
 
 	// runDemo chdirs into tiki-demo, so paths are relative to cwd.
-	for _, legacy := range []string{".doc/tiki", ".doc/doki"} {
-		if _, err := os.Stat(legacy); err == nil {
-			t.Errorf("legacy directory %s must not exist in unified demo", legacy)
-		}
+	if _, err := os.Stat(".doc"); !os.IsNotExist(err) {
+		t.Error(".doc must not exist in the flat demo")
 	}
 
 	// assets/ must exist and hold the shared markdown.png (no per-subtree copies).
-	if _, err := os.Stat(".doc/assets"); err != nil {
-		t.Errorf(".doc/assets missing: %v", err)
+	if _, err := os.Stat("assets"); err != nil {
+		t.Errorf("assets/ missing: %v", err)
 	}
 
-	// At least 40 workflow markdown files must be present flat at `.doc/`,
+	// At least 20 workflow markdown files must be present flat at the demo root,
 	// excluding reserved files and the index. Filename is opaque — demo files
 	// use human-readable topical names; this check is filename-shape-agnostic.
-	entries, err := os.ReadDir(".doc")
+	entries, err := os.ReadDir(".")
 	if err != nil {
-		t.Fatalf("read .doc: %v", err)
+		t.Fatalf("read demo root: %v", err)
 	}
 	reserved := map[string]struct{}{
 		"workflow.yaml": {},
@@ -304,9 +282,6 @@ func TestRunDemo_UnifiedLayout(t *testing.T) {
 	var workflowFileCount int
 	for _, e := range entries {
 		if e.IsDir() {
-			if e.Name() == "tiki" || e.Name() == "doki" {
-				t.Errorf("unexpected legacy subdir %s in unified demo", e.Name())
-			}
 			continue
 		}
 		name := e.Name()
@@ -321,7 +296,7 @@ func TestRunDemo_UnifiedLayout(t *testing.T) {
 		}
 	}
 	if workflowFileCount < 20 {
-		t.Errorf("flat .doc/*.md workflow file count = %d, want >= 20", workflowFileCount)
+		t.Errorf("flat *.md workflow file count = %d, want >= 20", workflowFileCount)
 	}
 
 	// Demo workflow docs carry explicit workflow fields (status, type,
@@ -333,7 +308,7 @@ func TestRunDemo_UnifiedLayout(t *testing.T) {
 	if err := config.LoadWorkflowFields(); err != nil {
 		t.Fatalf("LoadWorkflowFields: %v", err)
 	}
-	wfStore, err := tikistore.NewTikiStore(filepath.Join(".", ".doc"))
+	wfStore, err := tikistore.NewTikiStore(".")
 	if err != nil {
 		t.Fatalf("NewTikiStore on demo: %v", err)
 	}
@@ -351,28 +326,27 @@ func TestRunDemo_UnifiedLayout(t *testing.T) {
 		}
 	}
 
-	// Plain doc spot-check: `.doc/index.md` is a bundled plain document —
+	// Plain doc spot-check: index.md is a bundled plain document —
 	// it must declare an id but no workflow fields.
-	plain, err := os.ReadFile(".doc/index.md")
+	plain, err := os.ReadFile("index.md")
 	if err != nil {
 		t.Fatalf("read demo plain doc: %v", err)
 	}
 	plainStr := string(plain)
 	if !strings.Contains(plainStr, "id:") {
-		t.Error("demo plain doc .doc/index.md missing id")
+		t.Error("demo plain doc index.md missing id")
 	}
 	// Frontmatter ends at the second `---` line; only look above it.
 	if end := strings.Index(plainStr[4:], "---"); end > 0 {
 		frontmatter := plainStr[:4+end]
 		for _, forbidden := range []string{"status:", "priority:", "points:"} {
 			if strings.Contains(frontmatter, forbidden) {
-				t.Errorf("demo plain doc .doc/index.md must not carry workflow field %s", forbidden)
+				t.Errorf("demo plain doc index.md must not carry workflow field %s", forbidden)
 			}
 		}
 	}
 
-	// The demo must exercise both relative markdown links and `[[ID]]` links
-	// per the Phase 8 plan.
+	// The demo must exercise both relative markdown links and `[[ID]]` links.
 	if !strings.Contains(plainStr, "](architecture/index.md)") {
 		t.Error("demo index should contain relative markdown link")
 	}
@@ -383,7 +357,6 @@ func TestRunDemo_UnifiedLayout(t *testing.T) {
 
 func TestRunDemo_ReusesExistingDir(t *testing.T) {
 	setupDemoTest(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 
 	// pre-create tiki-demo/ with a sentinel file
 	if err := os.MkdirAll(demoDirName, 0o750); err != nil {
@@ -403,175 +376,13 @@ func TestRunDemo_ReusesExistingDir(t *testing.T) {
 		t.Errorf("sentinel missing after reuse: %v", err)
 	}
 	// the embedded demo tree (workflow docs, gitignore) must not have been
-	// written, because extraction was skipped. .doc/workflow.yaml and
-	// .doc/assets are allowed self-heals, not full tree extraction.
+	// written, because extraction was skipped. workflow.yaml and assets/ are
+	// allowed self-heals, not full tree extraction.
 	// telemetry-timestamp-drift.md is a representative flat workflow doc from
 	// the demo dataset (frontmatter id: XVG0FN).
-	for _, rel := range []string{".gitignore", ".doc/telemetry-timestamp-drift.md"} {
+	for _, rel := range []string{".gitignore", "telemetry-timestamp-drift.md"} {
 		if _, err := os.Stat(rel); err == nil {
 			t.Errorf("%s should not exist — reused dir should not be re-extracted", rel)
 		}
 	}
-}
-
-func TestRunDemo_IgnoresUserStoreDir(t *testing.T) {
-	t.Chdir(t.TempDir())
-	t.Setenv("TIKI_STORE_GIT", "false")
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-
-	// configure user-level store.dir to "docs" — demo must still use .doc
-	userConfigDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", userConfigDir)
-	tikiDir := filepath.Join(userConfigDir, "tiki")
-	//nolint:gosec // G301: test directory
-	if err := os.MkdirAll(tikiDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-	//nolint:gosec // G306: test config file
-	if err := os.WriteFile(filepath.Join(tikiDir, "config.yaml"), []byte("store:\n  dir: docs\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	config.ResetPathManager()
-	t.Cleanup(config.ResetPathManager)
-
-	if err := runDemo(); err != nil {
-		t.Fatalf("runDemo: %v", err)
-	}
-
-	// demo must use .doc, not "docs"
-	if _, err := os.Stat(".doc"); err != nil {
-		t.Errorf("expected .doc/ to exist in demo: %v", err)
-	}
-	if _, err := os.Stat("docs"); !os.IsNotExist(err) {
-		t.Errorf("'docs' directory should not exist in demo — user store.dir must be ignored")
-	}
-	if got := config.GetDocDirName(); got != ".doc" {
-		t.Errorf("GetDocDirName() = %q in demo, want '.doc'", got)
-	}
-}
-
-func TestRunDemo_GitInitWhenStoreGitTrue(t *testing.T) {
-	setupDemoTest(t)
-	t.Setenv("TIKI_STORE_GIT", "true")
-
-	if err := runDemo(); err != nil {
-		t.Fatalf("runDemo: %v", err)
-	}
-
-	if _, err := os.Stat(".git"); err != nil {
-		t.Errorf("expected .git/ to exist with TIKI_STORE_GIT=true: %v", err)
-	}
-}
-
-func TestRunDemo_NoGitWhenDisabled(t *testing.T) {
-	setupDemoTest(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
-
-	if err := runDemo(); err != nil {
-		t.Fatalf("runDemo: %v", err)
-	}
-
-	if _, err := os.Stat(".git"); err == nil {
-		t.Errorf(".git/ should not exist with TIKI_STORE_GIT=false")
-	}
-}
-
-// TestRunDemo_ReconcilesGitOnSecondRun verifies the high-severity fix:
-// when the first run leaves no .git/ and the user subsequently enables
-// store.git, the second runDemo invocation must initialize git even though
-// the tiki-demo directory already exists.
-func TestRunDemo_ReconcilesGitOnSecondRun(t *testing.T) {
-	setupDemoTest(t)
-
-	// first run: no git
-	t.Setenv("TIKI_STORE_GIT", "false")
-	if err := runDemo(); err != nil {
-		t.Fatalf("first runDemo: %v", err)
-	}
-	if _, err := os.Stat(".git"); err == nil {
-		t.Fatalf(".git/ should not exist after first run")
-	}
-
-	// chdir back to the parent so the second call sees tiki-demo as an
-	// existing dir (runDemo chdirs into it, so we need to undo that first).
-	parent := filepath.Dir(mustGetwd(t))
-	if err := os.Chdir(parent); err != nil {
-		t.Fatalf("chdir parent: %v", err)
-	}
-
-	// second run: enable git; existing dir path must still reconcile
-	t.Setenv("TIKI_STORE_GIT", "true")
-	// config.ResetPathManager so InitPaths inside runDemo picks up the new cwd
-	config.ResetPathManager()
-	if err := runDemo(); err != nil {
-		t.Fatalf("second runDemo: %v", err)
-	}
-
-	if _, err := os.Stat(".git"); err != nil {
-		t.Errorf("expected .git/ after second run with TIKI_STORE_GIT=true: %v", err)
-	}
-}
-
-// TestRunDemo_IsolatedRepoInsideParentRepo guards the regression where
-// tikistore.IsGitRepo(".") walks up the directory tree — so running
-// `tiki demo` from inside an existing git checkout would skip git init
-// on the demo dir, causing subsequent `git add .` to stage demo files
-// into the parent repo's index. The demo must always own its own .git.
-func TestRunDemo_IsolatedRepoInsideParentRepo(t *testing.T) {
-	setupDemoTest(t)
-
-	// turn the current (parent) temp dir into a git repo first
-	parent := mustGetwd(t)
-	if err := tikistore.GitInit(parent); err != nil {
-		t.Fatalf("git init parent: %v", err)
-	}
-
-	t.Setenv("TIKI_STORE_GIT", "true")
-	if err := runDemo(); err != nil {
-		t.Fatalf("runDemo: %v", err)
-	}
-
-	// cwd is now inside tiki-demo; resolve symlinks to compare reliably
-	// on macOS where /var and /private/var refer to the same tree.
-	demoRoot := resolvePath(t, mustGetwd(t))
-	parent = resolvePath(t, parent)
-	if filepath.Dir(demoRoot) != parent {
-		t.Fatalf("demo cwd %q not a child of parent %q", demoRoot, parent)
-	}
-
-	// the demo must own its own .git — not inherit the parent's
-	demoGit := filepath.Join(demoRoot, ".git")
-	if _, err := os.Stat(demoGit); err != nil {
-		t.Fatalf("expected %s to exist (demo must own its own repo): %v", demoGit, err)
-	}
-
-	// extra belt-and-braces: the parent repo's index must not have staged
-	// any demo files. If reconcileGit had mistakenly skipped init and then
-	// run `git add .`, the demo tree would be staged in the parent. A
-	// fresh `git init` never creates .git/index until something is staged.
-	parentIndex := filepath.Join(parent, ".git", "index")
-	if _, err := os.Stat(parentIndex); err == nil {
-		t.Errorf("parent repo has staged entries — demo leaked into parent's index at %s", parentIndex)
-	}
-}
-
-func mustGetwd(t *testing.T) string {
-	t.Helper()
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	return cwd
-}
-
-// resolvePath canonicalizes a path by following symlinks. Needed on macOS
-// where temp dirs under /var resolve via the /private/var symlink.
-func resolvePath(t *testing.T, p string) string {
-	t.Helper()
-	resolved, err := filepath.EvalSymlinks(p)
-	if err != nil {
-		t.Fatalf("eval symlinks %q: %v", p, err)
-	}
-	return resolved
 }

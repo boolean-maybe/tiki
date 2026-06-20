@@ -17,7 +17,6 @@ import (
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/store/tikistore"
 	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 	"github.com/boolean-maybe/tiki/view"
@@ -56,16 +55,15 @@ type Result struct {
 	AppRoot           tview.Primitive // Pages root for app.SetRoot
 	Context           context.Context
 	CancelFunc        context.CancelFunc
-	TikiSkillContent  string
 	WorkflowPath      string
 	WorkflowScope     config.Scope
 }
 
-// Bootstrap orchestrates the complete application initialization sequence.
-// It takes the embedded AI skill content and returns all initialized components.
-func Bootstrap(tikiSkillContent string) (*Result, error) {
-	// Phase 0: Configuration and logging — loaded first so store.git and store.name
-	// are available before any git checks or side effects.
+// Bootstrap orchestrates the complete application initialization sequence and
+// returns all initialized components.
+func Bootstrap() (*Result, error) {
+	// Phase 0: Configuration and logging — loaded first so store.name is
+	// available before any side effects.
 	cfg, err := LoadConfig()
 	if err != nil {
 		return nil, err
@@ -77,29 +75,8 @@ func Bootstrap(tikiSkillContent string) (*Result, error) {
 		return nil, fmt.Errorf("unknown store backend: %q (supported: tiki)", name)
 	}
 
-	// Phase 1: Pre-flight git check (skipped when git is disabled)
-	if config.GetStoreGit() {
-		if err := EnsureGitRepo(); err != nil {
-			return nil, err
-		}
-	}
-
-	// Phase 2: Project initialization (creates dirs and writes the welcome tiki + wiki entry points)
-	var gitAdd func(...string) error
-	if config.GetStoreGit() {
-		gitAdd = tikistore.NewGitAdder("")
-	}
-	proceed, err := EnsureProjectInitialized(tikiSkillContent, gitAdd)
-	if err != nil {
-		return nil, err
-	}
-	if !proceed {
-		return nil, nil // User chose not to proceed
-	}
-
 	// Phase 2.5: Install default workflow to user config dir (first-run or upgrade)
-	// Runs on every launch outside BootstrapSystem so that upgrades from older versions
-	// get workflow.yaml installed even though their project is already initialized.
+	// Runs on every launch so upgrades from older versions get workflow.yaml installed.
 	if err := config.InstallDefaultWorkflow(); err != nil {
 		slog.Warn("failed to install default workflow", "error", err)
 	}
@@ -317,7 +294,6 @@ func Bootstrap(tikiSkillContent string) (*Result, error) {
 		AppRoot:           pages,
 		Context:           ctx,
 		CancelFunc:        cancel,
-		TikiSkillContent:  tikiSkillContent,
 		WorkflowPath:      workflowPath,
 		WorkflowScope:     workflowScope,
 	}, nil

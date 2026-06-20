@@ -9,12 +9,10 @@ import (
 	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/internal/bootstrap"
-	"github.com/boolean-maybe/tiki/store/tikistore"
 )
 
 // demoFS holds the embedded demo project tree. The `all:` prefix includes
-// dotfiles (e.g. .doc/, .gitignore) which Go's embed would otherwise skip.
+// dotfiles (e.g. .gitignore) which Go's embed would otherwise skip.
 // Note: embed.FS drops executable bits — fine here since no demo asset is a script.
 //
 //go:embed all:assets/demo
@@ -26,10 +24,10 @@ const (
 )
 
 // runDemo extracts the embedded demo project into ./tiki-demo (on first run),
-// chdirs into it, then reconciles git state according to the loaded config.
-// Git reconciliation runs on every invocation so toggling TIKI_STORE_GIT between
-// runs keeps the demo dir consistent with the user's config.
-// Must run before config.InitPaths() in main so the new cwd is captured as the project root.
+// then chdirs into it and re-initializes the path manager so the new cwd is
+// the document scan root. The demo is a flat directory of Markdown — no .doc
+// subdir, no git. Must run before config.InitPaths() in main so the new cwd is
+// captured as the project root.
 func runDemo() error {
 	if info, err := os.Stat(demoDirName); err == nil && info.IsDir() {
 		fmt.Printf("using existing %s directory\n", demoDirName)
@@ -51,64 +49,22 @@ func runDemo() error {
 		return fmt.Errorf("change to demo directory: %w", err)
 	}
 
-	// Reset any prior path manager state so InitPaths observes the new cwd.
-	// Force ".doc" regardless of user-level store.dir — demo fixtures use that layout.
+	// reset any prior path manager state so InitPaths observes the new cwd
+	// (now the demo dir) as the document scan root.
 	config.ResetPathManager()
-	config.SetDemoDocDirOverride(".doc")
 	if err := config.InitPaths(); err != nil {
 		return fmt.Errorf("initialize paths: %w", err)
 	}
 
-	if _, err := bootstrap.LoadConfig(); err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-
-	return reconcileGit()
-}
-
-// reconcileGit brings the current directory's git state in line with the
-// resolved `store.git` config. Idempotent: safe to call on fresh extracts,
-// existing dirs, and pre-existing git repos.
-func reconcileGit() error {
-	if !config.GetStoreGit() {
-		// user disabled git-backed store — leave any existing .git/ alone.
-		return nil
-	}
-
-	// Check for a local .git entry, not an ancestor repo.
-	// tikistore.IsGitRepo walks up the directory tree (via `git rev-parse`
-	// or go-git's DetectDotGit), so running `tiki demo` from inside an
-	// existing checkout would otherwise cause the demo to attach to the
-	// parent repo — `git add .` would then stage demo files into the
-	// caller's index. os.Stat(".git") answers the right question: does
-	// *this* directory own a repo? Works for both dir-form and file-form
-	// (.git-as-file points to a linked worktree).
-	if _, err := os.Stat(".git"); err == nil {
-		return nil
-	}
-
-	if err := tikistore.GitInit("."); err != nil {
-		return fmt.Errorf("git init demo dir: %w", err)
-	}
-
-	addFn := tikistore.NewGitAdder("")
-	if addFn == nil {
-		// NewGitAdder returns nil on internal git-ops construction failure.
-		// The user asked for `git add .`; if we cannot deliver it, fail loudly.
-		return fmt.Errorf("git adder unavailable for demo dir")
-	}
-	if err := addFn("."); err != nil {
-		return fmt.Errorf("git add demo dir: %w", err)
-	}
 	return nil
 }
 
-// ensureDemoWorkflow writes the embedded kanban workflow to <dst>/.doc/workflow.yaml
+// ensureDemoWorkflow writes the embedded kanban workflow to <dst>/workflow.yaml
 // when that file is absent. Idempotent: present file is left untouched so user
 // edits survive re-runs; missing file self-heals (e.g. after interrupted extract
 // or user deletion) rather than silently falling back to user-config scope.
 func ensureDemoWorkflow(dst string) error {
-	path := filepath.Join(dst, ".doc", "workflow.yaml")
+	path := filepath.Join(dst, "workflow.yaml")
 	if _, err := os.Stat(path); err == nil {
 		return nil
 	}
@@ -124,7 +80,7 @@ func ensureDemoWorkflow(dst string) error {
 // ensureDemoAssets restores bundled demo media that existing demo directories
 // may be missing, without overwriting local edits to files already present.
 func ensureDemoAssets(dst string) error {
-	assetRoot := filepath.Join(demoFSRoot, ".doc", "assets")
+	assetRoot := filepath.Join(demoFSRoot, "assets")
 	return fs.WalkDir(demoFS, assetRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err

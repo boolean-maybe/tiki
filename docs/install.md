@@ -33,34 +33,28 @@ GOBIN=$HOME/.local/bin go install github.com/boolean-maybe/tiki@latest
 tiki --version
 ```
 
-## Initialize a project
+## Run it
 
-Run `tiki init` to initializes the project. 
-Next run `tiki`
+There is no project setup step. Run `tiki` in any directory that contains Markdown files:
 
 ```bash
-cd /path/to/your/git/repo
-tiki init
+cd /path/to/your/repo
+tiki
 ```
 
-You can also initialize a different directory directly:
-```bash
-tiki init /path/to/your/git/repo
-```
+### Scan scope
 
-For a custom workflow, pass `-w` with an bundled workflow name, file path, or URL:
-```bash
-tiki init -w todo
-tiki init -w ./my-workflow.yaml
-tiki init -w https://example.com/workflow.yaml
-```
+The current working directory is the scan root. `tiki` recursively loads every `.md` file beneath it,
+keying documents by their frontmatter `id`. The scan skips:
 
-For non-interactive use (CI, scripts):
-```bash
-tiki init -n --ai-skill claude,gemini
-```
+- `.git/` and any other dotted directory
+- every path matched by a `.gitignore` at the scan root
+- every path matched by a `.tikiignore` at the scan root (same gitignore syntax — tiki-only exclusions)
 
-See [command-line options](command-line.md#init) for the full flag reference.
+When the directory is a git repository, `tiki` reads commit times and authorship automatically; it never
+writes to git. To try a custom workflow, drop a `workflow.yaml` in the directory — see
+[Configuration](config.md#workflowyaml). To enable AI skills, copy the bundled skill manually — see
+[AI collaboration](ai.md).
 
 # Terminal Requirements
 

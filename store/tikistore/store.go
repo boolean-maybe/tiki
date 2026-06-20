@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	"github.com/boolean-maybe/tiki/tiki"
@@ -51,13 +50,14 @@ func NewTikiStore(dir string) (*TikiStore, error) {
 		diagnostics:    newLoadDiagnostics(),
 	}
 
-	if config.GetStoreGit() {
-		gitUtil, err := git.NewGitOps("")
-		if err == nil {
-			s.gitUtil = gitUtil
-		} else {
-			slog.Debug("git utility not initialized", "error", err)
-		}
+	// git integration is automatic and read-only: when cwd is a repo the store
+	// reads history/authors; when it is not, the git methods fail gracefully and
+	// the store falls back to mtime/config identity. There is no enable flag.
+	gitUtil, err := git.NewGitOps("")
+	if err == nil {
+		s.gitUtil = gitUtil
+	} else {
+		slog.Debug("git utility not initialized (not a repo or unavailable)", "error", err)
 	}
 	s.identity = newIdentityResolver(s.gitUtil)
 

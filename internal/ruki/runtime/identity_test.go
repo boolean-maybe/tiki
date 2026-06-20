@@ -44,7 +44,6 @@ func isolateConfigRuntime(t *testing.T) {
 func newNoGitStoreWithIdentity(t *testing.T, name, email string) *tikistore.TikiStore {
 	t.Helper()
 	isolateConfigRuntime(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 	t.Setenv("TIKI_IDENTITY_NAME", name)
 	t.Setenv("TIKI_IDENTITY_EMAIL", email)
 	if _, err := config.LoadConfig(); err != nil {
@@ -136,7 +135,6 @@ func TestRunQuery_UpdateAssigneeUserInNoGit(t *testing.T) {
 func TestRunQuery_UserEmailOnlyConfig(t *testing.T) {
 	ensureStatusesLoaded(t)
 	isolateConfigRuntime(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 	t.Setenv("TIKI_IDENTITY_NAME", "")
 	t.Setenv("TIKI_IDENTITY_EMAIL", "me@example.com")
 	if _, err := config.LoadConfig(); err != nil {
@@ -170,7 +168,6 @@ func TestRunQuery_UserEmailOnlyConfig(t *testing.T) {
 func TestRunSelectQuery_UserResolvesInNoGitNoConfig(t *testing.T) {
 	ensureStatusesLoaded(t)
 	isolateConfigRuntime(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 	t.Setenv("TIKI_IDENTITY_NAME", "")
 	t.Setenv("TIKI_IDENTITY_EMAIL", "")
 	if _, err := config.LoadConfig(); err != nil {

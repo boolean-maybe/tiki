@@ -45,39 +45,33 @@ func TestRecursiveLoad_PicksUpNestedDocuments(t *testing.T) {
 	}
 }
 
-// TestRecursiveLoad_ExcludesProjectConfigFiles verifies that the reserved
-// top-level config files are never misread as documents, even if a future
-// version switches them to `.md`. `config.yaml` / `workflow.yaml` already
-// fail the extension check; `config.md` / `workflow.md` are belt-and-braces.
-func TestRecursiveLoad_ExcludesProjectConfigFiles(t *testing.T) {
+// TestRecursiveLoad_ExcludesYAMLConfigFiles verifies that the project's YAML
+// config files are never misread as documents. They are excluded simply by
+// failing the `.md` extension check in WalkDocuments.
+//
+// Note: the former `.md`-variant exclusion (config.md / workflow.md) was
+// dropped along with the `.doc`-specific IsProjectConfigFile rule. Under the
+// open-any-dir model there are no reserved markdown filenames — a user who
+// authors a `workflow.md` with a valid id genuinely wants it as a document.
+func TestRecursiveLoad_ExcludesYAMLConfigFiles(t *testing.T) {
 	root := t.TempDir()
 
 	writeDoc(t, filepath.Join(root, "AAAAAA.md"), "AAAAAA", "ok")
-	// These four files must all be ignored by the walker.
+	// YAML config files must be ignored by the walker.
 	writeRaw(t, filepath.Join(root, "config.yaml"), "foo: bar\n")
 	writeRaw(t, filepath.Join(root, "workflow.yaml"), "statuses: []\n")
-	writeRaw(t, filepath.Join(root, "config.md"), "---\nid: ZZZZZZ\n---\nshould-be-ignored\n")
-	writeRaw(t, filepath.Join(root, "workflow.md"), "---\nid: YYYYYY\n---\nshould-be-ignored\n")
 
 	store, err := NewTikiStore(root)
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	// Only AAAAAA should be loaded — the two bogus `.md` config files must be
-	// skipped even though they carry valid-looking frontmatter. A failure
-	// here would mean a user's `config.md` gets promoted to a workflow doc.
+	// Only AAAAAA should be loaded; the .yaml files are not documents.
 	if got := len(store.GetAllTikis()); got != 1 {
 		t.Errorf("unexpected tiki count after load: got %d, want 1", got)
 	}
 	if store.GetTiki("AAAAAA") == nil {
 		t.Error("AAAAAA missing after load")
-	}
-	if store.GetTiki("ZZZZZZ") != nil {
-		t.Error("config.md incorrectly loaded as ZZZZZZ")
-	}
-	if store.GetTiki("YYYYYY") != nil {
-		t.Error("workflow.md incorrectly loaded as YYYYYY")
 	}
 }
 

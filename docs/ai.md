@@ -2,8 +2,8 @@
 
 ## AI skills
 
-`tiki` adds optional [agent skills](https://agentskills.io/home) to the repo upon initialization.
-If installed you can:
+`tiki` ships optional [agent skills](https://agentskills.io/home) that you copy into your AI tool
+manually — there is no in-app installer. Once installed you can:
 
 - work with [Claude Code](https://code.claude.com),
   [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Codex](https://openai.com/codex), and
@@ -12,6 +12,25 @@ If installed you can:
 - create documents directly from Markdown files
 - reference documents by id when implementing with AI-assisted development — `implement ABC123`
 - keep a history of prompts/plans by saving them as documents alongside your repo
+
+### Installing a skill
+
+The skill files ship in the tiki repository under `ai/skills/`:
+
+- `ai/skills/tiki/SKILL.md` — document create/find/update/delete
+- `ai/skills/cli/SKILL.md` — driving the `tiki` CLI
+
+Copy the directory containing the relevant `SKILL.md` into your tool's skills location, for example:
+
+| Tool | Target location |
+|---|---|
+| Claude Code | `.claude/skills/tiki/SKILL.md` (project) or `~/.claude/skills/tiki/SKILL.md` (global) |
+| Gemini CLI | the skills directory configured for `gemini` |
+| Codex | the skills directory configured for `codex` |
+| Opencode | the skills directory configured for `opencode` |
+
+Consult each tool's own documentation for its exact skills path; the `SKILL.md` content itself is
+tool-agnostic.
 
 ## Chat with AI
 

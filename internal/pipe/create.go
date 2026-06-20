@@ -82,16 +82,6 @@ func CreateTikiFromReader(r io.Reader) (string, error) {
 		return "", fmt.Errorf("load config: %w", err)
 	}
 
-	if config.GetStoreGit() {
-		if err := bootstrap.EnsureGitRepo(); err != nil {
-			return "", err
-		}
-	}
-
-	if !config.IsProjectInitialized() {
-		return "", fmt.Errorf("project not initialized: run 'tiki init' first")
-	}
-
 	// load workflow registries (statuses, types, custom fields) before creating tikis
 	if err := config.LoadWorkflowFields(); err != nil {
 		return "", fmt.Errorf("load workflow registries: %w", err)

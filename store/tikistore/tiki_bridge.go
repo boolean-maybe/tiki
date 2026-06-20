@@ -1,6 +1,7 @@
 package tikistore
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -22,6 +23,11 @@ import (
 // tiki_bridge.go holds the load/save bridge: parsing markdown files into
 // *tiki.Tiki and serializing them back. The store's internal map and all
 // public APIs operate on *tiki.Tiki directly.
+
+// errSkipNoID signals that a file has no frontmatter id and is therefore not
+// a managed (store-indexed) document — it is skipped silently, not recorded
+// as a load diagnostic. Such files are still wiki-viewable by path.
+var errSkipNoID = errors.New("no frontmatter id")
 
 // parsedTiki is the result of parsing a markdown file: the Tiki itself, the
 // verbatim decoded frontmatter map (retained for raw-type checks on load),
@@ -50,8 +56,7 @@ func loadTikiFromBytes(path string, content []byte) (*parsedTiki, error) {
 
 	rawID, hasID := document.FrontmatterID(fmMap)
 	if !hasID || rawID == "" {
-		return nil, newLoadError(LoadReasonMissingID,
-			fmt.Errorf("missing frontmatter id in %s: add an `id:` field (bare 6-char uppercase alphanumeric)", path))
+		return nil, errSkipNoID
 	}
 	id := document.NormalizeID(rawID)
 	if !idfmt.IsValidID(id) {

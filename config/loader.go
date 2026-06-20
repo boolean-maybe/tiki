@@ -59,7 +59,6 @@ type Config struct {
 	// Store backend configuration
 	Store struct {
 		Name string `mapstructure:"name"` // backend name — only "tiki" supported
-		Git  bool   `mapstructure:"git"`  // false disables all git operations at runtime
 	} `mapstructure:"store"`
 
 	// Identity configuration — preferred source for `user()` and UI attribution
@@ -93,7 +92,6 @@ func LoadConfig() (*Config, error) {
 			return nil, fmt.Errorf("reading config from %s: %w", path, readErr)
 		}
 		slog.Debug("loaded configuration", "file", path)
-		warnIgnoredStoreDir(path)
 	}
 
 	// environment variables and flags override everything
@@ -125,39 +123,6 @@ func findConfigFile() string {
 	})
 }
 
-// warnIgnoredStoreDir logs a warning when the winning config file is not the
-// user-level config and it contains a store.dir key. Document directory
-// resolution uses only user-level config; project-local and cwd configs
-// cannot change it.
-func warnIgnoredStoreDir(winningPath string) {
-	pm := mustGetPathManager()
-	userConfigPath := pm.ConfigFile()
-
-	winningAbs, _ := filepath.Abs(winningPath)
-	userAbs, _ := filepath.Abs(userConfigPath)
-	if winningAbs == userAbs {
-		return
-	}
-
-	data, err := os.ReadFile(winningPath)
-	if err != nil {
-		return
-	}
-
-	var probe struct {
-		Store struct {
-			Dir string `yaml:"dir"`
-		} `yaml:"store"`
-	}
-	if err := yaml.Unmarshal(data, &probe); err != nil {
-		return
-	}
-	if probe.Store.Dir != "" {
-		slog.Warn("store.dir in non-user config is ignored; document directory is set only via user config",
-			"file", winningPath, "ignored_value", probe.Store.Dir)
-	}
-}
-
 // setDefaults sets default configuration values
 func setDefaults() {
 	// Logging defaults
@@ -176,7 +141,6 @@ func setDefaults() {
 
 	// Store defaults
 	viper.SetDefault("store.name", "tiki")
-	viper.SetDefault("store.git", true)
 
 	// Identity defaults — empty so env overrides (TIKI_IDENTITY_*) bind correctly
 	viper.SetDefault("identity.name", "")
@@ -332,16 +296,6 @@ func GetStoreName() string {
 		return appConfig.Store.Name
 	}
 	return "tiki"
-}
-
-// GetStoreGit returns whether git integration is enabled.
-// Returns true when config hasn't been loaded yet (safe default for test helpers
-// that call NewTikiStore directly without LoadConfig).
-func GetStoreGit() bool {
-	if appConfig != nil {
-		return appConfig.Store.Git
-	}
-	return true
 }
 
 // GetIdentityName returns the configured Tiki identity name, or empty string if unset.

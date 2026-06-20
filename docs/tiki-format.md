@@ -1,20 +1,23 @@
 # Tiki format
 
-`tiki` manages a single Markdown workspace under `.doc/`. Every file under that tree is a **tiki**:
-a Markdown file with YAML frontmatter, a required bare `id`, and arbitrary body content. Beyond `id`
-and `title`, frontmatter is an open field map — a tiki participates in board/list views when its fields
-satisfy that view's `select` filter, typically via `has(...)` checks.
+`tiki` is a viewer over the current directory. Every `.md` file beneath the cwd that carries a frontmatter
+`id` is a **tiki**: a Markdown file with YAML frontmatter, a bare `id`, and arbitrary body content. Beyond
+`id` and `title`, frontmatter is an open field map — a tiki participates in board/list views when its
+fields satisfy that view's `select` filter, typically via `has(...)` checks. A `.md` file with no `id` is
+not store-indexed but is still wiki-viewable by path — plain prose coexists with tikis, no warning.
 
 ## Workspace layout
 
-Tikis live anywhere under `.doc/`. Folder structure is user-controlled organization, not identity.
+Tikis live anywhere under the current directory. Folder structure is user-controlled organization, not
+identity.
 
 ```
-.doc/
+./                          # the scan root (current working directory)
 ├── workflow.yaml           # workflow/view configuration (excluded from scan)
 ├── config.yaml             # appearance/display config (excluded from scan)
 ├── ABC123.md               # a tiki carrying status/type/priority fields
 ├── DEF456.md               # a tiki with only id + title
+├── notes.md                # plain Markdown, no id — wiki-viewable by path, not a tiki
 ├── architecture/
 │   ├── X7K2QM.md           # a design note tiki
 │   └── diagrams/
@@ -25,17 +28,19 @@ Tikis live anywhere under `.doc/`. Folder structure is user-controlled organizat
 
 Rules:
 
-- `.doc/**/*.md` is scanned recursively and loaded as tikis.
-- `.doc/workflow.yaml` and `.doc/config.yaml` are configuration files, not tikis.
-- Non-Markdown files (images, svgs, binary assets) are not loaded as tikis; keep them under `.doc/assets/`
+- `./**/*.md` is scanned recursively and loaded; files with a frontmatter `id` become tikis.
+- `.git/`, dotted directories, and paths matched by `.gitignore`/`.tikiignore` at the scan root are skipped.
+- `workflow.yaml` and `config.yaml` are configuration files, not tikis.
+- Non-Markdown files (images, svgs, binary assets) are not loaded as tikis; keep them under `assets/`
   or alongside the tikis that reference them.
-- New tikis from `tiki init`, `tiki demo`, piped input, and `ruki create` default to `.doc/<ID>.md`.
-  You are free to move them into subdirectories afterward — the `id` is stable.
+- New tikis from `tiki demo`, piped input, and `ruki create` default to `./<ID>.md`. You are free to move
+  them into subdirectories afterward — the `id` is stable.
 
 ## Required frontmatter
 
-Every tiki must declare an `id`. Missing or invalid ids cause the loader to reject the file and
-report it in diagnostics.
+A tiki must declare an `id` to be store-indexed. A file with no `id` is skipped silently (it is plain
+wiki content, not a managed tiki — never a diagnostic). A file that *has* an `id` but malformed is still
+reported in diagnostics.
 
 ```yaml
 ---
@@ -47,7 +52,7 @@ Markdown body.
 ```
 
 - **`id`** — required. A bare 6-character uppercase alphanumeric string matching `^[A-Z0-9]{6}$`.
-  No `TIKI-` prefix, no slug, globally unique across `.doc/`. Legacy prefixed ids are not recognized;
+  No `TIKI-` prefix, no slug, globally unique across the scan root. Legacy prefixed ids are not recognized;
   edit them to the bare form manually if you are migrating old content.
 - **`title`** — optional on disk; the loader accepts a missing or empty title and stores it as `""`.
   Required and non-empty (max 200 characters) on **create** and **update** paths via `tiki exec` —
@@ -60,7 +65,7 @@ Beyond `id` and `title`, frontmatter is an open field map. The fields below are 
 — the active `workflow.yaml fields:` lists them, so they get type coercion, validation, and any
 typed UI treatment. They are all optional. Absence is preserved on disk: a tiki with no `status:`
 key has no status, not a defaulted one. Default values apply only on explicit creation —
-`ruki create`, piped capture, the bundled welcome tiki, and the TUI's create action.
+`ruki create`, piped capture, and the TUI's create action.
 
 ```yaml
 ---
@@ -229,9 +234,9 @@ These fields are not stored in the file:
 - `updated at`
 
 `created at` / `updated at` are derived from git history (commit times) with file mtime as a fallback when
-git is disabled or the file is uncommitted. `created by` is populated from git authorship when available;
-for uncommitted files or no-git mode it falls back to the current `tiki` identity (configured `identity.name`
-or `identity.email` → git user → OS account name).
+the scan root is not a git repository or the file is uncommitted. `created by` is populated from git
+authorship when available; for uncommitted files or a non-repo scan root it falls back to the current
+`tiki` identity (configured `identity.name` or `identity.email` → git user → OS account name).
 
 ## Sparse tikis (notes, docs, prompts)
 

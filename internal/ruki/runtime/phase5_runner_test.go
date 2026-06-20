@@ -116,7 +116,6 @@ func TestPhase10_FilepathFiltersAcrossNestedFolders(t *testing.T) {
 	writeDocForRuntime(t, filepath.Join(root, "projects", "alpha", "ALPHA1.md"), "ALPHA1", "alpha doc")
 	writeDocForRuntime(t, filepath.Join(root, "projects", "beta", "BETA01.md"), "BETA01", "beta doc")
 
-	t.Setenv("TIKI_STORE_GIT", "false")
 	s, err := tikistore.NewTikiStore(root)
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)

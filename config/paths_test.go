@@ -7,6 +7,14 @@ import (
 	"testing"
 )
 
+func TestDocDirIsProjectRoot(t *testing.T) {
+	dir := t.TempDir()
+	pm := &PathManager{projectRoot: dir}
+	if got := pm.DocDir(); got != dir {
+		t.Fatalf("DocDir() = %q, want project root %q", got, dir)
+	}
+}
+
 func TestGetUserConfigDir(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -210,12 +218,11 @@ func TestPathManagerEnsureDirs(t *testing.T) {
 		t.Fatalf("EnsureDirs() error = %v", err)
 	}
 
-	// Phase 8: EnsureDirs creates the unified .doc/ root but no longer
-	// provisions any legacy subdirectories.
+	// EnsureDirs creates the user config and cache directories. The doc dir
+	// is the project root (cwd), which already exists and is not created here.
 	dirs := []string{
 		pm.ConfigDir(),
 		pm.CacheDir(),
-		pm.DocDir(),
 	}
 
 	for _, dir := range dirs {
@@ -328,7 +335,12 @@ func TestFindWorkflowFileWithScope_CwdWins(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cwdDir := t.TempDir()
+	// canonicalize so projectRoot matches what filepath.Abs returns from the
+	// chdir'd cwd (macOS /var → /private/var symlink).
+	cwdDir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -339,7 +351,7 @@ func TestFindWorkflowFileWithScope_CwdWins(t *testing.T) {
 
 	ResetPathManager()
 	pm := mustGetPathManager()
-	pm.projectRoot = t.TempDir() // empty project dir
+	pm.projectRoot = cwdDir // projectRoot == cwd, the runtime invariant
 
 	path, scope := FindWorkflowFileWithScope()
 	if scope != ScopeCurrent {
@@ -352,7 +364,10 @@ func TestFindWorkflowFileWithScope_CwdWins(t *testing.T) {
 	}
 }
 
-func TestFindWorkflowFileWithScope_ProjectWins(t *testing.T) {
+func TestFindWorkflowFileWithScope_CwdRootWinsOverUser(t *testing.T) {
+	// the project tier is the cwd root (ProjectConfigDir == projectRoot); a
+	// workflow.yaml there outranks the user-config copy and resolves as
+	// ScopeCurrent — there is no separate project (".doc") tier anymore.
 	userDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", userDir)
 	userTikiDir := filepath.Join(userDir, "tiki")
@@ -364,30 +379,21 @@ func TestFindWorkflowFileWithScope_ProjectWins(t *testing.T) {
 	}
 
 	projectDir := t.TempDir()
-	docDir := filepath.Join(projectDir, ".doc")
-	if err := os.MkdirAll(docDir, 0750); err != nil {
+	if err := os.WriteFile(filepath.Join(projectDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(docDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	cwdDir := t.TempDir() // no workflow.yaml here
-	originalDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(originalDir) }()
-	_ = os.Chdir(cwdDir)
 
 	ResetPathManager()
 	pm := mustGetPathManager()
 	pm.projectRoot = projectDir
 
 	path, scope := FindWorkflowFileWithScope()
-	if scope != ScopeLocal {
-		t.Errorf("scope = %q, want %q", scope, ScopeLocal)
+	if scope != ScopeCurrent {
+		t.Errorf("scope = %q, want %q", scope, ScopeCurrent)
 	}
-	want := filepath.Join(docDir, "workflow.yaml")
+	want := filepath.Join(projectDir, "workflow.yaml")
 	if path != want {
-		t.Errorf("path = %q, want project file %q", path, want)
+		t.Errorf("path = %q, want cwd-root file %q", path, want)
 	}
 }
 
@@ -446,10 +452,9 @@ func TestFindWorkflowFileWithScope_NoneFound(t *testing.T) {
 	}
 }
 
-func TestFindWorkflowFileWithScope_DedupCwdEqualsProjectDir(t *testing.T) {
-	// when cwd == ProjectConfigDir, candidates 2 and 3 resolve to the same
-	// absolute path. The project-dir candidate should win (ScopeLocal) because
-	// it appears first and dedup skips the cwd candidate.
+func TestFindWorkflowFileWithScope_CwdRootResolvesAsCurrent(t *testing.T) {
+	// at runtime cwd == ProjectConfigDir == projectRoot, so a workflow.yaml at
+	// the cwd root is the sole project candidate and resolves as ScopeCurrent.
 	userDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", userDir)
 	if err := os.MkdirAll(filepath.Join(userDir, "tiki"), 0750); err != nil {
@@ -461,26 +466,22 @@ func TestFindWorkflowFileWithScope_DedupCwdEqualsProjectDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	docDir := filepath.Join(projectDir, ".doc")
-	if err := os.MkdirAll(docDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(docDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// cd into .doc/ so cwd candidate resolves to the same file
+	// cd into the project root so projectRoot == cwd, the runtime invariant
 	originalDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(originalDir) }()
-	_ = os.Chdir(docDir)
+	_ = os.Chdir(projectDir)
 
 	ResetPathManager()
 	pm := mustGetPathManager()
 	pm.projectRoot = projectDir
 
 	_, scope := FindWorkflowFileWithScope()
-	if scope != ScopeLocal {
-		t.Errorf("scope = %q, want %q (project-dir candidate should win dedup)", scope, ScopeLocal)
+	if scope != ScopeCurrent {
+		t.Errorf("scope = %q, want %q (cwd-root file)", scope, ScopeCurrent)
 	}
 }
 
@@ -490,7 +491,6 @@ func TestWorkflowScopeLabel(t *testing.T) {
 		want  string
 	}{
 		{ScopeGlobal, "global"},
-		{ScopeLocal, "project"},
 		{ScopeCurrent, "local"},
 		{Scope("unknown"), "unknown"},
 	}
@@ -498,220 +498,6 @@ func TestWorkflowScopeLabel(t *testing.T) {
 		if got := WorkflowScopeLabel(tt.scope); got != tt.want {
 			t.Errorf("WorkflowScopeLabel(%q) = %q, want %q", tt.scope, got, tt.want)
 		}
-	}
-}
-
-func TestValidateDocDir(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
-		wantErr bool
-	}{
-		{"valid .doc", ".doc", false},
-		{"valid docs", "docs", false},
-		{"valid .tiki", ".tiki", false},
-		{"valid nested", "my-docs/store", false},
-		{"empty", "", true},
-		{"absolute", "/tmp/docs", true},
-		{"dotdot simple", "..", true},
-		{"dotdot nested", "foo/../bar", true},
-		{"dotdot prefix", "../docs", true},
-		{"resolves to root dot", ".", true},
-		{"resolves to root via trailing slash", "./", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateDocDir(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateDocDir(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestResolveUserConfiguredDocDir_Missing(t *testing.T) {
-	dir := t.TempDir()
-	got, err := resolveUserConfiguredDocDir(dir)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != "" {
-		t.Errorf("expected empty, got %q", got)
-	}
-}
-
-func TestResolveUserConfiguredDocDir_ValidValue(t *testing.T) {
-	dir := t.TempDir()
-	content := []byte("store:\n  dir: docs\n")
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), content, 0644); err != nil {
-		t.Fatal(err)
-	}
-	got, err := resolveUserConfiguredDocDir(dir)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != "docs" {
-		t.Errorf("expected 'docs', got %q", got)
-	}
-}
-
-func TestResolveUserConfiguredDocDir_Unset(t *testing.T) {
-	dir := t.TempDir()
-	content := []byte("logging:\n  level: debug\n")
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), content, 0644); err != nil {
-		t.Fatal(err)
-	}
-	got, err := resolveUserConfiguredDocDir(dir)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != "" {
-		t.Errorf("expected empty, got %q", got)
-	}
-}
-
-func TestResolveUserConfiguredDocDir_InvalidValue(t *testing.T) {
-	tests := []struct {
-		name string
-		dir  string
-	}{
-		{"absolute", "/tmp/docs"},
-		{"dotdot", "../docs"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dir := t.TempDir()
-			content := []byte("store:\n  dir: " + tt.dir + "\n")
-			if err := os.WriteFile(filepath.Join(dir, "config.yaml"), content, 0644); err != nil {
-				t.Fatal(err)
-			}
-			_, err := resolveUserConfiguredDocDir(dir)
-			if err == nil {
-				t.Errorf("expected error for dir=%q, got nil", tt.dir)
-			}
-		})
-	}
-}
-
-func TestResolveUserConfiguredDocDir_EmptyTreatedAsUnset(t *testing.T) {
-	dir := t.TempDir()
-	content := []byte("store:\n  dir:\n")
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), content, 0644); err != nil {
-		t.Fatal(err)
-	}
-	got, err := resolveUserConfiguredDocDir(dir)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != "" {
-		t.Errorf("expected empty (unset), got %q", got)
-	}
-}
-
-func TestResolveUserConfiguredDocDir_MalformedYAML(t *testing.T) {
-	dir := t.TempDir()
-	content := []byte("store: [\n  invalid yaml\n")
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), content, 0644); err != nil {
-		t.Fatal(err)
-	}
-	got, err := resolveUserConfiguredDocDir(dir)
-	if err != nil {
-		t.Fatalf("unexpected error (malformed YAML should be treated as unset): %v", err)
-	}
-	if got != "" {
-		t.Errorf("expected empty for malformed YAML, got %q", got)
-	}
-}
-
-func TestDocDirName_DefaultIsDotDoc(t *testing.T) {
-	userDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", userDir)
-	if err := os.MkdirAll(filepath.Join(userDir, "tiki"), 0750); err != nil {
-		t.Fatal(err)
-	}
-
-	ResetPathManager()
-	defer ResetPathManager()
-
-	if err := InitPaths(); err != nil {
-		t.Fatalf("InitPaths: %v", err)
-	}
-	if got := GetDocDirName(); got != ".doc" {
-		t.Errorf("GetDocDirName() = %q, want '.doc'", got)
-	}
-}
-
-func TestDocDirName_UserConfigOverride(t *testing.T) {
-	userDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", userDir)
-	tikiDir := filepath.Join(userDir, "tiki")
-	if err := os.MkdirAll(tikiDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-	content := []byte("store:\n  dir: docs\n")
-	if err := os.WriteFile(filepath.Join(tikiDir, "config.yaml"), content, 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	ResetPathManager()
-	defer ResetPathManager()
-
-	if err := InitPaths(); err != nil {
-		t.Fatalf("InitPaths: %v", err)
-	}
-	if got := GetDocDirName(); got != "docs" {
-		t.Errorf("GetDocDirName() = %q, want 'docs'", got)
-	}
-	pm := mustGetPathManager()
-	wantSuffix := filepath.Join(pm.projectRoot, "docs")
-	if got := GetDocDir(); got != wantSuffix {
-		t.Errorf("GetDocDir() = %q, want %q", got, wantSuffix)
-	}
-}
-
-func TestDocDirName_InvalidUserConfigFails(t *testing.T) {
-	userDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", userDir)
-	tikiDir := filepath.Join(userDir, "tiki")
-	if err := os.MkdirAll(tikiDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-	content := []byte("store:\n  dir: /absolute/bad\n")
-	if err := os.WriteFile(filepath.Join(tikiDir, "config.yaml"), content, 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	ResetPathManager()
-	defer ResetPathManager()
-
-	err := InitPaths()
-	if err == nil {
-		t.Fatal("expected InitPaths to fail with invalid store.dir")
-	}
-}
-
-func TestDocDirName_DemoOverride(t *testing.T) {
-	userDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", userDir)
-	tikiDir := filepath.Join(userDir, "tiki")
-	if err := os.MkdirAll(tikiDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-	content := []byte("store:\n  dir: docs\n")
-	if err := os.WriteFile(filepath.Join(tikiDir, "config.yaml"), content, 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	ResetPathManager()
-	defer ResetPathManager()
-
-	SetDemoDocDirOverride(".doc")
-	if err := InitPaths(); err != nil {
-		t.Fatalf("InitPaths: %v", err)
-	}
-	if got := GetDocDirName(); got != ".doc" {
-		t.Errorf("GetDocDirName() = %q, want '.doc' (demo override)", got)
 	}
 }
 

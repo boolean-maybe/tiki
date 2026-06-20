@@ -68,6 +68,12 @@ func (s *TikiStore) loadLocked() error {
 	for _, filePath := range docPaths {
 		tk, err := s.loadTikiFile(filePath, authorMap, lastCommitMap)
 		if err != nil {
+			if errors.Is(err, errSkipNoID) {
+				// id-less file: ordinary wiki content, not a managed document
+				// and not a diagnostic.
+				slog.Debug("skipping id-less markdown file", "file", filePath)
+				continue
+			}
 			// classify via *loadError; fall back to LoadReasonOther.
 			reason := LoadReasonOther
 			var le *loadError
@@ -442,13 +448,6 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 		slog.Debug("tiki file saved and timestamps computed", "tiki_id", tk.ID(), "path", path, "new_mtime", tk.LoadedMtime, "updated_at", tk.UpdatedAt())
 	} else {
 		slog.Error("failed to stat file after save for mtime computation", "tiki_id", tk.ID(), "path", path, "error", err)
-	}
-
-	// Git add the modified file (best effort)
-	if s.gitUtil != nil {
-		if err := s.gitUtil.Add(path); err != nil {
-			slog.Warn("failed to git add tiki file", "tiki_id", tk.ID(), "path", path, "error", err)
-		}
 	}
 
 	slog.Info("tiki saved successfully", "tiki_id", tk.ID(), "path", path)

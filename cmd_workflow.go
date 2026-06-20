@@ -194,7 +194,13 @@ func parseScopeArgs(args []string) (string, config.Scope, error) {
 			if scopeStr != "" {
 				return "", "", fmt.Errorf("only one scope allowed: already have --%s", scopeStr)
 			}
+			// --local is a deprecated alias for --current: the scan root is the
+			// current working directory, so the former project (".doc") tier and
+			// the cwd tier are the same directory.
 			scopeStr = strings.TrimPrefix(arg, "--")
+			if scopeStr == "local" {
+				scopeStr = "current"
+			}
 		default:
 			if strings.HasPrefix(arg, "--") {
 				return "", "", fmt.Errorf("unknown flag: %s", arg)
@@ -207,7 +213,7 @@ func parseScopeArgs(args []string) (string, config.Scope, error) {
 	}
 
 	if scopeStr == "" {
-		scopeStr = "local"
+		scopeStr = "current"
 	}
 
 	return positional, config.Scope(scopeStr), nil
@@ -297,10 +303,9 @@ Targets (omit to reset all):
   config     Reset config.yaml
   workflow   Reset workflow.yaml
 
-Scopes (default: --local):
+Scopes (default: --current):
   --global   User config directory
-  --local    Project config directory (.doc/)
-  --current  Current working directory
+  --current  Current working directory (--local is a deprecated alias)
 `)
 }
 
@@ -316,10 +321,9 @@ Sources:
   File path:       ./my-workflow.yaml, /path/to/workflow.yaml
   URL:             https://example.com/workflow.yaml
 
-Scopes (default: --local):
+Scopes (default: --current):
   --global   User config directory
-  --local    Project config directory (.doc/)
-  --current  Current working directory
+  --current  Current working directory (--local is a deprecated alias)
 
 Examples:
   tiki workflow install kanban --global
