@@ -28,7 +28,7 @@ func TestCreateTiki_BareTikiWritesNoSchemaKeys(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	data, err := os.ReadFile(tmp + "/BARE01.md")
+	data, err := os.ReadFile(tk.Path())
 	if err != nil {
 		t.Fatalf("read file: %v", err)
 	}

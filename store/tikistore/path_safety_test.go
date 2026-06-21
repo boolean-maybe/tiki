@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/document"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -75,9 +76,10 @@ func TestDeleteTiki_UsesLoadedPath(t *testing.T) {
 	}
 }
 
-// TestCreateTiki_NewFileUsesIDDerivedPath verifies the fallback: a brand-new
-// tiki (Path empty) lands at <id>.md under the tiki dir.
-func TestCreateTiki_NewFileUsesIDDerivedPath(t *testing.T) {
+// TestCreateTiki_NewFileUsesSlugDerivedPath verifies that a brand-new tiki
+// (Path empty) lands at <slug>.md under the tiki dir, where <slug> is derived
+// from its title.
+func TestCreateTiki_NewFileUsesSlugDerivedPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	s, err := NewTikiStore(tmpDir)
 	if err != nil {
@@ -86,7 +88,7 @@ func TestCreateTiki_NewFileUsesIDDerivedPath(t *testing.T) {
 
 	wf := tikipkg.New()
 	wf.SetID("NEW001")
-	wf.SetTitle("fresh")
+	wf.SetTitle("fresh start")
 	wf.Set("type", "story")
 	wf.Set("status", "ready")
 	wf.Set("priority", "high")
@@ -94,7 +96,8 @@ func TestCreateTiki_NewFileUsesIDDerivedPath(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	if _, err := os.Stat(filepath.Join(tmpDir, "NEW001.md")); err != nil {
-		t.Errorf("expected new tiki file at NEW001.md, stat err: %v", err)
+	want := filepath.Join(tmpDir, document.Slugify("fresh start")+".md")
+	if _, err := os.Stat(want); err != nil {
+		t.Errorf("expected new tiki file at %s, stat err: %v", want, err)
 	}
 }

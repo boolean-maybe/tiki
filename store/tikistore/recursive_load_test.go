@@ -101,10 +101,10 @@ func TestRecursiveLoad_SkipsHiddenDirectories(t *testing.T) {
 	}
 }
 
-// TestRecursiveLoad_NewTikiLandsAtDocRoot verifies the Phase 2 save default:
-// a brand-new document written via CreateTiki ends up directly under the
-// scan root (`<root>/<ID>.md`), not under a `tiki/` subdirectory. The
-// recursive walker must then find it on reload.
+// TestRecursiveLoad_NewTikiLandsAtDocRoot verifies the save default: a
+// brand-new document written via CreateTiki ends up directly under the scan
+// root (`<root>/<slug>.md`), not under a `tiki/` subdirectory. The recursive
+// walker must then find it on reload.
 func TestRecursiveLoad_NewTikiLandsAtDocRoot(t *testing.T) {
 	root := t.TempDir()
 	store, err := NewTikiStore(root)
@@ -122,9 +122,12 @@ func TestRecursiveLoad_NewTikiLandsAtDocRoot(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	want := filepath.Join(root, "EEEEEE.md")
-	if _, err := os.Stat(want); err != nil {
-		t.Fatalf("expected new doc at %s, stat error: %v", want, err)
+	if _, err := os.Stat(tk.Path()); err != nil {
+		t.Fatalf("expected new doc at %s, stat error: %v", tk.Path(), err)
+	}
+	rootAbs, _ := filepath.Abs(root)
+	if got := filepath.Dir(tk.Path()); got != rootAbs {
+		t.Fatalf("new doc not at scan root: dir = %q, want %q", got, rootAbs)
 	}
 
 	// Reloading should rediscover the new file through the recursive walk.

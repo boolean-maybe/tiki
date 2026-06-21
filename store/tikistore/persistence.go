@@ -371,7 +371,11 @@ func validateCustomFieldEntry(k string, v interface{}, fd workflow.FieldDef) err
 // follows tk.Path() so renames are preserved; new tikis land at the
 // id-derived default path.
 func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
-	path := s.pathForTiki(tk)
+	path, err := s.pathForTiki(tk)
+	if err != nil {
+		slog.Error("failed to resolve path for tiki", "tiki_id", tk.ID(), "error", err)
+		return err
+	}
 	slog.Debug("attempting to save tiki", "tiki_id", tk.ID(), "path", path)
 
 	// Validate custom fields before write: reject unregistered keys that
@@ -454,11 +458,39 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	return nil
 }
 
-// tikiFilePath returns the default on-disk path for a brand-new tiki whose
-// file has not yet been created. Once a tiki is loaded from disk, save and
-// delete operations should target tiki.Path — not this — so renames are
-// preserved. In Phase 2 this resolves to `.doc/<ID>.md` because the store
-// is rooted at the unified document directory.
+// ErrEmptyTitleForSlug is returned when a new tiki's title slugs to nothing,
+// so no title-derived filename can be produced. creation is rejected rather
+// than inventing a placeholder name.
+var ErrEmptyTitleForSlug = errors.New("cannot derive filename: title is empty")
+
+// slugFilePath returns the on-disk path for a brand-new tiki named after a slug
+// of its title. on a name collision it appends a numeric suffix
+// (<slug>.md, <slug>-2.md, ...), probing the filesystem for the first free
+// name — the filesystem, not the in-memory index, because a slug can collide
+// with a renamed or external file the index does not track. an empty-slug title
+// returns ErrEmptyTitleForSlug.
+func (s *TikiStore) slugFilePath(tk *tiki.Tiki) (string, error) {
+	slug := document.Slugify(tk.Title())
+	if slug == "" {
+		return "", ErrEmptyTitleForSlug
+	}
+	candidate := filepath.Join(s.dir, slug+".md")
+	for i := 2; ; i++ {
+		if _, err := os.Stat(candidate); os.IsNotExist(err) {
+			return candidate, nil
+		}
+		if i > maxGenerateRetries+1 {
+			return "", fmt.Errorf("failed to find free filename for slug %q after %d attempts", slug, maxGenerateRetries)
+		}
+		candidate = filepath.Join(s.dir, fmt.Sprintf("%s-%d.md", slug, i))
+	}
+}
+
+// tikiFilePath returns the id-derived path <dir>/<ID>.md. new tikis are named
+// by slugFilePath, so this is no longer the creation generator — but it remains
+// the only sensible fallback when a path must be guessed from an id alone, with
+// no title to slug and no loaded Path: ReloadTiki uses it for an id unknown to
+// the store. do not rewire it back into the creation path.
 func (s *TikiStore) tikiFilePath(id string) string {
 	return filepath.Join(s.dir, id+".md")
 }
@@ -470,15 +502,15 @@ func (s *TikiStore) collectDocumentPaths() ([]string, error) {
 	return document.WalkDocuments(s.dir)
 }
 
-// pathForTiki returns the on-disk path to use for an operation on tk.
-// If tk already has a Path (was loaded from disk), that path wins so
-// rename/move are preserved. Only when Path is empty (brand-new tiki
-// being created) do we fall back to the id-derived path.
-func (s *TikiStore) pathForTiki(tk *tiki.Tiki) string {
+// pathForTiki returns the on-disk path for an operation on tk. a loaded tiki
+// (non-empty Path) keeps its path so rename/move are preserved; a brand-new
+// tiki is named by slugFilePath. the legacy id-derived tikiFilePath is no
+// longer wired in here.
+func (s *TikiStore) pathForTiki(tk *tiki.Tiki) (string, error) {
 	if tk != nil && tk.Path() != "" {
-		return tk.Path()
+		return tk.Path(), nil
 	}
-	return s.tikiFilePath(tk.ID())
+	return s.slugFilePath(tk)
 }
 
 // extractCustomFields splits a frontmatter map into workflow-declared fields

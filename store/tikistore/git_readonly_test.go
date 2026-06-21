@@ -2,6 +2,7 @@ package tikistore
 
 import (
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -51,16 +52,17 @@ func TestSaveDoesNotStage(t *testing.T) {
 
 	tk := tikipkg.New()
 	tk.SetID("ABC123")
-	tk.SetTitle("x")
+	tk.SetTitle("save no stage")
 	tk.Set("type", "story")
 	tk.Set("status", "inbox")
 	tk.Set("priority", "medium")
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
+	name := filepath.Base(tk.Path())
 
 	out := runGit(t, dir, "status", "--porcelain")
-	if strings.Contains(out, "A  ABC123.md") {
+	if strings.Contains(out, "A  "+name) {
 		t.Fatalf("file was staged; expected untracked:\n%s", out)
 	}
 }
@@ -86,26 +88,27 @@ func TestDeleteDoesNotStage(t *testing.T) {
 
 	tk := tikipkg.New()
 	tk.SetID("DEF456")
-	tk.SetTitle("y")
+	tk.SetTitle("delete no stage")
 	tk.Set("type", "story")
 	tk.Set("status", "inbox")
 	tk.Set("priority", "medium")
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
+	name := filepath.Base(tk.Path())
 	// commit the file so its deletion would show as a tracked change.
-	runGit(t, dir, "add", "DEF456.md")
-	runGit(t, dir, "commit", "-m", "add DEF456")
+	runGit(t, dir, "add", name)
+	runGit(t, dir, "commit", "-m", "add fixture")
 
 	s.DeleteTiki("DEF456")
 
 	// the working-tree file must be gone, and the deletion must be UNstaged
 	// (" D", leading space) — never staged ("D ", as `git rm` would produce).
 	out := runGit(t, dir, "status", "--porcelain")
-	if strings.Contains(out, "D  DEF456.md") {
+	if strings.Contains(out, "D  "+name) {
 		t.Fatalf("deletion was staged; expected unstaged:\n%s", out)
 	}
-	if !strings.Contains(out, " D DEF456.md") {
-		t.Fatalf("expected an unstaged deletion of DEF456.md:\n%s", out)
+	if !strings.Contains(out, " D "+name) {
+		t.Fatalf("expected an unstaged deletion of %s:\n%s", name, out)
 	}
 }

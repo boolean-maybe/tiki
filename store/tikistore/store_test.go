@@ -10,6 +10,7 @@ import (
 
 	"github.com/boolean-maybe/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
@@ -742,8 +743,7 @@ func TestSaveTiki_Recurrence(t *testing.T) {
 				t.Fatalf("CreateTiki() error = %v", err)
 			}
 
-			filePath := filepath.Join(tmpDir, "RECSVR.md")
-			content, err := os.ReadFile(filePath)
+			content, err := os.ReadFile(tk.Path())
 			if err != nil {
 				t.Fatalf("failed to read saved file: %v", err)
 			}
@@ -967,8 +967,7 @@ func TestSaveTiki_Due(t *testing.T) {
 			}
 
 			// Read file and check frontmatter
-			filePath := filepath.Join(tmpDir, "SAVE01.md")
-			content, err := os.ReadFile(filePath)
+			content, err := os.ReadFile(tk.Path())
 			if err != nil {
 				t.Fatalf("failed to read saved file: %v", err)
 			}
@@ -1032,9 +1031,9 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 		t.Fatalf("saveTiki: %v", err)
 	}
 
-	// reload
-	path := store.tikiFilePath(original.ID())
-	loaded, err := store.loadTikiFile(path, nil, nil)
+	// reload from the path the store actually wrote (slug-named), not an
+	// id-reconstructed path
+	loaded, err := store.loadTikiFile(original.Path(), nil, nil)
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)
 	}
@@ -1169,8 +1168,7 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 				t.Fatalf("saveTiki: %v", err)
 			}
 
-			path := store.tikiFilePath(original.ID())
-			loaded, err := store.loadTikiFile(path, nil, nil)
+			loaded, err := store.loadTikiFile(original.Path(), nil, nil)
 			if err != nil {
 				t.Fatalf("loadTikiFile: %v", err)
 			}
@@ -1213,7 +1211,7 @@ func TestSaveTiki_TimestampFieldKeepsTimeComponent(t *testing.T) {
 		t.Fatalf("saveTiki: %v", err)
 	}
 
-	loaded, err := store.loadTikiFile(store.tikiFilePath(original.ID()), nil, nil)
+	loaded, err := store.loadTikiFile(original.Path(), nil, nil)
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)
 	}
@@ -1553,8 +1551,7 @@ func TestSaveTiki_DedupesBuiltInCollections(t *testing.T) {
 		t.Fatalf("saveTiki: %v", err)
 	}
 
-	path := store.tikiFilePath(input.ID())
-	loaded, err := store.loadTikiFile(path, nil, nil)
+	loaded, err := store.loadTikiFile(input.Path(), nil, nil)
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)
 	}
@@ -1599,8 +1596,7 @@ func TestSaveTiki_DedupesCustomListFields(t *testing.T) {
 		t.Fatalf("saveTiki: %v", err)
 	}
 
-	path := store.tikiFilePath(input.ID())
-	loaded, err := store.loadTikiFile(path, nil, nil)
+	loaded, err := store.loadTikiFile(input.Path(), nil, nil)
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)
 	}
@@ -1743,7 +1739,7 @@ func TestSaveTiki_FilePathRefreshedAndNotSerialized(t *testing.T) {
 	if !filepath.IsAbs(tk.Path()) {
 		t.Errorf("Path is not absolute: %q", tk.Path())
 	}
-	expectedPath := filepath.Join(tmpDir, "FP0002.md")
+	expectedPath := filepath.Join(tmpDir, document.Slugify("Save Filepath Test")+".md")
 	expectedAbs, _ := filepath.Abs(expectedPath)
 	if tk.Path() != expectedAbs {
 		t.Errorf("Path = %q, want %q", tk.Path(), expectedAbs)

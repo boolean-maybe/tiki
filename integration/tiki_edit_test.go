@@ -3,7 +3,6 @@ package integration
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
@@ -122,10 +121,11 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 		t.Fatalf("expected uppercase ID variant, foundUpper=%v", foundUpper)
 	}
 
-	// Ensure file path is the lowercased ID (edit source uses this file).
-	tikiFilePath := filepath.Join(ta.TikiDir, strings.ToLower(tikiID)+".md")
-	if _, err := os.Stat(tikiFilePath); os.IsNotExist(err) {
-		t.Fatalf("expected tiki file to exist at %s", tikiFilePath)
+	// Ensure the on-disk file the store wrote still exists (edit source uses
+	// this file). The store names new tikis by a slug of the title, so read the
+	// path it recorded rather than reconstructing one from the ID.
+	if _, err := os.Stat(tk.Path()); os.IsNotExist(err) {
+		t.Fatalf("expected tiki file to exist at %s", tk.Path())
 	}
 }
 

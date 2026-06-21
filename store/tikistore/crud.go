@@ -8,6 +8,7 @@ import (
 
 	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/document"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -37,6 +38,14 @@ func (s *TikiStore) createTikiLocked(tk *tikipkg.Tiki) error {
 func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// reject before assigning an ID or saving: a title that slugs to nothing
+	// has no title-derived filename, and burning an ID on a doomed create
+	// leaves partial state. both callers (TUI commit, ruki create) get one
+	// uniform rejection point here.
+	if document.Slugify(tk.Title()) == "" {
+		return ErrEmptyTitleForSlug
+	}
 
 	// generate ID if not provided. Identity uniqueness is checked against the
 	// in-memory index (s.tikis), not the filesystem — a tiki loaded from a
@@ -165,7 +174,13 @@ func (s *TikiStore) deleteTikiLocked(id string) bool {
 	}
 
 	// use the loaded file path so a renamed/moved file still gets cleaned up.
-	path := s.pathForTiki(existing)
+	// existing came out of s.tikis, so it always has a Path and pathForTiki
+	// short-circuits before any slug logic — the error branch is defensive.
+	path, err := s.pathForTiki(existing)
+	if err != nil {
+		slog.Error("failed to resolve path for delete, tiki preserved", "tiki_id", id, "error", err)
+		return false
+	}
 
 	// git integration is read-only: delete only the working-tree file, never
 	// stage the removal. When cwd is a repo the user stages/commits themselves.

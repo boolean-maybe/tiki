@@ -148,7 +148,7 @@ func TestCreateTiki_TemplateDerivedTikiSerializesWithDefaultedFields(t *testing.
 		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(tmp, tk.ID()+".md"))
+	data, err := os.ReadFile(tk.Path())
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
