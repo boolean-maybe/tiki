@@ -636,6 +636,45 @@ func TestPluginController_HandleDeleteTiki_Rejected(t *testing.T) {
 	}
 }
 
+// TestPluginController_NewModeFiresOnEmptyBoard reproduces the bug where
+// pressing the "New" key on an empty board (no tikis, hence no selection)
+// silently did nothing. The "New" action is a kind: view action with
+// mode: new targeting a Detail view that declares require: selection:one.
+// Because mode: new synthesizes its own draft and ignores the carried
+// selection, the target view's selection requirement must not gate it.
+func TestPluginController_NewModeFiresOnEmptyBoard(t *testing.T) {
+	// register the Detail view's require list, mirroring workflow.yaml.
+	InitPluginActions([]PluginInfo{{Name: "Detail", Require: []string{"selection:one"}}})
+	t.Cleanup(func() { InitPluginActions(nil) })
+
+	tikiStore := store.NewInMemoryStore() // empty: no tikis, no selection
+	emptyFilter := mustParseStmt(t, `select where status = "done"`)
+	newAction := plugin.PluginAction{
+		Key: 0, Rune: 'n', KeyStr: "n",
+		Label:      "New",
+		Kind:       plugin.ActionKindView,
+		Mode:       plugin.DetailModeNew,
+		TargetView: "Detail",
+	}
+	pluginDef := &plugin.WorkflowPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
+		Actions:    []plugin.PluginAction{newAction},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	schema := rukiRuntime.NewSchema()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	nav := newMockNavigationController()
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nav, nil, schema)
+
+	if !pc.HandleAction(pluginActionID("n")) {
+		t.Fatal("expected New action to fire on an empty board (mode: new needs no selection)")
+	}
+}
+
 func TestPluginController_GetNameAndRegistry(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)

@@ -67,6 +67,44 @@ func TestWalkDocuments_ExcludesHiddenDirs(t *testing.T) {
 	}
 }
 
+// TestWalkDocuments_TraversesDotDoc verifies the `.doc` carve-out: a directory
+// named `.doc` is traversed at any depth even though its name is hidden, while
+// other hidden siblings (`.git`, ...) stay pruned. This supports legacy projects
+// whose tikis still live under `.doc/`.
+func TestWalkDocuments_TraversesDotDoc(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "AAAAAA.md"), "root doc\n")
+	mustWrite(t, filepath.Join(root, ".doc", "BBBBBB.md"), "legacy doc\n")
+	mustWrite(t, filepath.Join(root, ".doc", "tiki", "CCCCCC.md"), "legacy nested doc\n")
+	mustWrite(t, filepath.Join(root, "sub", ".doc", "DDDDDD.md"), "nested .doc doc\n")
+	mustWrite(t, filepath.Join(root, ".git", "ZZZZZZ.md"), "must stay pruned\n")
+
+	paths, err := WalkDocuments(root)
+	if err != nil {
+		t.Fatalf("WalkDocuments: %v", err)
+	}
+
+	got := map[string]bool{}
+	for _, p := range paths {
+		rel, _ := filepath.Rel(root, p)
+		got[filepath.ToSlash(rel)] = true
+	}
+
+	for _, want := range []string{
+		"AAAAAA.md",
+		".doc/BBBBBB.md",
+		".doc/tiki/CCCCCC.md",
+		"sub/.doc/DDDDDD.md",
+	} {
+		if !got[want] {
+			t.Errorf("expected %s in walk result; got %v", want, got)
+		}
+	}
+	if got[".git/ZZZZZZ.md"] {
+		t.Errorf("walk result unexpectedly included pruned hidden path .git/ZZZZZZ.md")
+	}
+}
+
 func mustWrite(t *testing.T, path, content string) {
 	t.Helper()
 	//nolint:gosec // G301: 0755 matches repo-wide test-helper perms

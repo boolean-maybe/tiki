@@ -638,7 +638,10 @@ func (dc *DetailController) dispatchViewAction(a *plugin.PluginAction) bool {
 	if dc.selectedTikiID != "" {
 		carried = 1
 	}
-	if !TargetViewEnabled(a.TargetView, carried) {
+	// see PluginController.handleViewAction: a mode supplying its own subject
+	// (mode: new) carries no selection dependency, so the target view's
+	// selection requirement must not gate it.
+	if !a.Mode.SuppliesOwnSubject() && !TargetViewEnabled(a.TargetView, carried) {
 		return false
 	}
 	var ids []string

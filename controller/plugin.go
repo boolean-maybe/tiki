@@ -342,7 +342,10 @@ func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
 	if len(ids) == 1 {
 		carried = 1
 	}
-	if !TargetViewEnabled(pa.TargetView, carried) {
+	// modes that supply their own subject (mode: new) don't operate on the
+	// carried selection, so the target view's selection requirement must not
+	// gate them — otherwise New can never fire on an empty board.
+	if !pa.Mode.SuppliesOwnSubject() && !TargetViewEnabled(pa.TargetView, carried) {
 		return false
 	}
 	pvp, ok := buildDetailViewParams(pa.Mode, ids, pc.tikiStore)

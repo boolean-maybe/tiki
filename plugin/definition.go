@@ -184,6 +184,15 @@ const (
 	DetailModeEditTags DetailMode = "edit-tags"
 )
 
+// SuppliesOwnSubject reports whether the mode produces its own tiki rather
+// than operating on the carried selection. Only mode: new does — it
+// synthesizes a fresh draft (see buildDetailViewParams). Such a mode must
+// not be gated on the target view's selection:one requirement, otherwise
+// "New" can never fire on an empty board (no selection to satisfy it).
+func (m DetailMode) SuppliesOwnSubject() bool {
+	return m == DetailModeNew
+}
+
 // PluginAction represents a parsed shortcut action bound to a key.
 // Kind selects which of Action (ruki) or TargetView (view navigation) is used.
 type PluginAction struct {

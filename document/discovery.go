@@ -15,7 +15,8 @@ import (
 // Exclusion rules (see per-helper godoc for specifics):
 //
 //   - non-`.md` files are ignored;
-//   - hidden subdirectories (`.git`, `.idea`, `.obsidian`, ...) are pruned;
+//   - hidden subdirectories (`.git`, `.idea`, `.obsidian`, ...) are pruned,
+//     except `.doc` (the legacy document store), which is always traversed;
 //   - paths matched by `.gitignore` or `.tikiignore` at root are excluded.
 //
 // Returned paths are sorted so callers that iterate them get deterministic
@@ -59,12 +60,21 @@ func WalkDocuments(root string) ([]string, error) {
 	return paths, nil
 }
 
+// docDirName is the one hidden directory the walker descends into: the legacy
+// document store. Projects predating the cwd-rooted scan keep their tikis under
+// `.doc/`, so it is exempt from the hidden-directory prune at any depth.
+const docDirName = ".doc"
+
 // IsSkippableSubdir reports whether a directory encountered during a walk
 // should be pruned. The root itself is never skipped. Hidden names (names
 // starting with ".") are skipped — they are editor/VCS metadata (`.git`,
-// `.obsidian`, `.idea`, ...).
+// `.obsidian`, `.idea`, ...) — with the sole exception of `.doc`, the legacy
+// document store, which is traversed wherever it appears.
 func IsSkippableSubdir(path, root, name string) bool {
 	if path == root {
+		return false
+	}
+	if name == docDirName {
 		return false
 	}
 	return strings.HasPrefix(name, ".")

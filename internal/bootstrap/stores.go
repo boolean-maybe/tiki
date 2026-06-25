@@ -16,10 +16,10 @@ func InitStores() (*tikistore.TikiStore, store.Store, error) {
 	if name := config.GetStoreName(); name != "tiki" {
 		return nil, nil, fmt.Errorf("unknown store backend: %q (supported: tiki)", name)
 	}
-	// The store scans the unified document root recursively, so projects
-	// with arbitrary subdirectory structure under `.doc/` (e.g. an existing
-	// `.doc/tiki/*.md` layout) continue to load. New documents are written
-	// at `.doc/<ID>.md` directly under the root by default.
+	// The store scans the document root (cwd) recursively. Hidden subdirs are
+	// pruned except `.doc`, which the walker traverses by exception — so legacy
+	// projects whose tikis still live under `.doc/` (e.g. `.doc/tiki/*.md`) load,
+	// while new documents are written as `<slug>.md` directly under the root.
 	tikiStore, err := tikistore.NewTikiStore(config.GetDocDir())
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize tiki store: %w", err)
