@@ -1,6 +1,7 @@
 package view
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -163,12 +164,7 @@ func (dv *WikiView) build() {
 
 	switch {
 	case dv.pluginDef.DocumentPath != "":
-		target := dv.pluginDef.DocumentPath
-		content, err = provider.FetchContent(nav.NavElement{URL: target})
-		sourcePath, _ = nav.ResolveMarkdownPath(target, "", searchRoots)
-		if sourcePath == "" {
-			sourcePath = target
-		}
+		content, sourcePath = loadWikiContent(provider, dv.pluginDef.DocumentPath, searchRoots)
 	case dv.pluginDef.GetKind() == plugin.KindDetail && dv.selectedTikiID != "" && dv.tikiStore != nil:
 		// 6B.2: render the selected document. The provider's bare-id
 		// lookup handles formatting the tiki body into markdown; wikilinks
@@ -176,6 +172,10 @@ func (dv *WikiView) build() {
 		content, err = provider.FetchContent(nav.NavElement{URL: dv.selectedTikiID})
 		if path := dv.tikiStore.PathForID(dv.selectedTikiID); path != "" {
 			sourcePath = path
+		}
+		if err != nil {
+			slog.Error("failed to fetch wiki content", "plugin", dv.pluginDef.Name, "error", err)
+			content = fmt.Sprintf("Error loading content: %v", err)
 		}
 	default:
 		// kind: detail with no selection, or a kind without a content source
@@ -190,11 +190,6 @@ func (dv *WikiView) build() {
 		MermaidOptions: dv.mermaidOpts,
 	})
 
-	if err != nil {
-		slog.Error("failed to fetch wiki content", "plugin", dv.pluginDef.Name, "error", err)
-		content = fmt.Sprintf("Error loading content: %v", err)
-	}
-
 	// Display initial content (don't push to history - this is the first page)
 	if sourcePath != "" {
 		dv.md.SetMarkdownWithSource(content, sourcePath, false)
@@ -205,6 +200,37 @@ func (dv *WikiView) build() {
 	// root layout
 	dv.root = tview.NewFlex().SetDirection(tview.FlexRow)
 	dv.rebuildLayout()
+}
+
+// loadWikiContent fetches the markdown bound to a `path:` wiki view and
+// resolves its on-disk source path. A missing document (nav.ErrFileNotFound)
+// is an expected state — a fresh project simply has no docs yet — so it
+// renders a friendly empty-state placeholder rather than the raw resolver
+// error. Any other failure is surfaced verbatim so real problems (permissions,
+// malformed paths) are not masked.
+func loadWikiContent(provider nav.ContentProvider, docPath string, searchRoots []string) (content, sourcePath string) {
+	content, err := provider.FetchContent(nav.NavElement{URL: docPath})
+	sourcePath, _ = nav.ResolveMarkdownPath(docPath, "", searchRoots)
+	if sourcePath == "" {
+		sourcePath = docPath
+	}
+	if err == nil {
+		return content, sourcePath
+	}
+	if errors.Is(err, nav.ErrFileNotFound) {
+		return wikiEmptyState(docPath), sourcePath
+	}
+	slog.Error("failed to fetch wiki content", "path", docPath, "error", err)
+	return fmt.Sprintf("Error loading content: %v", err), sourcePath
+}
+
+// wikiEmptyState is the placeholder shown when a wiki view's target document
+// does not exist yet, guiding the user toward creating it.
+func wikiEmptyState(docPath string) string {
+	return fmt.Sprintf(
+		"## No documentation yet\n\nCreate `%s` in this directory to start writing project notes.",
+		docPath,
+	)
 }
 
 func (dv *WikiView) rebuildLayout() {
