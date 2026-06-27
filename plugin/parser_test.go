@@ -1524,7 +1524,7 @@ func TestParsePluginActions_ViewKindErrors(t *testing.T) {
 			name:      "both action and view set",
 			cfg:       PluginActionConfig{Key: "F11", Kind: "view", Label: "Open", Action: `select where status = "done"`, View: "Kanban"},
 			viewNames: knownViews,
-			wantError: "kind: view must not set `action:`",
+			wantError: "kind: view must not set 'action:' unless mode: new",
 		},
 		{
 			name:      "unknown view name",
@@ -1775,6 +1775,94 @@ func TestParseViewAction_ModeNewRejectedOnDetailViewActions(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "mode: new not valid on a detail view's own actions") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// parseBoardActionWithSeed parses a board view named "Roadmap" carrying a
+// single view action (the seed candidate) targeting a Project detail view.
+// It returns the parsed action and any parse error, mirroring how a real
+// board's New action seeds a detail-view draft.
+func parseBoardActionWithSeed(t *testing.T, act PluginActionConfig) (PluginAction, error) {
+	t.Helper()
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name:    "Roadmap",
+		Kind:    "board",
+		Layout:  minimalBoardLayout(),
+		Lanes:   []PluginLaneConfig{{Name: "All", Columns: 1, Filter: "select"}},
+		Actions: []PluginActionConfig{act},
+	}
+	viewNames := map[string]ViewKind{"Roadmap": KindBoard, "Project": KindDetail}
+	p, err := parsePluginConfig(cfg, "test", schema, viewNames)
+	if err != nil {
+		return PluginAction{}, err
+	}
+	wp, ok := p.(*WorkflowPlugin)
+	if !ok {
+		t.Fatalf("expected *WorkflowPlugin, got %T", p)
+	}
+	if len(wp.Actions) != 1 {
+		t.Fatalf("expected 1 parsed action, got %d", len(wp.Actions))
+	}
+	return wp.Actions[0], nil
+}
+
+func TestParseViewAction_CreateSeedOnModeNew(t *testing.T) {
+	pa, err := parseBoardActionWithSeed(t, PluginActionConfig{
+		Key: "n", Label: "New", Kind: "view", View: "Project",
+		Mode: "new", Action: `create type="project"`,
+	})
+	if err != nil {
+		t.Fatalf("parse seed action: %v", err)
+	}
+	if pa.CreateSeed == nil {
+		t.Fatal("expected CreateSeed to be set")
+	}
+	if !pa.CreateSeed.IsCreate() {
+		t.Fatal("expected CreateSeed to be a create statement")
+	}
+}
+
+func TestParseViewAction_ActionRejectedWhenModeNotNew(t *testing.T) {
+	_, err := parseBoardActionWithSeed(t, PluginActionConfig{
+		Key: "e", Label: "Edit", Kind: "view", View: "Project",
+		Mode: "edit", Action: `create type="project"`,
+	})
+	if err == nil || !strings.Contains(err.Error(), "must not set 'action:' unless mode: new") {
+		t.Fatalf("expected mode-not-new rejection, got %v", err)
+	}
+}
+
+func TestParseViewAction_ActionMustBeCreateStatement(t *testing.T) {
+	_, err := parseBoardActionWithSeed(t, PluginActionConfig{
+		Key: "n", Label: "New", Kind: "view", View: "Project",
+		Mode: "new", Action: `update where id = id() set type="project"`,
+	})
+	if err == nil || !strings.Contains(err.Error(), "must be a create statement") {
+		t.Fatalf("expected create-statement rejection, got %v", err)
+	}
+}
+
+func TestParseViewAction_SeedRejectedWithChoose(t *testing.T) {
+	_, err := parseBoardActionWithSeed(t, PluginActionConfig{
+		Key: "n", Label: "New", Kind: "view", View: "Project",
+		Mode: "new", Action: `create type="project"`,
+		Choose: `select where type != "project"`,
+	})
+	if err == nil || !strings.Contains(err.Error(), "cannot combine `action:` create seed with `choose:`") {
+		t.Fatalf("expected seed+choose rejection, got %v", err)
+	}
+}
+
+func TestParseViewAction_BareModeNewStillValid(t *testing.T) {
+	pa, err := parseBoardActionWithSeed(t, PluginActionConfig{
+		Key: "n", Label: "New", Kind: "view", View: "Project", Mode: "new",
+	})
+	if err != nil {
+		t.Fatalf("parse bare mode: new: %v", err)
+	}
+	if pa.CreateSeed != nil {
+		t.Fatal("expected CreateSeed nil for bare mode: new")
 	}
 }
 

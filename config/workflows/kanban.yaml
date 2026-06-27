@@ -265,8 +265,11 @@ views:
       - key: "n"
         label: New
         kind: view
-        view: Detail
+        view: Project
         mode: new
+        # seed the draft as a project so a Roadmap "new" lands on this board
+        # (Roadmap lanes filter type = "project"); persisted only on form commit
+        action: create type="project"
       - key: "m"
         label: "Assign to me"
         action: update where id = id() set assignee=user()

@@ -348,7 +348,7 @@ func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
 	if !pa.Mode.SuppliesOwnSubject() && !TargetViewEnabled(pa.TargetView, carried) {
 		return false
 	}
-	pvp, ok := buildDetailViewParams(pa.Mode, ids, pc.tikiStore)
+	pvp, ok := buildDetailViewParams(pa, ids, pc.tikiStore, pc.pluginExecutor())
 	if !ok {
 		return false
 	}
@@ -362,11 +362,11 @@ func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
 // four modes it threads the carried selection (if any) and the appropriate
 // focus field. Returns false when a mode requires a single selection and
 // none was provided, or when draft synthesis fails.
-func buildDetailViewParams(mode plugin.DetailMode, ids []string, s store.Store) (model.PluginViewParams, bool) {
-	pvp := model.PluginViewParams{Mode: mode}
-	switch mode {
+func buildDetailViewParams(pa *plugin.PluginAction, ids []string, s store.Store, exec *PluginExecutor) (model.PluginViewParams, bool) {
+	pvp := model.PluginViewParams{Mode: pa.Mode}
+	switch pa.Mode {
 	case plugin.DetailModeNew:
-		draft, err := createDraftTiki(s)
+		draft, err := newModeDraft(pa, s, exec)
 		if err != nil {
 			slog.Error("mode: new failed to create draft", "error", err)
 			return model.PluginViewParams{}, false
@@ -392,6 +392,17 @@ func buildDetailViewParams(mode plugin.DetailMode, ids []string, s store.Store) 
 		}
 	}
 	return pvp, true
+}
+
+// newModeDraft returns the draft for a mode: new dispatch. With a CreateSeed it
+// runs the seed through the executor (no persist) so explicit field values are
+// pre-filled; otherwise a bare template from the store. A nil executor falls
+// back to the bare template, keeping pure-navigation callers working.
+func newModeDraft(pa *plugin.PluginAction, s store.Store, exec *PluginExecutor) (*tikipkg.Tiki, error) {
+	if pa.CreateSeed != nil && exec != nil {
+		return exec.BuildCreateDraft(pa.CreateSeed)
+	}
+	return createDraftTiki(s)
 }
 
 // GetActionInputSpec returns the prompt and input type for an action, if it has input.
@@ -515,7 +526,7 @@ func (pc *PluginController) handleViewActionWithChosenID(pa *plugin.PluginAction
 	if !TargetViewEnabled(pa.TargetView, 1) {
 		return false
 	}
-	pvp, ok := buildDetailViewParams(pa.Mode, []string{tikiID}, pc.tikiStore)
+	pvp, ok := buildDetailViewParams(pa, []string{tikiID}, pc.tikiStore, pc.pluginExecutor())
 	if !ok {
 		return false
 	}

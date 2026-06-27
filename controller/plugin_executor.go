@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/boolean-maybe/ruki"
@@ -80,6 +81,33 @@ func (pe *PluginExecutor) BuildExecutionInput(pa *plugin.PluginAction, selectedI
 		input.CreateTemplate = tikipkg.WrapDoc(template)
 	}
 	return input, true
+}
+
+// BuildCreateDraft runs a create seed statement and returns the resulting
+// in-memory tiki WITHOUT persisting it. It is the seed path for `mode: new`
+// view actions: catalog defaults from NewTikiTemplate() are layered with the
+// statement's assignments, and the tiki is handed to the detail view as an
+// editable draft (persisted only on form commit). It never calls the mutation
+// gate, so a cancelled form leaves nothing on disk.
+func (pe *PluginExecutor) BuildCreateDraft(stmt *ruki.ValidatedStatement) (*tikipkg.Tiki, error) {
+	if stmt == nil || !stmt.IsCreate() {
+		return nil, fmt.Errorf("BuildCreateDraft requires a create statement")
+	}
+	template, err := pe.tikiStore.NewTikiTemplate()
+	if err != nil {
+		return nil, fmt.Errorf("build create template: %w", err)
+	}
+	input := ruki.ExecutionInput{CreateTemplate: tikipkg.WrapDoc(template)}
+	executor := ruki.NewExecutor(pe.schema, pe.factory(), pe.userFunc(),
+		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
+	result, err := executor.Execute(stmt, tikipkg.WrapDocs(pe.tikiStore.GetAllTikis()), input)
+	if err != nil {
+		return nil, fmt.Errorf("execute create seed: %w", err)
+	}
+	if result.Create == nil {
+		return nil, fmt.Errorf("create seed produced no tiki")
+	}
+	return tikipkg.UnwrapDoc(result.Create.Tiki), nil
 }
 
 // EvalChooseFilter evaluates an action's choose subquery against the current

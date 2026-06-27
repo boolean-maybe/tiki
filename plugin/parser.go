@@ -740,9 +740,6 @@ func parseViewAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, viewN
 	if cfg.View == "" {
 		return PluginAction{}, fmt.Errorf("action %d (key %q): kind: view requires `view:` (target view name)", idx, cfg.Key)
 	}
-	if cfg.Action != "" {
-		return PluginAction{}, fmt.Errorf("action %d (key %q): kind: view must not set `action:`", idx, cfg.Key)
-	}
 	if cfg.Input != "" {
 		return PluginAction{}, fmt.Errorf("action %d (key %q): kind: view does not support `input:`", idx, cfg.Key)
 	}
@@ -777,6 +774,31 @@ func parseViewAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, viewN
 			return PluginAction{}, fmt.Errorf("action %d (key %q): mode: new not valid on a detail view's own actions",
 				idx, cfg.Key)
 		}
+	}
+
+	// an optional `action:` on a kind: view action is the seed for mode: new —
+	// a single ruki create statement that pre-fills the synthesized draft. it
+	// is parsed only after mode is resolved so the guard can reject it on any
+	// non-new mode.
+	var createSeed *ruki.ValidatedStatement
+	if strings.TrimSpace(cfg.Action) != "" {
+		if mode != DetailModeNew {
+			return PluginAction{}, fmt.Errorf(
+				"action %d (key %q): kind: view must not set 'action:' unless mode: new", idx, cfg.Key)
+		}
+		stmt, err := parser.ParseAndValidateStatement(cfg.Action, ruki.ExecutorRuntimePlugin)
+		if err != nil {
+			return PluginAction{}, fmt.Errorf("parsing action %d (key %q) seed: %w", idx, cfg.Key, err)
+		}
+		if !stmt.IsCreate() {
+			return PluginAction{}, fmt.Errorf(
+				"action %d (key %q): mode: new 'action:' must be a create statement", idx, cfg.Key)
+		}
+		if strings.TrimSpace(cfg.Choose) != "" {
+			return PluginAction{}, fmt.Errorf(
+				"action %d (key %q): cannot combine `action:` create seed with `choose:`", idx, cfg.Key)
+		}
+		createSeed = stmt
 	}
 
 	require := make([]string, 0, len(cfg.Require))
@@ -820,6 +842,7 @@ func parseViewAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, viewN
 		Kind:         ActionKindView,
 		TargetView:   cfg.View,
 		Mode:         mode,
+		CreateSeed:   createSeed,
 		ShowInHeader: showInHeader,
 		HasChoose:    hasChoose,
 		ChooseFilter: chooseFilter,

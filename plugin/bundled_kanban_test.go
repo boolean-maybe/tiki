@@ -106,6 +106,53 @@ func TestBundledKanban_HasDetailViewAndEnterAction(t *testing.T) {
 	}
 }
 
+// TestBundledKanban_RoadmapNewHasProjectSeed asserts the Roadmap board's New
+// action carries a create seed so a new-from-Roadmap tiki is a project (and so
+// lands on a Roadmap lane, which filters type = "project").
+func TestBundledKanban_RoadmapNewHasProjectSeed(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	repoRoot := filepath.Dir(wd)
+	src := filepath.Join(repoRoot, "config", "workflows", "kanban.yaml")
+	if _, err := os.Stat(src); err != nil {
+		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
+	}
+
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
+	}
+
+	var roadmap *WorkflowPlugin
+	for _, p := range plugins {
+		if wp, ok := p.(*WorkflowPlugin); ok && wp.Name == "Roadmap" {
+			roadmap = wp
+			break
+		}
+	}
+	if roadmap == nil {
+		t.Fatal("bundled kanban does not contain a Roadmap board view")
+	}
+	var newAction *PluginAction
+	for i := range roadmap.Actions {
+		if roadmap.Actions[i].KeyStr == "n" {
+			newAction = &roadmap.Actions[i]
+			break
+		}
+	}
+	if newAction == nil {
+		t.Fatal("Roadmap board has no New (n) action")
+	}
+	if newAction.CreateSeed == nil {
+		t.Fatal("expected Roadmap New to carry a create seed")
+	}
+	if !newAction.CreateSeed.IsCreate() {
+		t.Fatal("expected Roadmap New seed to be a create statement")
+	}
+}
+
 // TestBundledKanban_GlobalsAreSelectionFree asserts the bundled kanban's
 // top-level actions: block contains only actions that don't depend on a
 // row-cursor selection. Selection-bound shortcuts (e/n/a/+/-, Enter, Ctrl-D,

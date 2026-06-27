@@ -36,6 +36,16 @@ func (pb *pluginBase) newExecutor() *ruki.Executor {
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
 }
 
+// pluginExecutor builds a PluginExecutor from the shared deps. Board/list
+// controllers don't keep one as a field (they run ruki inline via newExecutor),
+// but the mode: new create-seed path needs the richer wrapper's
+// BuildCreateDraft. onTikiUpdated is nil — a no-persist draft synthesis has no
+// store mutation for a cache to track.
+func (pb *pluginBase) pluginExecutor() *PluginExecutor {
+	return NewPluginExecutor(pb.tikiStore, pb.mutationGate, pb.statusline, pb.schema,
+		pb.pluginDef.Name, nil)
+}
+
 func (pb *pluginBase) GetActionRegistry() *ActionRegistry { return pb.registry }
 func (pb *pluginBase) GetPluginName() string              { return pb.pluginDef.Name }
 

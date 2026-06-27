@@ -652,7 +652,7 @@ func (dc *DetailController) dispatchViewAction(a *plugin.PluginAction) bool {
 	if dc.executor != nil {
 		tikiStore = dc.executor.tikiStore
 	}
-	pvp, ok := buildDetailViewParams(a.Mode, ids, tikiStore)
+	pvp, ok := buildDetailViewParams(a, ids, tikiStore, dc.executor)
 	if !ok {
 		return false
 	}
@@ -784,7 +784,7 @@ func (dc *DetailController) HandleActionChoose(actionID ActionID, tikiID string)
 	if dc.executor != nil {
 		tikiStore = dc.executor.tikiStore
 	}
-	pvp, ok := buildDetailViewParams(a.Mode, []string{tikiID}, tikiStore)
+	pvp, ok := buildDetailViewParams(a, []string{tikiID}, tikiStore, dc.executor)
 	if !ok {
 		return false
 	}

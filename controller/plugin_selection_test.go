@@ -675,6 +675,54 @@ func TestPluginController_NewModeFiresOnEmptyBoard(t *testing.T) {
 	}
 }
 
+func TestHandleViewAction_NewWithCreateSeed_SeedsDraftNoPersist(t *testing.T) {
+	tikiStore := store.NewInMemoryStore() // empty: no tikis, no selection
+	emptyFilter := mustParseStmt(t, `select where status = "done"`)
+	seed := mustParseStmt(t, `create type="project"`)
+	newAction := plugin.PluginAction{
+		Key: 0, Rune: 'n', KeyStr: "n",
+		Label:      "New",
+		Kind:       plugin.ActionKindView,
+		Mode:       plugin.DetailModeNew,
+		TargetView: "Project",
+		CreateSeed: seed,
+	}
+	pluginDef := &plugin.WorkflowPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "Roadmap"},
+		Lanes:      []plugin.TikiLane{{Name: "All", Columns: 1, Filter: emptyFilter}},
+		Actions:    []plugin.PluginAction{newAction},
+	}
+	pluginConfig := model.NewPluginConfig("Roadmap")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	schema := rukiRuntime.NewSchema()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	nav := newMockNavigationController()
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nav, nil, schema)
+
+	before := len(tikiStore.GetAllTikis())
+	if !pc.handleViewAction(&newAction) {
+		t.Fatal("expected New-with-seed to fire")
+	}
+	if after := len(tikiStore.GetAllTikis()); after != before {
+		t.Fatalf("dispatch must not persist: store %d -> %d", before, after)
+	}
+
+	entry := nav.CurrentView()
+	if entry == nil {
+		t.Fatal("expected a pushed view on the nav stack")
+	}
+	pvp := model.DecodePluginViewParams(entry.Params)
+	if pvp.Draft == nil {
+		t.Fatalf("expected pushed draft, got params %+v", entry.Params)
+	}
+	got, present, _ := pvp.Draft.StringField("type")
+	if !present || got != "project" {
+		t.Fatalf("expected pushed draft with type=project, got %q (present=%v)", got, present)
+	}
+}
+
 func TestPluginController_GetNameAndRegistry(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)

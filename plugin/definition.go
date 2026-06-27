@@ -196,14 +196,18 @@ func (m DetailMode) SuppliesOwnSubject() bool {
 // PluginAction represents a parsed shortcut action bound to a key.
 // Kind selects which of Action (ruki) or TargetView (view navigation) is used.
 type PluginAction struct {
-	Key          tcell.Key
-	Rune         rune
-	Modifier     tcell.ModMask
-	KeyStr       string // canonical key string for IDs, duplicate detection, and logging
-	Label        string
-	Kind         ActionKind
-	Mode         DetailMode
-	Action       *ruki.ValidatedStatement
+	Key      tcell.Key
+	Rune     rune
+	Modifier tcell.ModMask
+	KeyStr   string // canonical key string for IDs, duplicate detection, and logging
+	Label    string
+	Kind     ActionKind
+	Mode     DetailMode
+	Action   *ruki.ValidatedStatement
+	// CreateSeed is the optional ruki create statement declared via `action:`
+	// on a `mode: new` view action. When set, the dispatcher runs it (without
+	// persisting) to produce the form's seeded draft. nil for a bare mode: new.
+	CreateSeed   *ruki.ValidatedStatement
 	TargetView   string // for Kind == ActionKindView: name of the view to open
 	ShowInHeader bool
 	InputType    ruki.ValueType

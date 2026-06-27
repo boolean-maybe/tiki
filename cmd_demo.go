@@ -59,10 +59,13 @@ func runDemo() error {
 	return nil
 }
 
-// ensureDemoWorkflow writes the embedded kanban workflow to <dst>/workflow.yaml
-// when that file is absent. Idempotent: present file is left untouched so user
-// edits survive re-runs; missing file self-heals (e.g. after interrupted extract
-// or user deletion) rather than silently falling back to user-config scope.
+// ensureDemoWorkflow writes the canonical embedded kanban workflow to
+// <dst>/workflow.yaml when that file is absent. It is the single source of the
+// demo's workflow: the embedded demo tree (demoFS) deliberately ships no
+// workflow.yaml of its own, so this is the only writer — config.GetDefaultWorkflowYAML()
+// is the one authoritative copy. Idempotent: a present file is left untouched so
+// user edits survive re-runs; a missing file self-heals (first run, interrupted
+// extract, or user deletion).
 func ensureDemoWorkflow(dst string) error {
 	path := filepath.Join(dst, "workflow.yaml")
 	if _, err := os.Stat(path); err == nil {

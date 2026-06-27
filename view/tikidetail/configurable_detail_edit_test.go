@@ -1117,3 +1117,59 @@ func TestConfigurableDetailView_RecurrencePartNavigation_WrongAdapterType(t *tes
 		t.Error("IsRecurrenceValueFocused returned true on wrong adapter type")
 	}
 }
+
+// TestMeasureAnchor_EditModeReservesFocusMarker pins the fix for the
+// recurrence editor clipping to a single weekday letter ("Weekly > T").
+// In edit mode an editable field's value cell renders a focus marker
+// ("► ") inside its column when focused; the read-only measure never
+// accounted for it, so the solver sized the column 2 cells too narrow and
+// the InputField truncated the tail. The edit-mode measure of an editable
+// value anchor must reserve room for the marker so no editor clips.
+func TestMeasureAnchor_EditModeReservesFocusMarker(t *testing.T) {
+	tk := newTestViewTiki("TIKI118")
+	tk.Set(tikipkg.FieldRecurrence, "0 0 * * TUE") // Weekly on Tuesday
+
+	// DisplayLabel (zero value) is the value-rendering anchor, not a .caption.
+	anchor := gridlayout.Anchor{Name: tikipkg.FieldRecurrence, Display: gridlayout.DisplayLabel}
+	roles := theme.Roles()
+
+	viewCtx := FieldRenderContext{Mode: RenderModeView, Roles: roles}
+	editCtx := FieldRenderContext{Mode: RenderModeEdit, Roles: roles}
+
+	viewW := MeasureAnchor(anchor, tk, viewCtx)
+	editW := MeasureAnchor(anchor, tk, editCtx)
+
+	markerW := tview.TaggedStringWidth("► ")
+	if editW < viewW+markerW {
+		t.Errorf("edit-mode measure %d does not reserve focus marker (%d cells) over view measure %d",
+			editW, markerW, viewW)
+	}
+}
+
+// TestMeasureAnchor_RecurrenceEditModeFitsWidestWeekday reproduces the real
+// reported clip: a tiki stores a SHORT weekday (Monday), so the stored-value
+// measure sizes the column for "Weekly on Monday". In edit mode the in-place
+// recurrence editor cycles to a LONGER weekday (Wednesday) without the grid
+// re-solving — the column stays frozen at the Monday width and the editor's
+// "► Weekly > Wednesday" clips to "Weekly > Wednesda". The edit-mode measure
+// must reserve the widest reachable recurrence value so the column fits any
+// weekday the editor can cycle to in place.
+func TestMeasureAnchor_RecurrenceEditModeFitsWidestWeekday(t *testing.T) {
+	tk := newTestViewTiki("TIKI119")
+	tk.Set(tikipkg.FieldRecurrence, "0 0 * * MON") // stored: short weekday
+
+	anchor := gridlayout.Anchor{Name: tikipkg.FieldRecurrence, Display: gridlayout.DisplayLabel}
+	roles := theme.Roles()
+	editCtx := FieldRenderContext{Mode: RenderModeEdit, Roles: roles}
+
+	editW := MeasureAnchor(anchor, tk, editCtx)
+
+	// the editor can cycle to "Weekly > Wednesday" (the widest weekday); with
+	// the focus marker that is markerW + len("Weekly > Wednesday").
+	markerW := tview.TaggedStringWidth("► ")
+	wantMin := markerW + len("Weekly > Wednesday")
+	if editW < wantMin {
+		t.Errorf("recurrence edit measure = %d, want >= %d (must fit widest cycled value 'Weekly > Wednesday')",
+			editW, wantMin)
+	}
+}

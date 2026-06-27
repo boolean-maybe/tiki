@@ -95,6 +95,16 @@ type FieldHeightFn func(tk *tikipkg.Tiki, width int) int
 // so such fields are never `?`-hidden.
 type FieldEmptyFn func(tk *tikipkg.Tiki, name string) bool
 
+// EditMeasureFn returns the minimum column width (content cells, before the
+// focus-marker reserve) a type needs in EDIT mode. It exists for in-place
+// editors that cycle through values WITHOUT the grid re-solving: the column is
+// sized once from the stored value, so an editor that can swap in a wider value
+// (recurrence cycling Monday→Wednesday) would clip. Such a type returns its
+// widest reachable rendered width here so the column fits any value the editor
+// can produce. A nil EditMeasureFn means the edit-mode width equals the stored
+// value's width (the default for fixed-width editors like dates).
+type EditMeasureFn func() int
+
 // TypeUI bundles the rendering and editing primitives for a semantic type.
 // IsEmpty and EmptyPlaceholder are the per-type halves of the empty-value
 // contract: IsEmpty answers "has no value", EmptyPlaceholder is the default
@@ -108,6 +118,9 @@ type TypeUI struct {
 	Capability       EditorCapability
 	IsEmpty          FieldEmptyFn
 	EmptyPlaceholder string
+	// EditMeasure, when set, overrides the stored-value width in edit mode with
+	// the type's widest reachable value (see EditMeasureFn).
+	EditMeasure EditMeasureFn
 }
 
 // FieldDescriptor describes a single configurable detail-view field.
@@ -201,10 +214,40 @@ func MeasureFieldValue(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) in
 	// an empty scalar renders its placeholder ("None"/"Unknown"/"─"/…), not the
 	// "—" sentinel genericFieldValueString emits — measure the SAME string the
 	// renderer draws so the solver reserves the cell's true width.
-	if fieldIsEmpty(tk, fd) {
-		return scalarCellWidth(emptyPlaceholder(name, semanticForValueType(fd.Type)))
+	stored := scalarCellWidth(emptyPlaceholder(name, semanticForValueType(fd.Type)))
+	if !fieldIsEmpty(tk, fd) {
+		stored = scalarCellWidth(genericFieldValueString(fd, tk, ctx))
 	}
-	return scalarCellWidth(genericFieldValueString(fd, tk, ctx))
+	return maxInt(stored, editModeWidthFloor(name, ctx))
+}
+
+// editModeWidthFloor returns the minimum content width a field's column needs in
+// edit mode, independent of its stored value. It is non-zero only for types
+// whose in-place editor cycles through values without re-solving the grid (see
+// EditMeasureFn) — currently recurrence. Outside edit mode, or for types with no
+// EditMeasure, it is 0 so the stored-value width governs.
+func editModeWidthFloor(name string, ctx FieldRenderContext) int {
+	if ctx.Mode != RenderModeEdit {
+		return 0
+	}
+	fd, ok := LookupField(name)
+	if !ok {
+		return 0
+	}
+	ui, ok := LookupType(fd.Semantic)
+	if !ok || ui.EditMeasure == nil {
+		return 0
+	}
+	// EditMeasure() is the raw content width; add the breathing cell the
+	// truncating value view reserves, mirroring scalarCellWidth.
+	return ui.EditMeasure() + scalarBreathingCell
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // scalarBreathingCell is the single column truncatingTextView.Draw reserves at
@@ -300,7 +343,32 @@ func MeasureAnchor(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext
 		return len([]rune(fieldCaptionText(a.Name))) + 1
 	}
 	ctx.Display = a.Display
-	return MeasureFieldValue(a.Name, tk, ctx)
+	return MeasureFieldValue(a.Name, tk, ctx) + editFocusMarkerReserve(a.Name, ctx)
+}
+
+// focusMarkerWidth is the on-screen cell footprint of the edit-mode focus
+// marker ("► ") that an editable field's editor renders inside its value
+// cell when focused (getFocusMarker → InputField label). Computed via the
+// same width function the renderer uses so the two never drift.
+var focusMarkerWidth = tview.TaggedStringWidth("► ")
+
+// editFocusMarkerReserve returns the extra cells an editable value cell needs
+// in edit mode to fit the focus marker the focused editor draws inside it.
+// Reserved for every editable field (not only the currently focused one) so
+// the grid shape stays stable as Tab moves focus between fields — a column
+// that grew and shrank by 2 cells per Tab would reflow the whole row. Returns
+// 0 outside edit mode and for non-editable (read-only) fields, which never
+// render the marker. Without this the solver sizes the column to the
+// read-only measure and the focused editor truncates its tail (e.g. the
+// recurrence editor clipped "Weekly > Tuesday" to "Weekly > T").
+func editFocusMarkerReserve(name string, ctx FieldRenderContext) int {
+	if ctx.Mode != RenderModeEdit {
+		return 0
+	}
+	if !FieldHasEditor(name) {
+		return 0
+	}
+	return focusMarkerWidth
 }
 
 // registerBuiltinFields wires the workflow-declared fields into the registry.
@@ -460,6 +528,9 @@ func registerBuiltinTypes() {
 		Capability: EditorImplemented,
 		// IsEmpty nil: an empty recurrence renders "None" via RecurrenceDisplay,
 		// so it is never `?`-hidden.
+		// EditMeasure: the in-place editor cycles frequency/weekday without the
+		// grid re-solving, so the column must fit the widest reachable value.
+		EditMeasure: widestRecurrenceWidth,
 	}
 	typeRegistry[SemanticEnum] = TypeUI{
 		Render:           renderEnumValue,
@@ -876,6 +947,35 @@ func renderRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primi
 	return valueOnlyLine(display, ctx.Roles)
 }
 
+// widestRecurrenceWidth returns the widest read-only display width across every
+// value the recurrence editor can cycle to (each weekly weekday and each
+// monthly day-of-month). It is the EditMeasure for SemanticRecurrence: the
+// in-place editor swaps values without the grid re-solving, so the column must
+// be sized for the worst case up front. The read-only display ("Weekly on
+// Wednesday") is at least as wide as the editor string ("Weekly > Wednesday"),
+// so sizing to it covers the editor too. Computed lazily once and cached.
+var widestRecurrenceWidthCached int
+
+func widestRecurrenceWidth() int {
+	if widestRecurrenceWidthCached > 0 {
+		return widestRecurrenceWidthCached
+	}
+	widest := 0
+	consider := func(cron string) {
+		if w := tview.TaggedStringWidth(recurrence.RecurrenceDisplay(recurrence.Recurrence(cron))); w > widest {
+			widest = w
+		}
+	}
+	for _, weekday := range recurrence.AllWeekdays() {
+		consider(string(recurrence.WeeklyRecurrence(weekday)))
+	}
+	for day := 1; day <= 31; day++ {
+		consider(string(recurrence.MonthlyRecurrence(day)))
+	}
+	widestRecurrenceWidthCached = widest
+	return widest
+}
+
 // renderEnumValue is the generic read-only renderer for any TypeEnum field.
 // It replaces the per-field renderStatus/renderType/renderPriority helpers:
 // look up the workflow descriptor, format the current value via EnumLabel
@@ -1094,7 +1194,12 @@ func editRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func
 func editTagsValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
 	textArea := tview.NewTextArea()
 	textArea.SetBorder(false)
-	textArea.SetBorderPadding(0, 0, 1, 1)
+	// no horizontal padding: the tags value cell is sized by the solver to the
+	// read-only WordList footprint (no padding — see wordListColumn), so a padded
+	// editor would have an inner width 2 cells narrower than the column the solver
+	// reserved and wrap a seed value mid-word ("idea" → "id"/"ea") the moment focus
+	// landed on tags. The editor's footprint must match its measured width.
+	textArea.SetBorderPadding(0, 0, 0, 0)
 	textArea.SetPlaceholder("space-separated tags")
 	textArea.SetPlaceholderStyle(tcell.StyleDefault.Foreground(ctx.Roles.TextMuted().TCell()))
 
