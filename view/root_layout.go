@@ -161,10 +161,15 @@ func (rl *RootLayout) onLayoutChange() {
 		})
 	}
 
-	// Wire up action change notifications (registry or enablement changes on the same view)
+	// Wire up action change notifications (registry or enablement changes on the same view).
+	// This also fires on selection/search changes (the view re-renders through the same
+	// handler), so refresh the statusline stats here too — a search narrows the visible
+	// cards without touching the store, and the store listener is the only other path that
+	// recomputes stats. Without this, the count stays at the unfiltered total during search.
 	if notifier, ok := newView.(controller.ActionChangeNotifier); ok {
 		notifier.SetActionChangeHandler(func() {
 			rl.syncViewContextFromView(newView)
+			rl.updateStatuslineViewStats(newView)
 		})
 	}
 

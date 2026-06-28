@@ -87,6 +87,10 @@ func NewWikiView(
 //     `choose()` actions need the input/choose pipeline which WikiController
 //     does not implement; showing them would lie about what pressing the
 //     key would do (the controller refuses to fire them).
+//   - ruki-kind actions that depend on a selected tiki (via id()/filepath())
+//     do not surface: a wiki doc has no tiki selection, so they cannot run.
+//     Detected via the shared controller.UsesTikiSelection trait predicate,
+//     not by action name.
 //
 // Future work (phase6.md): implement GetActionInputSpec / GetActionChooseSpec
 // on WikiController so interactive ruki globals can fire from non-board views
@@ -112,6 +116,9 @@ func surfacedGlobalActions(globals []plugin.PluginAction, hostViewName string) [
 			out = append(out, ga)
 		case plugin.ActionKindRuki:
 			if ga.HasInput || ga.HasChoose {
+				continue
+			}
+			if controller.UsesTikiSelection(ga.Action) {
 				continue
 			}
 			out = append(out, ga)

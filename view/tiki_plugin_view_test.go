@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/boolean-maybe/tiki/controller"
@@ -68,6 +69,66 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 	}
 	if pv.laneBoxes[0].scrollOffset != 0 {
 		t.Fatalf("expected non-selected lane 0 scroll offset 0, got %d", pv.laneBoxes[0].scrollOffset)
+	}
+}
+
+// TestPluginViewStatsTrackSearchNarrowing reproduces the statusline
+// count-vs-visible mismatch: when a search narrows the visible cards, the
+// statusline must recompute its count too. RootLayout only refreshes stats
+// when the active view fires actionChangeHandler, so this test models that
+// contract — search must fire the handler, and GetStats() read at that moment
+// must reflect the narrowed set, not the unfiltered total.
+func TestPluginViewStatsTrackSearchNarrowing(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	pluginDef := &plugin.WorkflowPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Lane", Columns: 1}},
+		Layout:     testPluginLayout(t),
+	}
+
+	tikis := make([]*tikipkg.Tiki, 19)
+	for i := range tikis {
+		tk := tikipkg.New()
+		tk.SetID(fmt.Sprintf("T-%d", i))
+		tk.SetTitle(fmt.Sprintf("Tiki %d", i))
+		tikis[i] = tk
+	}
+
+	// provider mirrors GetFilteredTikisForLane: narrows by active search results
+	provider := func(_ int) []*tikipkg.Tiki {
+		if results := pluginConfig.GetSearchResults(); results != nil {
+			return results
+		}
+		return tikis
+	}
+
+	pv := NewPluginView(tikiStore, pluginConfig, pluginDef, provider, nil, controller.PluginViewActions(), true)
+
+	// mirror RootLayout: stats are recomputed only when the view signals a change
+	var statsCount int
+	readStats := func() {
+		for _, s := range pv.GetStats() {
+			if s.Name == "Total" {
+				statsCount, _ = strconv.Atoi(s.Value)
+			}
+		}
+	}
+	pv.SetActionChangeHandler(readStats)
+
+	pv.refresh() // initial render fires the handler
+	if statsCount != 19 {
+		t.Fatalf("initial total = %d, want 19", statsCount)
+	}
+
+	// apply a search that narrows to 3 — this fires notifyListeners → refresh → handler
+	pluginConfig.SetSearchResults(tikis[:3], "query")
+	pv.refresh()
+
+	if statsCount != 3 {
+		t.Fatalf("after search narrowing, total = %d, want 3 (statusline must track visible cards)", statsCount)
 	}
 }
 

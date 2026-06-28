@@ -235,7 +235,7 @@ views:
       - name: Now
         columns: 1
         width: 25
-        filter: select where type = "project" and status = "ready" and has(priority) and has(points) order by priority, points
+        filter: select where type = "project" and status in ["ready", "inProgress", "done"] and has(priority) and has(points) order by priority, points
         action: update where id = id() set status="ready"
       - name: Next
         columns: 1
@@ -324,7 +324,7 @@ views:
     layout: |
       <highlight>title             | --                                 | --                    | --        | --                       | --    | --                                                                                                                                                                                                                                                                                    | --
       _                            | _                                  | _                     | _         | _                        | _     | _                                                                                                                                                                                                                                                                                     | _
-      <text.label>status.caption   | (status.label + " " + status.visual):16.. | <text.muted>createdBy.caption  | createdBy | <text.label>tags.caption | tags? | (<text.muted>"Projects gather related tasks — stories, bugs, and spikes — into a single unit of planning. Press " + <status.warn>"<L>" + <text.muted>" to see every task linked to this project. Move it across Now, Next, and Later as priorities shift; it auto-completes when all its tasks are done."):fr | _
+      <text.label>status.caption   | (status.label + " " + status.visual):16.. | <text.muted>createdBy.caption  | createdBy | <text.label>tags.caption | tags?:18.. | (<text.muted>"Projects gather related tasks — stories, bugs, and spikes — into a single unit of planning. Press " + <status.warn>"<L>" + <text.muted>" to see every task linked to this project. Move it across Now, Next, and Later as priorities shift; it auto-completes when all its tasks are done."):fr | _
       <text.label>priority.caption | priority                           | <text.muted>createdAt.caption  | createdAt | ^                        | ^     | ^                                                                                                                                                                                                                                                                                     | _
       <text.label>points.caption   | points                             | <text.muted>updatedAt.caption  | updatedAt | ^                        | ^     | ^                                                                                                                                                                                                                                                                                     | _
     actions:
@@ -359,7 +359,7 @@ triggers:
   - description: tasks must have an assignee before starting
     ruki: >
       before update
-        where new.status = "inProgress" and new.assignee is empty
+        where new.status = "inProgress" and new.assignee is empty and new.type != "project"
         deny "assign someone before moving to in-progress"
   - description: auto-complete projects when all child tasks finish
     ruki: >

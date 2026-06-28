@@ -76,6 +76,9 @@ func NewWikiController(
 //     registration time so the UI reflects what can actually run.
 //     Implementing the interactive pipeline on non-board views is a
 //     future enhancement; see phase6.md.
+//   - ruki-kind actions that depend on a selected tiki (via id()/filepath())
+//     are not surfaced: a wiki doc has no tiki selection, so they cannot run
+//     here. Detected generically via ruki statement traits, not action names.
 func (dc *WikiController) mergeGlobalActions() {
 	for _, ga := range dc.globalActions {
 		// Enter is reserved on wiki views for navidown's link-activation
@@ -109,6 +112,13 @@ func (dc *WikiController) mergeGlobalActions() {
 					"input", ga.HasInput, "choose", ga.HasChoose)
 				continue
 			}
+			if UsesTikiSelection(ga.Action) {
+				// a wiki doc has no selected tiki, so id()/filepath() cannot
+				// resolve here; don't surface an action we can't fire
+				slog.Debug("tiki-selection ruki global not surfaced on wiki view",
+					"view", dc.pluginDef.GetName(), "key", ga.KeyStr, "label", ga.Label)
+				continue
+			}
 		default:
 			continue
 		}
@@ -123,6 +133,21 @@ func (dc *WikiController) mergeGlobalActions() {
 			Require:      toRequirements(ga.Require),
 		})
 	}
+}
+
+// UsesTikiSelection reports whether a ruki statement depends on a selected
+// tiki via id()/ids()/filepath()/filepaths(). Such actions cannot run on a
+// wiki view, which has no tiki selection. Classification is by ruki trait, not
+// by action name. A nil statement (e.g. a non-ruki action) reports false.
+// Exported so the view-layer surfacing filter (view/wiki_view.go
+// surfacedGlobalActions) shares the same predicate — header/palette and
+// keyboard dispatch must agree on what the wiki hides.
+func UsesTikiSelection(stmt *ruki.ValidatedStatement) bool {
+	if stmt == nil {
+		return false
+	}
+	return stmt.UsesIDBuiltin() || stmt.UsesIDsBuiltin() ||
+		stmt.UsesFilepathBuiltin() || stmt.UsesFilepathsBuiltin()
 }
 
 // toRequirements converts the plugin action's []string requirements to the
