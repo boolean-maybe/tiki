@@ -1,0 +1,322 @@
+package component
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/boolean-maybe/tiki/theme"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+)
+
+func makeTikis(ids ...string) []*tikipkg.Tiki {
+	tikis := make([]*tikipkg.Tiki, len(ids))
+	for i, id := range ids {
+		tk := tikipkg.New()
+		tk.SetID(id)
+		tk.SetTitle("Tiki " + id)
+		tikis[i] = tk
+	}
+	return tikis
+}
+
+func TestNewTikiList(t *testing.T) {
+	tl := NewTikiList(5)
+
+	if tl == nil {
+		t.Fatal("NewTikiList returned nil")
+		return
+	}
+	if tl.maxVisibleRows != 5 {
+		t.Errorf("Expected maxVisibleRows=5, got %d", tl.maxVisibleRows)
+	}
+	if tl.selectionIndex != 0 {
+		t.Errorf("Expected initial selectionIndex=0, got %d", tl.selectionIndex)
+	}
+
+	defaults := DefaultTikiRowColors()
+	if tl.idPaint == nil {
+		t.Error("Expected non-nil ID paint from theme defaults")
+	}
+	if defaults.IDPaint == nil {
+		t.Error("DefaultTikiRowColors should provide a non-nil ID paint")
+	}
+	if tl.titleColor != defaults.TitleColor {
+		t.Error("Expected title color from theme defaults")
+	}
+}
+
+func TestSetTikis_RecomputesIDColumnWidth(t *testing.T) {
+	tl := NewTikiList(10)
+
+	tl.SetTikis(makeTikis("AB", "ABCDE", "XY"))
+	if tl.idColumnWidth != 5 {
+		t.Errorf("Expected idColumnWidth=5, got %d", tl.idColumnWidth)
+	}
+
+	tl.SetTikis(makeTikis("A"))
+	if tl.idColumnWidth != 1 {
+		t.Errorf("Expected idColumnWidth=1, got %d", tl.idColumnWidth)
+	}
+}
+
+func TestSetTikis_EmptyList(t *testing.T) {
+	tl := NewTikiList(10)
+	tl.SetTikis(nil)
+
+	if tl.idColumnWidth != 0 {
+		t.Errorf("Expected idColumnWidth=0, got %d", tl.idColumnWidth)
+	}
+	if tl.selectionIndex != 0 {
+		t.Errorf("Expected selectionIndex=0, got %d", tl.selectionIndex)
+	}
+}
+
+func TestSelection_ClampsBounds(t *testing.T) {
+	tl := NewTikiList(10)
+	tl.SetTikis(makeTikis("A", "B", "C"))
+
+	tl.SetSelection(-5)
+	if tl.selectionIndex != 0 {
+		t.Errorf("Expected clamped to 0, got %d", tl.selectionIndex)
+	}
+
+	tl.SetSelection(100)
+	if tl.selectionIndex != 2 {
+		t.Errorf("Expected clamped to 2, got %d", tl.selectionIndex)
+	}
+
+	tl.SetSelection(1)
+	if tl.selectionIndex != 1 {
+		t.Errorf("Expected 1, got %d", tl.selectionIndex)
+	}
+}
+
+func TestGetSelectedTiki(t *testing.T) {
+	tl := NewTikiList(10)
+	tikis := makeTikis("A", "B", "C")
+	tl.SetTikis(tikis)
+
+	tl.SetSelection(1)
+	selected := tl.GetSelectedTiki()
+	if selected == nil || selected.ID() != "B" {
+		t.Errorf("Expected tiki B, got %v", selected)
+	}
+}
+
+func TestGetSelectedTiki_EmptyList(t *testing.T) {
+	tl := NewTikiList(10)
+	if tl.GetSelectedTiki() != nil {
+		t.Error("Expected nil for empty tiki list")
+	}
+}
+
+func TestScrollDown(t *testing.T) {
+	tl := NewTikiList(10)
+	tl.SetTikis(makeTikis("A", "B", "C"))
+
+	tl.ScrollDown()
+	if tl.selectionIndex != 1 {
+		t.Errorf("Expected 1 after ScrollDown, got %d", tl.selectionIndex)
+	}
+
+	tl.ScrollDown()
+	if tl.selectionIndex != 2 {
+		t.Errorf("Expected 2 after second ScrollDown, got %d", tl.selectionIndex)
+	}
+
+	// Should not go past last item
+	tl.ScrollDown()
+	if tl.selectionIndex != 2 {
+		t.Errorf("Expected 2 (clamped), got %d", tl.selectionIndex)
+	}
+}
+
+func TestScrollUp(t *testing.T) {
+	tl := NewTikiList(10)
+	tl.SetTikis(makeTikis("A", "B", "C"))
+	tl.SetSelection(2)
+
+	tl.ScrollUp()
+	if tl.selectionIndex != 1 {
+		t.Errorf("Expected 1 after ScrollUp, got %d", tl.selectionIndex)
+	}
+
+	tl.ScrollUp()
+	if tl.selectionIndex != 0 {
+		t.Errorf("Expected 0 after second ScrollUp, got %d", tl.selectionIndex)
+	}
+
+	// Should not go below 0
+	tl.ScrollUp()
+	if tl.selectionIndex != 0 {
+		t.Errorf("Expected 0 (clamped), got %d", tl.selectionIndex)
+	}
+}
+
+func TestScrollDown_EmptyList(t *testing.T) {
+	tl := NewTikiList(10)
+	// Should not panic
+	tl.ScrollDown()
+	tl.ScrollUp()
+}
+
+func TestFewerItemsThanViewport(t *testing.T) {
+	tl := NewTikiList(10)
+	tl.SetTikis(makeTikis("A", "B"))
+
+	// scrollOffset should stay at 0 since all items fit
+	if tl.scrollOffset != 0 {
+		t.Errorf("Expected scrollOffset=0, got %d", tl.scrollOffset)
+	}
+
+	tl.ScrollDown()
+	if tl.scrollOffset != 0 {
+		t.Errorf("Expected scrollOffset=0 with fewer items, got %d", tl.scrollOffset)
+	}
+}
+
+func TestSetIDPaint(t *testing.T) {
+	tl := NewTikiList(10)
+	paint, ok := theme.Roles().PaintResolver()("text.value", "")
+	if !ok {
+		t.Fatalf("PaintResolver(text.value) returned ok=false")
+	}
+
+	result := tl.SetIDPaint(paint)
+	if result != tl {
+		t.Error("SetIDPaint should return self for chaining")
+	}
+	// compare by rendered output rather than struct equality — Paint
+	// implementations are not guaranteed to be comparable (gradient variants
+	// hold function fields).
+	if got, want := tl.idPaint.PaintString("ABC"), paint.PaintString("ABC"); got != want {
+		t.Errorf("idPaint render mismatch: got %q want %q", got, want)
+	}
+}
+
+func TestSetTitleColor(t *testing.T) {
+	tl := NewTikiList(10)
+	c := theme.NewColor(tcell.ColorRed)
+	result := tl.SetTitleColor(c)
+	if result != tl {
+		t.Error("SetTitleColor should return self for chaining")
+	}
+	if tl.titleColor != c {
+		t.Errorf("Expected color red, got %v", tl.titleColor)
+	}
+}
+
+func TestSetTikis_ClampsSelectionOnShrink(t *testing.T) {
+	tl := NewTikiList(10)
+	tl.SetTikis(makeTikis("A", "B", "C", "D", "E"))
+	tl.SetSelection(4)
+
+	// Shrink list — selection should clamp
+	tl.SetTikis(makeTikis("A", "B"))
+	if tl.selectionIndex != 1 {
+		t.Errorf("Expected selectionIndex clamped to 1, got %d", tl.selectionIndex)
+	}
+}
+
+func TestGetSelectedIndex(t *testing.T) {
+	tl := NewTikiList(10)
+	tl.SetTikis(makeTikis("A", "B", "C"))
+	tl.SetSelection(2)
+
+	if tl.GetSelectedIndex() != 2 {
+		t.Errorf("Expected 2, got %d", tl.GetSelectedIndex())
+	}
+}
+
+func TestBuildRow(t *testing.T) {
+	tl := NewTikiList(10)
+
+	pendingTiki := tikipkg.New()
+	pendingTiki.SetID("ABC001")
+	pendingTiki.SetTitle("My pending tiki")
+	// no status field — treated as pending
+
+	doneTiki := tikipkg.New()
+	doneTiki.SetID("ABC002")
+	doneTiki.SetTitle("My done tiki")
+	doneTiki.Set(tikipkg.FieldStatus, "done")
+
+	// set tikis so idColumnWidth is computed
+	tl.SetTikis([]*tikipkg.Tiki{pendingTiki, doneTiki})
+
+	width := 80
+
+	// The ✓/○ status indicator was removed when status became an ordinary
+	// enum field — workflows that want a glyph use enum value emoji metadata.
+	t.Run("pending tiki does not show legacy circle", func(t *testing.T) {
+		row := tl.buildRow(pendingTiki, false, width)
+		if strings.Contains(row, "○") {
+			t.Error("legacy circle (○) should no longer appear in row")
+		}
+	})
+
+	t.Run("done tiki does not show legacy checkmark", func(t *testing.T) {
+		row := tl.buildRow(doneTiki, false, width)
+		if strings.Contains(row, "✓") {
+			t.Error("legacy checkmark (✓) should no longer appear in row")
+		}
+	})
+
+	t.Run("contains tiki ID", func(t *testing.T) {
+		row := tl.buildRow(pendingTiki, false, width)
+		if !strings.Contains(row, pendingTiki.ID()) {
+			t.Errorf("row should contain tiki ID %q", pendingTiki.ID())
+		}
+	})
+
+	t.Run("contains title", func(t *testing.T) {
+		row := tl.buildRow(pendingTiki, false, width)
+		escaped := tview.Escape(pendingTiki.Title())
+		if !strings.Contains(row, escaped) {
+			t.Errorf("row should contain escaped title %q", escaped)
+		}
+	})
+
+	t.Run("selected row has selection color prefix", func(t *testing.T) {
+		row := tl.buildRow(pendingTiki, true, width)
+		selTag := tl.selectionColor.Tag().WithBg(tl.selectionBgColor).String()
+		if !strings.HasPrefix(row, selTag) {
+			t.Errorf("selected row should start with selection color %q", selTag)
+		}
+	})
+
+	t.Run("unselected row has no selection prefix", func(t *testing.T) {
+		row := tl.buildRow(pendingTiki, false, width)
+		selTag := tl.selectionColor.Tag().WithBg(tl.selectionBgColor).String()
+		if strings.HasPrefix(row, selTag) {
+			t.Error("unselected row should not start with selection color")
+		}
+	})
+
+	t.Run("selected row visible width equals requested width", func(t *testing.T) {
+		row := tl.buildRow(pendingTiki, true, width)
+		visibleWidth := tview.TaggedStringWidth(row)
+		if visibleWidth != width {
+			t.Errorf("selected row visible width = %d, want %d", visibleWidth, width)
+		}
+	})
+
+	t.Run("unselected row visible width equals requested width", func(t *testing.T) {
+		row := tl.buildRow(pendingTiki, false, width)
+		visibleWidth := tview.TaggedStringWidth(row)
+		if visibleWidth != width {
+			t.Errorf("unselected row visible width = %d, want %d", visibleWidth, width)
+		}
+	})
+
+	t.Run("every row ends with full style reset", func(t *testing.T) {
+		for _, sel := range []bool{true, false} {
+			row := tl.buildRow(pendingTiki, sel, width)
+			if !strings.HasSuffix(row, "[-:-:-]") {
+				t.Errorf("selected=%v: row should end with [-:-:-], got suffix %q", sel, row[max(0, len(row)-10):])
+			}
+		}
+	})
+}

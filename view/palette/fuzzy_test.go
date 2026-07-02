@@ -25,7 +25,7 @@ func TestFuzzyMatch_ExactMatch(t *testing.T) {
 }
 
 func TestFuzzyMatch_PrefixMatch(t *testing.T) {
-	matched, score := fuzzyMatch("Sav", "Save Task")
+	matched, score := fuzzyMatch("Sav", "Save Tiki")
 	if !matched {
 		t.Error("prefix match should succeed")
 	}
@@ -46,14 +46,14 @@ func TestFuzzyMatch_SubsequenceMatch(t *testing.T) {
 }
 
 func TestFuzzyMatch_CaseInsensitive(t *testing.T) {
-	matched, _ := fuzzyMatch("save", "Save Task")
+	matched, _ := fuzzyMatch("save", "Save Tiki")
 	if !matched {
 		t.Error("case-insensitive match should succeed")
 	}
 }
 
 func TestFuzzyMatch_NoMatch(t *testing.T) {
-	matched, _ := fuzzyMatch("xyz", "Save Task")
+	matched, _ := fuzzyMatch("xyz", "Save Tiki")
 	if matched {
 		t.Error("non-matching query should not match")
 	}

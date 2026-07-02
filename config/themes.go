@@ -1,43 +1,43 @@
 package config
 
-// Theme registry: maps theme names to palette constructors, dark/light classification,
-// chroma syntax theme, and navidown markdown renderer style.
+// Theme registry: maps theme names to dark/light classification, chroma syntax
+// theme, and navidown markdown renderer style. Palette construction now lives
+// in the theme package; this file retains only the surrounding metadata that
+// non-color subsystems (markdown rendering, syntax highlighting) consult.
 
 import (
 	"log/slog"
-	"sort"
 )
 
-// ThemeInfo holds all metadata for a named theme.
+// ThemeInfo holds metadata for a named theme.
 type ThemeInfo struct {
-	Light         bool           // true = light base, false = dark base
-	ChromaTheme   string         // chroma syntax theme for code blocks
-	NavidownStyle string         // navidown markdown renderer style name
-	Palette       func() Palette // palette constructor
+	Light         bool   // true = light base, false = dark base
+	ChromaTheme   string // chroma syntax theme for code blocks
+	NavidownStyle string // navidown markdown renderer style name
 }
 
 // themeRegistry maps theme names to their ThemeInfo.
 // "dark" and "light" are the built-in base themes; named themes extend this.
 var themeRegistry = map[string]ThemeInfo{
 	// built-in base themes
-	"dark":  {Light: false, ChromaTheme: "nord", NavidownStyle: "dark", Palette: DarkPalette},
-	"light": {Light: true, ChromaTheme: "github", NavidownStyle: "light", Palette: LightPalette},
+	"dark":  {Light: false, ChromaTheme: "nord", NavidownStyle: "dark"},
+	"light": {Light: true, ChromaTheme: "github", NavidownStyle: "light"},
 
 	// named dark themes
-	"dracula":          {Light: false, ChromaTheme: "dracula", NavidownStyle: "dracula", Palette: DraculaPalette},
-	"tokyo-night":      {Light: false, ChromaTheme: "tokyonight-night", NavidownStyle: "tokyo-night", Palette: TokyoNightPalette},
-	"gruvbox-dark":     {Light: false, ChromaTheme: "gruvbox", NavidownStyle: "gruvbox-dark", Palette: GruvboxDarkPalette},
-	"catppuccin-mocha": {Light: false, ChromaTheme: "catppuccin-mocha", NavidownStyle: "catppuccin-mocha", Palette: CatppuccinMochaPalette},
-	"solarized-dark":   {Light: false, ChromaTheme: "solarized-dark256", NavidownStyle: "solarized-dark", Palette: SolarizedDarkPalette},
-	"nord":             {Light: false, ChromaTheme: "nord", NavidownStyle: "nord", Palette: NordPalette},
-	"monokai":          {Light: false, ChromaTheme: "monokai", NavidownStyle: "monokai", Palette: MonokaiPalette},
-	"one-dark":         {Light: false, ChromaTheme: "onedark", NavidownStyle: "one-dark", Palette: OneDarkPalette},
+	"dracula":          {Light: false, ChromaTheme: "dracula", NavidownStyle: "dracula"},
+	"tokyo-night":      {Light: false, ChromaTheme: "tokyonight-night", NavidownStyle: "tokyo-night"},
+	"gruvbox-dark":     {Light: false, ChromaTheme: "gruvbox", NavidownStyle: "gruvbox-dark"},
+	"catppuccin-mocha": {Light: false, ChromaTheme: "catppuccin-mocha", NavidownStyle: "catppuccin-mocha"},
+	"solarized-dark":   {Light: false, ChromaTheme: "solarized-dark256", NavidownStyle: "solarized-dark"},
+	"nord":             {Light: false, ChromaTheme: "nord", NavidownStyle: "nord"},
+	"monokai":          {Light: false, ChromaTheme: "monokai", NavidownStyle: "monokai"},
+	"one-dark":         {Light: false, ChromaTheme: "onedark", NavidownStyle: "one-dark"},
 
 	// named light themes
-	"catppuccin-latte": {Light: true, ChromaTheme: "catppuccin-latte", NavidownStyle: "catppuccin-latte", Palette: CatppuccinLattePalette},
-	"solarized-light":  {Light: true, ChromaTheme: "solarized-light", NavidownStyle: "solarized-light", Palette: SolarizedLightPalette},
-	"gruvbox-light":    {Light: true, ChromaTheme: "gruvbox-light", NavidownStyle: "gruvbox-light", Palette: GruvboxLightPalette},
-	"github-light":     {Light: true, ChromaTheme: "github", NavidownStyle: "github-light", Palette: GithubLightPalette},
+	"catppuccin-latte": {Light: true, ChromaTheme: "catppuccin-latte", NavidownStyle: "catppuccin-latte"},
+	"solarized-light":  {Light: true, ChromaTheme: "solarized-light", NavidownStyle: "solarized-light"},
+	"gruvbox-light":    {Light: true, ChromaTheme: "gruvbox-light", NavidownStyle: "gruvbox-light"},
+	"github-light":     {Light: true, ChromaTheme: "github", NavidownStyle: "github-light"},
 }
 
 var defaultTheme = themeRegistry["dark"]
@@ -63,22 +63,7 @@ func GetNavidownStyle() string {
 	return lookupTheme().NavidownStyle
 }
 
-// PaletteForTheme returns the Palette for the effective theme.
-func PaletteForTheme() Palette {
-	return lookupTheme().Palette()
-}
-
 // ChromaThemeForEffective returns the chroma syntax theme name for the effective theme.
 func ChromaThemeForEffective() string {
 	return lookupTheme().ChromaTheme
-}
-
-// ThemeNames returns a sorted list of all registered theme names.
-func ThemeNames() []string {
-	names := make([]string, 0, len(themeRegistry))
-	for name := range themeRegistry {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
 }

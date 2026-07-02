@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -100,27 +99,24 @@ func TestResetConfig_GlobalSingleTarget(t *testing.T) {
 	}
 }
 
-func TestResetConfig_LocalDeletesFiles(t *testing.T) {
+func TestResetConfig_CurrentDeletesAllFiles(t *testing.T) {
 	tikiDir := setupResetTest(t)
 
-	// set up project dir with .doc/tiki so IsProjectInitialized() passes
-	projectDir := t.TempDir()
-	docDir := filepath.Join(projectDir, ".doc")
-	if err := os.MkdirAll(filepath.Join(docDir, "tiki"), 0750); err != nil {
-		t.Fatal(err)
-	}
+	// the project config dir is the cwd root itself (no .doc subdir); reset of
+	// the current scope deletes every target file there.
+	cwdDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
 
-	pm := mustGetPathManager()
-	pm.projectRoot = projectDir
+	// seed project config files at the cwd root
+	writeTestFile(t, filepath.Join(cwdDir, "config.yaml"), "custom\n")
+	writeTestFile(t, filepath.Join(cwdDir, "workflow.yaml"), "custom\n")
 
-	// seed project config files
-	writeTestFile(t, filepath.Join(docDir, "config.yaml"), "custom\n")
-	writeTestFile(t, filepath.Join(docDir, "workflow.yaml"), "custom\n")
-
-	// also write global defaults so we can verify local doesn't overwrite
+	// also write global defaults so we can verify current doesn't overwrite
 	writeTestFile(t, filepath.Join(tikiDir, "workflow.yaml"), "global\n")
 
-	affected, err := ResetConfig(ScopeLocal, TargetAll)
+	affected, err := ResetConfig(ScopeCurrent, TargetAll)
 	if err != nil {
 		t.Fatalf("ResetConfig() error = %v", err)
 	}
@@ -128,10 +124,10 @@ func TestResetConfig_LocalDeletesFiles(t *testing.T) {
 		t.Fatalf("expected 2 affected files, got %d: %v", len(affected), affected)
 	}
 
-	// all project files should be deleted
+	// all cwd-root files should be deleted
 	for _, name := range []string{"config.yaml", "workflow.yaml"} {
-		if _, err := os.Stat(filepath.Join(docDir, name)); !os.IsNotExist(err) {
-			t.Errorf("project %s should be deleted after local reset", name)
+		if _, err := os.Stat(filepath.Join(cwdDir, name)); !os.IsNotExist(err) {
+			t.Errorf("cwd-root %s should be deleted after current reset", name)
 		}
 	}
 
@@ -141,7 +137,7 @@ func TestResetConfig_LocalDeletesFiles(t *testing.T) {
 		t.Fatalf("global workflow.yaml should still exist: %v", err)
 	}
 	if string(got) != "global\n" {
-		t.Error("global workflow.yaml should be untouched after local reset")
+		t.Error("global workflow.yaml should be untouched after current reset")
 	}
 }
 
@@ -236,21 +232,8 @@ func TestValidResetTarget(t *testing.T) {
 	}
 }
 
-func TestResetConfig_LocalRejectsUninitializedProject(t *testing.T) {
-	// point projectRoot at a temp dir that has no .doc/tiki
-	xdgDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", xdgDir)
-	ResetPathManager()
-	t.Cleanup(ResetPathManager)
-
-	pm := mustGetPathManager()
-	pm.projectRoot = t.TempDir() // empty dir — not initialized
-
-	_, err := ResetConfig(ScopeLocal, TargetAll)
-	if err == nil {
-		t.Fatal("expected error for uninitialized project, got nil")
-	}
-	if msg := err.Error(); !strings.Contains(msg, "not in an initialized tiki project") {
-		t.Errorf("unexpected error message: %s", msg)
-	}
-}
+// note: the former TestResetConfig_LocalRejectsUninitializedProject was removed.
+// With the document scan root now being the current working directory (which
+// always exists), there is no longer an "uninitialized project" state for the
+// local scope to reject. The init-gate guard in resolveDir is removed in a
+// later task; this test asserted behavior that no longer exists.

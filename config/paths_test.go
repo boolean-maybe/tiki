@@ -7,6 +7,14 @@ import (
 	"testing"
 )
 
+func TestDocDirIsProjectRoot(t *testing.T) {
+	dir := t.TempDir()
+	pm := &PathManager{projectRoot: dir}
+	if got := pm.DocDir(); got != dir {
+		t.Fatalf("DocDir() = %q, want project root %q", got, dir)
+	}
+}
+
 func TestGetUserConfigDir(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -179,18 +187,6 @@ func TestPathManagerPaths(t *testing.T) {
 			name:   "ConfigFile",
 			getter: pm.ConfigFile,
 		},
-		{
-			name:   "TaskDir",
-			getter: pm.TaskDir,
-		},
-		{
-			name:   "DokiDir",
-			getter: pm.DokiDir,
-		},
-		{
-			name:   "ProjectConfigFile",
-			getter: pm.ProjectConfigFile,
-		},
 	}
 
 	for _, tt := range tests {
@@ -203,35 +199,6 @@ func TestPathManagerPaths(t *testing.T) {
 				t.Errorf("%s() = %q, want absolute path", tt.name, result)
 			}
 		})
-	}
-}
-
-func TestPathManagerPluginSearchPaths(t *testing.T) {
-	pm, err := newPathManager()
-	if err != nil {
-		t.Fatalf("newPathManager() error = %v", err)
-	}
-
-	paths := pm.PluginSearchPaths()
-	if len(paths) != 2 {
-		t.Errorf("PluginSearchPaths() returned %d paths, want 2", len(paths))
-	}
-
-	// First should be project config dir (.doc/)
-	if paths[0] != pm.ProjectConfigDir() {
-		t.Errorf("PluginSearchPaths()[0] = %q, want %q", paths[0], pm.ProjectConfigDir())
-	}
-
-	// Second should be user config dir
-	if paths[1] != pm.ConfigDir() {
-		t.Errorf("PluginSearchPaths()[1] = %q, want %q", paths[1], pm.ConfigDir())
-	}
-
-	// All paths should be absolute
-	for i, path := range paths {
-		if !filepath.IsAbs(path) {
-			t.Errorf("PluginSearchPaths()[%d] = %q, want absolute path", i, path)
-		}
 	}
 }
 
@@ -251,12 +218,11 @@ func TestPathManagerEnsureDirs(t *testing.T) {
 		t.Fatalf("EnsureDirs() error = %v", err)
 	}
 
-	// Verify directories were created
+	// EnsureDirs creates the user config and cache directories. The doc dir
+	// is the project root (cwd), which already exists and is not created here.
 	dirs := []string{
 		pm.ConfigDir(),
 		pm.CacheDir(),
-		pm.TaskDir(),
-		pm.DokiDir(),
 	}
 
 	for _, dir := range dirs {
@@ -285,10 +251,6 @@ func TestGlobalAccessorFunctions(t *testing.T) {
 	}{
 		{"GetConfigDir", GetConfigDir},
 		{"GetCacheDir", GetCacheDir},
-		{"GetConfigFile", GetConfigFile},
-		{"GetTaskDir", GetTaskDir},
-		{"GetDokiDir", GetDokiDir},
-		{"GetProjectConfigFile", GetProjectConfigFile},
 	}
 
 	for _, tt := range tests {
@@ -301,22 +263,6 @@ func TestGlobalAccessorFunctions(t *testing.T) {
 				t.Errorf("%s() = %q, want absolute path", tt.name, result)
 			}
 		})
-	}
-}
-
-func TestGetPluginSearchPaths(t *testing.T) {
-	paths := GetPluginSearchPaths()
-	if len(paths) != 2 {
-		t.Errorf("GetPluginSearchPaths() returned %d paths, want 2", len(paths))
-	}
-
-	for i, path := range paths {
-		if path == "" {
-			t.Errorf("GetPluginSearchPaths()[%d] is empty", i)
-		}
-		if !filepath.IsAbs(path) {
-			t.Errorf("GetPluginSearchPaths()[%d] = %q, want absolute path", i, path)
-		}
 	}
 }
 
@@ -333,9 +279,6 @@ func TestInitPaths(t *testing.T) {
 	// After InitPaths, all accessors should work
 	if GetConfigDir() == "" {
 		t.Error("GetConfigDir() returned empty after InitPaths()")
-	}
-	if GetTaskDir() == "" {
-		t.Error("GetTaskDir() returned empty after InitPaths()")
 	}
 }
 
@@ -392,7 +335,12 @@ func TestFindWorkflowFileWithScope_CwdWins(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cwdDir := t.TempDir()
+	// canonicalize so projectRoot matches what filepath.Abs returns from the
+	// chdir'd cwd (macOS /var → /private/var symlink).
+	cwdDir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -403,7 +351,7 @@ func TestFindWorkflowFileWithScope_CwdWins(t *testing.T) {
 
 	ResetPathManager()
 	pm := mustGetPathManager()
-	pm.projectRoot = t.TempDir() // empty project dir
+	pm.projectRoot = cwdDir // projectRoot == cwd, the runtime invariant
 
 	path, scope := FindWorkflowFileWithScope()
 	if scope != ScopeCurrent {
@@ -416,7 +364,10 @@ func TestFindWorkflowFileWithScope_CwdWins(t *testing.T) {
 	}
 }
 
-func TestFindWorkflowFileWithScope_ProjectWins(t *testing.T) {
+func TestFindWorkflowFileWithScope_CwdRootWinsOverUser(t *testing.T) {
+	// the project tier is the cwd root (ProjectConfigDir == projectRoot); a
+	// workflow.yaml there outranks the user-config copy and resolves as
+	// ScopeCurrent — there is no separate project (".doc") tier anymore.
 	userDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", userDir)
 	userTikiDir := filepath.Join(userDir, "tiki")
@@ -428,30 +379,21 @@ func TestFindWorkflowFileWithScope_ProjectWins(t *testing.T) {
 	}
 
 	projectDir := t.TempDir()
-	docDir := filepath.Join(projectDir, ".doc")
-	if err := os.MkdirAll(docDir, 0750); err != nil {
+	if err := os.WriteFile(filepath.Join(projectDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(docDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	cwdDir := t.TempDir() // no workflow.yaml here
-	originalDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(originalDir) }()
-	_ = os.Chdir(cwdDir)
 
 	ResetPathManager()
 	pm := mustGetPathManager()
 	pm.projectRoot = projectDir
 
 	path, scope := FindWorkflowFileWithScope()
-	if scope != ScopeLocal {
-		t.Errorf("scope = %q, want %q", scope, ScopeLocal)
+	if scope != ScopeCurrent {
+		t.Errorf("scope = %q, want %q", scope, ScopeCurrent)
 	}
-	want := filepath.Join(docDir, "workflow.yaml")
+	want := filepath.Join(projectDir, "workflow.yaml")
 	if path != want {
-		t.Errorf("path = %q, want project file %q", path, want)
+		t.Errorf("path = %q, want cwd-root file %q", path, want)
 	}
 }
 
@@ -510,10 +452,9 @@ func TestFindWorkflowFileWithScope_NoneFound(t *testing.T) {
 	}
 }
 
-func TestFindWorkflowFileWithScope_DedupCwdEqualsProjectDir(t *testing.T) {
-	// when cwd == ProjectConfigDir, candidates 2 and 3 resolve to the same
-	// absolute path. The project-dir candidate should win (ScopeLocal) because
-	// it appears first and dedup skips the cwd candidate.
+func TestFindWorkflowFileWithScope_CwdRootResolvesAsCurrent(t *testing.T) {
+	// at runtime cwd == ProjectConfigDir == projectRoot, so a workflow.yaml at
+	// the cwd root is the sole project candidate and resolves as ScopeCurrent.
 	userDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", userDir)
 	if err := os.MkdirAll(filepath.Join(userDir, "tiki"), 0750); err != nil {
@@ -525,26 +466,22 @@ func TestFindWorkflowFileWithScope_DedupCwdEqualsProjectDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	docDir := filepath.Join(projectDir, ".doc")
-	if err := os.MkdirAll(docDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(docDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// cd into .doc/ so cwd candidate resolves to the same file
+	// cd into the project root so projectRoot == cwd, the runtime invariant
 	originalDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(originalDir) }()
-	_ = os.Chdir(docDir)
+	_ = os.Chdir(projectDir)
 
 	ResetPathManager()
 	pm := mustGetPathManager()
 	pm.projectRoot = projectDir
 
 	_, scope := FindWorkflowFileWithScope()
-	if scope != ScopeLocal {
-		t.Errorf("scope = %q, want %q (project-dir candidate should win dedup)", scope, ScopeLocal)
+	if scope != ScopeCurrent {
+		t.Errorf("scope = %q, want %q (cwd-root file)", scope, ScopeCurrent)
 	}
 }
 
@@ -554,7 +491,6 @@ func TestWorkflowScopeLabel(t *testing.T) {
 		want  string
 	}{
 		{ScopeGlobal, "global"},
-		{ScopeLocal, "project"},
 		{ScopeCurrent, "local"},
 		{Scope("unknown"), "unknown"},
 	}

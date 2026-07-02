@@ -7,19 +7,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/ruki"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func TestJSONFormatterSelectRows(t *testing.T) {
 	initTestRegistries()
 
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"id", "title", "status"},
-		Tasks: []*task.Task{
-			{ID: "TIKI-AAA001", Title: "Build API", Status: "ready"},
-			{ID: "TIKI-BBB002", Title: "Write Docs", Status: "done"},
+		Tikis: []ruki.Document{
+			tikiFromLegacy(legacyFields{ID: "TIKI-AAA001", Title: "Build API", Status: "ready"}),
+			tikiFromLegacy(legacyFields{ID: "TIKI-BBB002", Title: "Write Docs", Status: "done"}),
 		},
 	}
 
@@ -46,7 +46,7 @@ func TestJSONFormatterSelectRows(t *testing.T) {
 func TestJSONFormatterEmptyResult(t *testing.T) {
 	initTestRegistries()
 
-	proj := &ruki.TaskProjection{Fields: []string{"id"}, Tasks: nil}
+	proj := &ruki.TikiProjection{Fields: []string{"id"}, Tikis: nil}
 
 	var buf bytes.Buffer
 	if err := NewJSONFormatter().Format(&buf, proj); err != nil {
@@ -60,19 +60,20 @@ func TestJSONFormatterEmptyResult(t *testing.T) {
 
 func TestJSONFormatterIntAndBool(t *testing.T) {
 	initTestRegistries()
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{Name: "active", Type: workflow.TypeBool},
 	}); err != nil {
 		t.Fatalf("register custom fields: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(initTestRegistries)
 
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"priority", "points", "active"},
-		Tasks: []*task.Task{{
-			Priority: 3, Points: 8,
+		Tikis: []ruki.Document{tikiFromLegacy(legacyFields{
+			Points:       "7",
 			CustomFields: map[string]interface{}{"active": true},
-		}},
+			Priority:     "medium",
+		})},
 	}
 
 	var buf bytes.Buffer
@@ -83,12 +84,12 @@ func TestJSONFormatterIntAndBool(t *testing.T) {
 	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &rows); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
-	// JSON numbers decode to float64 through generic map
-	if n, _ := rows[0]["priority"].(float64); n != 3 {
-		t.Errorf("priority = %v, want 3", rows[0]["priority"])
+	// priority is now an enum-keyed string after Phase 3 conversion
+	if s, _ := rows[0]["priority"].(string); s != "medium" {
+		t.Errorf("priority = %v, want medium", rows[0]["priority"])
 	}
-	if n, _ := rows[0]["points"].(float64); n != 8 {
-		t.Errorf("points = %v, want 8", rows[0]["points"])
+	if s, _ := rows[0]["points"].(string); s != "7" {
+		t.Errorf("points = %v, want \"7\"", rows[0]["points"])
 	}
 	if b, _ := rows[0]["active"].(bool); !b {
 		t.Errorf("active = %v, want true", rows[0]["active"])
@@ -100,9 +101,9 @@ func TestJSONFormatterDatesAndTimestamps(t *testing.T) {
 
 	due := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
 	ts := time.Date(2025, 6, 1, 14, 30, 0, 0, time.FixedZone("EST", -5*3600))
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"due", "createdAt"},
-		Tasks:  []*task.Task{{Due: due, CreatedAt: ts}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Due: due, CreatedAt: ts})},
 	}
 
 	var buf bytes.Buffer
@@ -124,9 +125,9 @@ func TestJSONFormatterDatesAndTimestamps(t *testing.T) {
 func TestJSONFormatterUnsetDateIsNull(t *testing.T) {
 	initTestRegistries()
 
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"due", "createdAt"},
-		Tasks:  []*task.Task{{}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{})},
 	}
 
 	var buf bytes.Buffer
@@ -148,11 +149,11 @@ func TestJSONFormatterUnsetDateIsNull(t *testing.T) {
 func TestJSONFormatterListFields(t *testing.T) {
 	initTestRegistries()
 
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"tags", "dependsOn"},
-		Tasks: []*task.Task{
-			{Tags: []string{"backend", "urgent"}, DependsOn: []string{"TIKI-AAA001"}},
-			{Tags: []string{}, DependsOn: nil},
+		Tikis: []ruki.Document{
+			tikiFromLegacy(legacyFields{Tags: []string{"backend", "urgent"}, DependsOn: []string{"TIKI-AAA001"}}),
+			tikiFromLegacy(legacyFields{Tags: []string{}, DependsOn: nil}),
 		},
 	}
 
@@ -184,19 +185,19 @@ func TestJSONFormatterListFields(t *testing.T) {
 
 func TestJSONFormatterCustomFields(t *testing.T) {
 	initTestRegistries()
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "high"}},
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "high"}}},
 		{Name: "score", Type: workflow.TypeInt},
 	}); err != nil {
 		t.Fatalf("register custom fields: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(initTestRegistries)
 
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"severity", "score"},
-		Tasks: []*task.Task{
-			{CustomFields: map[string]interface{}{"severity": "high", "score": 42}},
-			{}, // unset
+		Tikis: []ruki.Document{
+			tikiFromLegacy(legacyFields{CustomFields: map[string]interface{}{"severity": "high", "score": 42}}),
+			tikiFromLegacy(legacyFields{}), // unset
 		},
 	}
 
@@ -224,9 +225,9 @@ func TestJSONFormatterCustomFields(t *testing.T) {
 }
 
 func TestJSONFormatterWriteError(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tasks:  []*task.Task{{ID: "TIKI-ABC123"}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
 	}
 	// fail on the first write (the JSON array itself)
 	ew := &errorWriter{failAfter: 0}
@@ -315,7 +316,7 @@ func TestFormatUpdateSummary(t *testing.T) {
 	if err := formatUpdateSummary(&buf, 3, 0, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.TrimSpace(buf.String()); got != "updated 3 tasks" {
+	if got := strings.TrimSpace(buf.String()); got != "updated 3 tikis" {
 		t.Errorf("text success: got %q", got)
 	}
 
@@ -324,7 +325,7 @@ func TestFormatUpdateSummary(t *testing.T) {
 	if err := formatUpdateSummary(&buf, 2, 1, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.TrimSpace(buf.String()); got != "updated 2 tasks (1 failed)" {
+	if got := strings.TrimSpace(buf.String()); got != "updated 2 tikis (1 failed)" {
 		t.Errorf("text partial: got %q", got)
 	}
 }

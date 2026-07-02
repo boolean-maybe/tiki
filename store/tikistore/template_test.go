@@ -4,63 +4,65 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/config"
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// TestSetAuthorFromIdentity_EmailOnly_NoAngleEchoing reproduces a regression
+// TestSetAuthorFromIdentityTiki_EmailOnly_NoAngleEchoing reproduces a regression
 // from the user()/display-string promotion work: when only identity.email is
 // configured, currentUser returned (email, email) so author formatting
 // produced `me@example.com <me@example.com>`. Attribution should just be the
 // raw email in that case.
-func TestSetAuthorFromIdentity_EmailOnly_NoAngleEchoing(t *testing.T) {
+func TestSetAuthorFromIdentityTiki_EmailOnly_NoAngleEchoing(t *testing.T) {
 	isolateConfig(t)
 	setIdentityEnv(t, "", "me@example.com")
 
-	// build a store with no git util so attribution flows through the
-	// identity resolver's config layer only
 	s := &TikiStore{identity: newIdentityResolver(nil)}
 
-	task := &taskpkg.Task{}
-	s.setAuthorFromIdentity(task)
+	tk := tikipkg.New()
+	s.setAuthorFromIdentityTiki(tk)
 
-	if task.CreatedBy != "me@example.com" {
-		t.Errorf("CreatedBy = %q, want 'me@example.com' (no angle form when only email is configured)", task.CreatedBy)
+	createdBy, _, _ := tk.StringField("createdBy")
+	if createdBy != "me@example.com" {
+		t.Errorf("createdBy = %q, want 'me@example.com' (no angle form when only email is configured)", createdBy)
 	}
 }
 
-func TestSetAuthorFromIdentity_NameAndEmail_UsesAngleForm(t *testing.T) {
+func TestSetAuthorFromIdentityTiki_NameAndEmail_UsesAngleForm(t *testing.T) {
 	isolateConfig(t)
 	setIdentityEnv(t, "Alice", "alice@example.com")
 
 	s := &TikiStore{identity: newIdentityResolver(nil)}
 
-	task := &taskpkg.Task{}
-	s.setAuthorFromIdentity(task)
+	tk := tikipkg.New()
+	s.setAuthorFromIdentityTiki(tk)
 
-	if task.CreatedBy != "Alice <alice@example.com>" {
-		t.Errorf("CreatedBy = %q, want 'Alice <alice@example.com>'", task.CreatedBy)
+	createdBy, _, _ := tk.StringField("createdBy")
+	if createdBy != "Alice <alice@example.com>" {
+		t.Errorf("createdBy = %q, want 'Alice <alice@example.com>'", createdBy)
 	}
 }
 
-func TestSetAuthorFromIdentity_NameOnly_UsesName(t *testing.T) {
+func TestSetAuthorFromIdentityTiki_NameOnly_UsesName(t *testing.T) {
 	isolateConfig(t)
 	setIdentityEnv(t, "Alice", "")
 
 	s := &TikiStore{identity: newIdentityResolver(nil)}
 
-	task := &taskpkg.Task{}
-	s.setAuthorFromIdentity(task)
+	tk := tikipkg.New()
+	s.setAuthorFromIdentityTiki(tk)
 
-	if task.CreatedBy != "Alice" {
-		t.Errorf("CreatedBy = %q, want 'Alice'", task.CreatedBy)
+	createdBy, _, _ := tk.StringField("createdBy")
+	if createdBy != "Alice" {
+		t.Errorf("createdBy = %q, want 'Alice'", createdBy)
 	}
 }
 
 func TestBuildCustomFieldDefaults_NoCustomFields(t *testing.T) {
-	workflow.ClearCustomFields()
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	workflow.ClearWorkflowFields()
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
 
 	defaults := buildCustomFieldDefaults()
 	if defaults != nil {
@@ -69,15 +71,15 @@ func TestBuildCustomFieldDefaults_NoCustomFields(t *testing.T) {
 }
 
 func TestBuildCustomFieldDefaults_WithDefaults(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}, DefaultValue: "medium"},
+	config.MarkWorkflowFieldsLoadedForTest()
+	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium", Default: true}, {Value: "high"}}},
 		{Name: "blocked", Type: workflow.TypeBool, DefaultValue: false},
 		{Name: "notes", Type: workflow.TypeString},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(teststatuses.Init)
 
 	defaults := buildCustomFieldDefaults()
 	if defaults == nil {
@@ -95,14 +97,14 @@ func TestBuildCustomFieldDefaults_WithDefaults(t *testing.T) {
 }
 
 func TestBuildCustomFieldDefaults_SliceDefaultCopied(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
+	config.MarkWorkflowFieldsLoadedForTest()
 	original := []string{"a", "b", " a ", "b", ""}
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
 		{Name: "labels", Type: workflow.TypeListString, DefaultValue: original},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(teststatuses.Init)
 
 	defaults := buildCustomFieldDefaults()
 	got, ok := defaults["labels"].([]string)
@@ -116,5 +118,139 @@ func TestBuildCustomFieldDefaults_SliceDefaultCopied(t *testing.T) {
 	got[0] = "mutated"
 	if original[0] == "mutated" {
 		t.Error("returned slice should be a copy, not the original")
+	}
+}
+
+// TestNewTikiTemplate_AppliesDefaultStatusFromWorkflow verifies that when
+// the active workflow declares a `default: true` status, NewTikiTemplate
+// produces a tiki whose Fields carry the declared status (and the rest of
+// the workflow's declared defaults).
+func TestNewTikiTemplate_AppliesDefaultStatusFromWorkflow(t *testing.T) {
+	statusType := []workflow.FieldDef{
+		{Name: "status", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{
+			{Value: "backlog", Label: "Backlog", Default: true},
+			{Value: "done", Label: "Done"},
+		}},
+		{Name: "type", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{
+			{Value: "story", Label: "Story", Default: true},
+		}},
+		{Name: "priority", Type: workflow.TypeInt, DefaultValue: 3},
+	}
+	config.ResetWorkflowFieldsForTest(statusType)
+	t.Cleanup(teststatuses.Init)
+
+	s, err := NewTikiStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	tmpl, err := s.NewTikiTemplate()
+	if err != nil {
+		t.Fatalf("NewTikiTemplate: %v", err)
+	}
+	if !hasAnyWorkflowField(tmpl) {
+		t.Error("template has no schema-known fields, want defaults when a default status is configured")
+	}
+	if status, _, _ := tmpl.StringField(tikipkg.FieldStatus); status != "backlog" {
+		t.Errorf("Status = %q, want %q", status, "backlog")
+	}
+	if priority, _, _ := tmpl.IntField(tikipkg.FieldPriority); priority == 0 {
+		t.Error("Priority = 0, want populated workflow default")
+	}
+}
+
+// TestNewTikiTemplate_BareWhenNoDefaultStatusConfigured pins the contract
+// for Quick Capture's "no default status" branch: NewTikiTemplate returns a
+// bare tiki with no schema-known fields, so the resulting capture lands as
+// a markdown file with only id+title in the frontmatter. Defaults are only
+// emitted when the caller (here, the workflow registry) asked for them.
+func TestNewTikiTemplate_BareWhenNoDefaultStatusConfigured(t *testing.T) {
+	noDefault := []workflow.FieldDef{
+		{Name: "status", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{
+			{Value: "alpha", Label: "Alpha"},
+			{Value: "done", Label: "Done"},
+		}},
+		{Name: "type", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{
+			{Value: "story", Label: "Story"},
+		}},
+	}
+	config.ResetWorkflowFieldsForTest(noDefault)
+	t.Cleanup(teststatuses.Init)
+
+	s, err := NewTikiStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	tmpl, err := s.NewTikiTemplate()
+	if err != nil {
+		t.Fatalf("NewTikiTemplate: %v", err)
+	}
+	if hasAnyWorkflowField(tmpl) {
+		t.Error("template carries schema-known fields, want bare tiki when no default status is configured")
+	}
+	if status, ok, _ := tmpl.StringField(tikipkg.FieldStatus); ok && status != "" {
+		t.Errorf("Status = %q, want empty", status)
+	}
+	if priority, ok, _ := tmpl.IntField(tikipkg.FieldPriority); ok && priority != 0 {
+		t.Errorf("Priority = %d, want 0 (no defaults emitted)", priority)
+	}
+	if points, ok, _ := tmpl.IntField(tikipkg.FieldPoints); ok && points != 0 {
+		t.Errorf("Points = %d, want 0 (no defaults emitted)", points)
+	}
+	if tags, ok, _ := tmpl.StringSliceField(tikipkg.FieldTags); ok && len(tags) != 0 {
+		t.Errorf("Tags = %v, want empty (no defaults emitted)", tags)
+	}
+	if tmpl.ID() == "" {
+		t.Error("ID was not populated; capture must still generate an id")
+	}
+}
+
+// TestCreateTiki_HonorsBareTemplate verifies the end-to-end contract: a
+// bare template produced by NewTikiTemplate (when no default status is
+// configured) survives CreateTiki without acquiring schema-known fields.
+// This is the path piped capture uses.
+func TestCreateTiki_HonorsBareTemplate(t *testing.T) {
+	noDefault := []workflow.FieldDef{
+		{Name: "status", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{
+			{Value: "alpha", Label: "Alpha"},
+			{Value: "done", Label: "Done"},
+		}},
+		{Name: "type", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{
+			{Value: "story", Label: "Story"},
+		}},
+	}
+	config.ResetWorkflowFieldsForTest(noDefault)
+	t.Cleanup(teststatuses.Init)
+
+	s, err := NewTikiStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	tmpl, err := s.NewTikiTemplate()
+	if err != nil {
+		t.Fatalf("NewTikiTemplate: %v", err)
+	}
+	tmpl.SetTitle("piped note")
+
+	if err := s.CreateTiki(tmpl); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+
+	stored := s.GetTiki(tmpl.ID())
+	if stored == nil {
+		t.Fatalf("GetTiki returned nil after CreateTiki(%s)", tmpl.ID())
+	}
+	if hasAnyWorkflowField(stored) {
+		t.Error("bare capture gained schema-known fields after CreateTiki — defaults must only be emitted when explicitly configured")
+	}
+	// GetAllTikis returns every loaded tiki; presence-based filtering is
+	// the caller's responsibility (e.g. ruki `select where has(status)`).
+	if got := len(s.GetAllTikis()); got != 1 {
+		t.Errorf("GetAllTikis returned %d, want 1", got)
+	}
+	if all := s.GetAllTikis(); hasAnyWorkflowField(all[0]) {
+		t.Error("bare doc from GetAllTikis must not carry schema-known fields")
 	}
 }

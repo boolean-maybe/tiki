@@ -7,6 +7,9 @@ import "os"
 // Kitty sets KITTY_WINDOW_ID, WezTerm sets WEZTERM_EXECUTABLE, Ghostty
 // sets GHOSTTY_RESOURCES_DIR, and iTerm2/Konsole identify via TERM_PROGRAM.
 func SupportsKittyGraphics() bool {
+	if isCMUX() {
+		return false
+	}
 	if os.Getenv("KITTY_WINDOW_ID") != "" {
 		return true
 	}
@@ -21,4 +24,10 @@ func SupportsKittyGraphics() bool {
 		return true
 	}
 	return false
+}
+
+func isCMUX() bool {
+	return os.Getenv("CMUX_SHELL_INTEGRATION") != "" ||
+		os.Getenv("CMUX_BUNDLE_ID") != "" ||
+		os.Getenv("CMUX_SOCKET_PATH") != ""
 }

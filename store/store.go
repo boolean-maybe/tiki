@@ -1,27 +1,27 @@
 package store
 
 import (
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// Store is the interface for task storage engines.
+// Store is the interface for tiki storage engines.
 // Implementations must be thread-safe and notify listeners on changes.
 type Store interface {
 	ReadStore
 
-	// CreateTask adds a new task to the store.
+	// CreateTiki adds a new tiki to the store.
 	// Returns error if save fails (IO error, ErrConflict).
-	CreateTask(task *task.Task) error
+	CreateTiki(tk *tikipkg.Tiki) error
 
-	// UpdateTask updates an existing task.
+	// UpdateTiki updates an existing tiki using exact-presence semantics:
+	// the tiki's field map is authoritative — absent fields are deleted.
+	// Use this for ruki-result callers that have already computed the full
+	// intended post-mutation state.
 	// Returns error if save fails (IO error, ErrConflict).
-	UpdateTask(task *task.Task) error
+	UpdateTiki(tk *tikipkg.Tiki) error
 
-	// DeleteTask removes a task from the store
-	DeleteTask(id string)
-
-	// AddComment adds a comment to a task
-	AddComment(taskID string, comment task.Comment) bool
+	// DeleteTiki removes a tiki from the store and deletes its file.
+	DeleteTiki(id string)
 }
 
 // ChangeListener is called when the store's data changes

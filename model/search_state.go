@@ -3,17 +3,17 @@ package model
 import (
 	"sync"
 
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // SearchState holds reusable search state that can be embedded in any view config
 type SearchState struct {
 	mu             sync.RWMutex
-	searchResults  []task.SearchResult // nil = no active search
-	preSearchIndex int                 // for grid views (backlog, plugin)
-	preSearchPane  string              // for board view (pane ID)
-	preSearchRow   int                 // for board view (row within pane)
-	searchQuery    string              // current search term (for UI restoration)
+	searchResults  []*tikipkg.Tiki // nil = no active search
+	preSearchIndex int             // for grid views (backlog, plugin)
+	preSearchPane  string          // for board view (pane ID)
+	preSearchRow   int             // for board view (row within pane)
+	searchQuery    string          // current search term (for UI restoration)
 }
 
 // SavePreSearchState saves the current selection index for grid-based views
@@ -32,7 +32,7 @@ func (ss *SearchState) SavePreSearchPaneState(paneID string, row int) {
 }
 
 // SetSearchResults sets filtered search results and query
-func (ss *SearchState) SetSearchResults(results []task.SearchResult, query string) {
+func (ss *SearchState) SetSearchResults(results []*tikipkg.Tiki, query string) {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 	ss.searchResults = results
@@ -66,7 +66,7 @@ func (ss *SearchState) GetSearchQuery() string {
 }
 
 // GetSearchResults returns current search results (nil if no search active)
-func (ss *SearchState) GetSearchResults() []task.SearchResult {
+func (ss *SearchState) GetSearchResults() []*tikipkg.Tiki {
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
 	return ss.searchResults

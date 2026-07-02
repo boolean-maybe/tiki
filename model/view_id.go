@@ -9,22 +9,24 @@ type ViewID string
 
 // view identifiers
 const (
-	TaskDetailViewID   ViewID = "task_detail"
-	TaskEditViewID     ViewID = "task_edit"
 	PluginViewIDPrefix ViewID = "plugin:" // Prefix for plugin views
+
+	// DetailPluginName is the conventional workflow `views[].name` for
+	// the configurable detail view. The bundled kanban workflow uses
+	// this name; internal navigations that need to open "the" detail
+	// view target this name. If a workflow renames its detail view,
+	// internal callers will still target this name and may fall through
+	// to no-op — that's acceptable because workflows that rename the
+	// view should also rebind the open keys themselves.
+	DetailPluginName = "Detail"
 )
 
-// built-in view names and descriptions for the header info section
-const (
-	TaskDetailViewName = "Tiki Detail"
-	TaskDetailViewDesc = "tiki overview. Quick edit, edit dependencies, tags or edit source file"
-
-	TaskEditViewName = "Task Edit"
-	TaskEditViewDesc = "Cycle through fields to edit title, status, priority and other"
-
-	DepsEditorViewName = "Dependencies"
-	DepsEditorViewDesc = "Move a tiki to Blocks to make it block edited tiki. Move it to Depends to make edited tiki depend on it"
-)
+// DetailPluginViewID returns the canonical configurable-detail view id
+// (`plugin:Detail`). Used by internal navigations that route through the
+// configurable detail view declared in workflow.yaml.
+func DetailPluginViewID() ViewID {
+	return MakePluginViewID(DetailPluginName)
+}
 
 // IsPluginViewID checks if a ViewID is for a plugin view
 func IsPluginViewID(id ViewID) bool {

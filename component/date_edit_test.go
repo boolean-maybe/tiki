@@ -4,8 +4,7 @@ import (
 	"testing"
 	"time"
 
-	taskpkg "github.com/boolean-maybe/tiki/task"
-
+	"github.com/boolean-maybe/tiki/workflow/value"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -73,7 +72,7 @@ func TestDateEdit_IncrementFromEmpty(t *testing.T) {
 	de.incrementDay()
 
 	// should start from tomorrow and add one more day
-	expected := time.Now().AddDate(0, 0, 1).AddDate(0, 0, 1).Format(taskpkg.DateFormat)
+	expected := time.Now().AddDate(0, 0, 1).AddDate(0, 0, 1).Format(value.DateFormat)
 	if de.currentText != expected {
 		t.Errorf("Expected %q, got %q", expected, de.currentText)
 	}
@@ -86,7 +85,7 @@ func TestDateEdit_DecrementFromEmpty(t *testing.T) {
 	de.decrementDay()
 
 	// should start from tomorrow and subtract one day = today
-	expected := time.Now().Format(taskpkg.DateFormat)
+	expected := time.Now().Format(value.DateFormat)
 	if de.currentText != expected {
 		t.Errorf("Expected %q, got %q", expected, de.currentText)
 	}

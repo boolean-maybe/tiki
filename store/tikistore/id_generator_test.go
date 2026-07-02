@@ -1,0 +1,67 @@
+package tikistore
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/boolean-maybe/tiki/config"
+)
+
+// TestCreateTiki_IDUniquenessChecksMap verifies the H1 fix: the
+// id-generation loop consults s.tikis (the authoritative identity index), not
+// the filesystem. A tiki loaded from a renamed file occupies an id without
+// occupying <tikidir>/<id>.md, so a filesystem-only check would let the
+// generator collide and overwrite the in-memory entry.
+func TestCreateTiki_IDUniquenessChecksMap(t *testing.T) {
+	dir := t.TempDir()
+
+	// seed a tiki loaded from a non-default path: id ABC123 occupies the
+	// identity slot, but ABC123.md does NOT exist under tikidir.
+	renamed := filepath.Join(dir, "renamed-file.md")
+	content := "---\nid: ABC123\ntitle: Loaded\ntype: story\nstatus: ready\npriority: high\n---\nbody\n"
+	if err := os.WriteFile(renamed, []byte(content), 0o644); err != nil {
+		t.Fatalf("write renamed: %v", err)
+	}
+
+	s, err := NewTikiStore(dir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	// force the id generator to return ABC123 repeatedly, then a unique one.
+	call := 0
+	prev := config.GenerateRandomIDForTest
+	config.GenerateRandomIDForTest = func() string {
+		call++
+		if call <= 3 {
+			return "ABC123"
+		}
+		return "ZZZZZZ"
+	}
+	t.Cleanup(func() { config.GenerateRandomIDForTest = prev })
+
+	newTiki, err := s.NewTikiTemplate()
+	if err != nil {
+		t.Fatalf("NewTikiTemplate: %v", err)
+	}
+	if newTiki.ID() == "ABC123" {
+		t.Fatal("generator returned the id of an existing (renamed-file) tiki — map-based uniqueness check failed")
+	}
+	if newTiki.ID() != "ZZZZZZ" {
+		t.Errorf("expected fallback id ZZZZZZ, got %q", newTiki.ID())
+	}
+	if call < 4 {
+		t.Errorf("generator should have been called until a unique id was produced, got %d calls", call)
+	}
+
+	// the original loaded tiki must still exist under its original path.
+	if tk := s.GetTiki("ABC123"); tk == nil || tk.Path() != renamed {
+		t.Errorf("loaded tiki overwritten; Path=%q", func() string {
+			if tk == nil {
+				return "<nil>"
+			}
+			return tk.Path()
+		}())
+	}
+}

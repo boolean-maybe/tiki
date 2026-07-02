@@ -1,49 +1,35 @@
 package config
 
-import "path"
-
 // AITool defines a supported AI coding assistant.
 // To add a new tool, add an entry to the aiTools slice below.
 // NOTE: the action palette (press Ctrl+A) surfaces available actions; update docs if tool names change.
 type AITool struct {
-	Key          string // config identifier: "claude", "gemini", "codex", "opencode"
-	DisplayName  string // human-readable label for UI: "Claude Code"
-	Command      string // CLI binary name
-	PromptFlag   string // flag preceding the prompt arg, or "" for positional
-	SkillDir     string // relative base dir for skills: ".claude/skills"
-	SettingsFile string // relative path to local settings file, or "" if none
+	Key        string // config identifier: "claude", "gemini", "codex", "opencode"
+	Command    string // CLI binary name
+	PromptFlag string // flag preceding the prompt arg, or "" for positional
 }
 
 // aiTools is the single source of truth for all supported AI tools.
 var aiTools = []AITool{
 	{
-		Key:          "claude",
-		DisplayName:  "Claude Code",
-		Command:      "claude",
-		PromptFlag:   "--append-system-prompt",
-		SkillDir:     ".claude/skills",
-		SettingsFile: ".claude/settings.local.json",
+		Key:        "claude",
+		Command:    "claude",
+		PromptFlag: "--append-system-prompt",
 	},
 	{
-		Key:         "gemini",
-		DisplayName: "Gemini CLI",
-		Command:     "gemini",
-		PromptFlag:  "-i",
-		SkillDir:    ".gemini/skills",
+		Key:        "gemini",
+		Command:    "gemini",
+		PromptFlag: "-i",
 	},
 	{
-		Key:         "codex",
-		DisplayName: "OpenAI Codex",
-		Command:     "codex",
-		PromptFlag:  "",
-		SkillDir:    ".codex/skills",
+		Key:        "codex",
+		Command:    "codex",
+		PromptFlag: "",
 	},
 	{
-		Key:         "opencode",
-		DisplayName: "OpenCode",
-		Command:     "opencode",
-		PromptFlag:  "--prompt",
-		SkillDir:    ".opencode/skill",
+		Key:        "opencode",
+		Command:    "opencode",
+		PromptFlag: "--prompt",
 	},
 }
 
@@ -54,11 +40,6 @@ func (t AITool) PromptArgs(prompt string) []string {
 		return []string{t.PromptFlag, prompt}
 	}
 	return []string{prompt}
-}
-
-// SkillPath returns the relative file path for a skill (e.g. "tiki" → ".claude/skills/tiki/SKILL.md").
-func (t AITool) SkillPath(skill string) string {
-	return path.Join(t.SkillDir, skill, "SKILL.md")
 }
 
 // AITools returns all supported AI tools.

@@ -27,7 +27,7 @@ type RootLayout struct {
 	headerConfig *model.HeaderConfig
 	layoutModel  *model.LayoutModel
 	viewFactory  controller.ViewFactory
-	taskStore    store.Store
+	tikiStore    store.Store
 
 	// statusline
 	statuslineWidget *statusline.StatuslineWidget
@@ -55,7 +55,7 @@ type RootLayoutOpts struct {
 	ViewContext      *model.ViewContext
 	LayoutModel      *model.LayoutModel
 	ViewFactory      controller.ViewFactory
-	TaskStore        store.Store
+	TikiStore        store.Store
 	App              *tview.Application
 	StatuslineWidget *statusline.StatuslineWidget
 	StatuslineConfig *model.StatuslineConfig
@@ -71,7 +71,7 @@ func NewRootLayout(opts RootLayoutOpts) *RootLayout {
 		viewContext:           opts.ViewContext,
 		layoutModel:           opts.LayoutModel,
 		viewFactory:           opts.ViewFactory,
-		taskStore:             opts.TaskStore,
+		tikiStore:             opts.TikiStore,
 		statuslineWidget:      opts.StatuslineWidget,
 		statuslineConfig:      opts.StatuslineConfig,
 		lastHeaderVisible:     opts.HeaderConfig.IsVisible(),
@@ -88,9 +88,9 @@ func NewRootLayout(opts RootLayoutOpts) *RootLayout {
 	// Subscribe to statusline config changes (visibility)
 	rl.statuslineListenerID = opts.StatuslineConfig.AddListener(rl.onStatuslineConfigChange)
 
-	// Subscribe to task store changes (stats updates)
-	if opts.TaskStore != nil {
-		rl.storeListenerID = opts.TaskStore.AddListener(rl.onStoreChange)
+	// Subscribe to tiki store changes (stats updates)
+	if opts.TikiStore != nil {
+		rl.storeListenerID = opts.TikiStore.AddListener(rl.onStoreChange)
 	}
 
 	// Build initial layout
@@ -161,41 +161,27 @@ func (rl *RootLayout) onLayoutChange() {
 		})
 	}
 
-	// Wire up action change notifications (registry or enablement changes on the same view)
+	// Wire up action change notifications (registry or enablement changes on the same view).
+	// This also fires on selection/search changes (the view re-renders through the same
+	// handler), so refresh the statusline stats here too — a search narrows the visible
+	// cards without touching the store, and the store listener is the only other path that
+	// recomputes stats. Without this, the count stays at the unfiltered total during search.
 	if notifier, ok := newView.(controller.ActionChangeNotifier); ok {
 		notifier.SetActionChangeHandler(func() {
 			rl.syncViewContextFromView(newView)
+			rl.updateStatuslineViewStats(newView)
 		})
 	}
 
 	// Focus the view
 	newView.OnFocus()
-	if newView.GetViewID() == model.TaskEditViewID {
-		// in desc-only mode, focus the description textarea instead of title
-		if tagsOnlyView, ok := newView.(interface{ IsTagsOnly() bool }); ok && tagsOnlyView.IsTagsOnly() {
-			if tagsView, ok := newView.(controller.TagsEditableView); ok {
-				if tags := tagsView.ShowTagsEditor(); tags != nil {
-					rl.app.SetFocus(tags)
-					return
-				}
-			}
-		}
-		if descOnlyView, ok := newView.(interface{ IsDescOnly() bool }); ok && descOnlyView.IsDescOnly() {
-			if descView, ok := newView.(controller.DescriptionEditableView); ok {
-				if desc := descView.ShowDescriptionEditor(); desc != nil {
-					rl.app.SetFocus(desc)
-					return
-				}
-			}
-		}
-		if titleView, ok := newView.(controller.TitleEditableView); ok {
-			if title := titleView.ShowTitleEditor(); title != nil {
-				rl.app.SetFocus(title)
-				return
-			}
+	focusTarget := newView.GetPrimitive()
+	if pfp, ok := newView.(controller.PreferredFocusProvider); ok {
+		if pref := pfp.GetPreferredFocus(); pref != nil {
+			focusTarget = pref
 		}
 	}
-	rl.app.SetFocus(newView.GetPrimitive())
+	rl.app.SetFocus(focusTarget)
 }
 
 // syncViewContextFromView computes view name/description, view actions, and plugin actions
@@ -329,12 +315,12 @@ func (rl *RootLayout) Cleanup() {
 	rl.headerConfig.RemoveListener(rl.headerListenerID)
 	rl.statuslineConfig.RemoveListener(rl.statuslineListenerID)
 	rl.statuslineWidget.Cleanup()
-	if rl.taskStore != nil {
-		rl.taskStore.RemoveListener(rl.storeListenerID)
+	if rl.tikiStore != nil {
+		rl.tikiStore.RemoveListener(rl.storeListenerID)
 	}
 }
 
-// onStoreChange is called when the task store changes (task created/updated/deleted)
+// onStoreChange is called when the tiki store changes (tiki created/updated/deleted)
 func (rl *RootLayout) onStoreChange() {
 	if rl.contentView != nil {
 		rl.updateStatuslineViewStats(rl.contentView)

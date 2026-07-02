@@ -50,6 +50,40 @@ func TestParseSemVer(t *testing.T) {
 	}
 }
 
+func TestIsReleaseVersion(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		// clean releases
+		{"0.5.2", true},
+		{"v0.5.2", true},
+		{"V1.2.3", true},
+		{"10.20.30", true},
+
+		// local builds: git describe variants
+		{"0.5.2-3-gabc123", false},
+		{"0.5.2-dirty", false},
+		{"0.5.2-3-gabc123-dirty", false},
+		{"0.6.0-rc1", false},
+		{"1.0.0+build.42", false},
+
+		// non-semver fallbacks
+		{"dev", false},
+		{"abc123f", false},
+		{"", false},
+		{"1.2", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			if got := IsReleaseVersion(tt.input); got != tt.want {
+				t.Errorf("IsReleaseVersion(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCompareSemVer(t *testing.T) {
 	tests := []struct {
 		name string
@@ -98,11 +132,12 @@ func TestCheckWorkflowVersionCompatibility(t *testing.T) {
 		{"commit hash app skips", "abc123f", "0.5.2", false, ""},
 		{"empty workflow skips", "0.5.2", "", false, ""},
 		{"unparseable workflow skips", "0.5.2", "draft", false, ""},
-		{"git describe app rejects newer", "0.5.2-3-gabc123", "0.6.0", true, "newer than tiki"},
-		{"git describe app accepts same", "0.5.2-3-gabc123", "0.5.2", false, ""},
-		{"prerelease app accepts same", "0.6.0-rc1", "0.6.0", false, ""},
-		{"prerelease app rejects newer", "0.6.0-rc1", "0.7.0", true, "newer than tiki"},
-		{"dirty app accepts same", "0.5.2-dirty", "0.5.2", false, ""},
+		{"git describe app skips check", "0.5.2-3-gabc123", "0.6.0", false, ""},
+		{"git describe app skips check same", "0.5.2-3-gabc123", "0.5.2", false, ""},
+		{"prerelease app skips check", "0.6.0-rc1", "0.6.0", false, ""},
+		{"prerelease app skips newer", "0.6.0-rc1", "0.7.0", false, ""},
+		{"dirty app skips check", "0.5.2-dirty", "0.5.2", false, ""},
+		{"build metadata app skips check", "0.6.0+build.42", "0.7.0", false, ""},
 	}
 
 	for _, tt := range tests {
@@ -138,33 +173,32 @@ func searchSubstring(s, substr string) bool {
 }
 
 const validWorkflowWithVersion = `version: 99.0.0
-statuses:
-  - key: open
-    label: Open
-    default: true
-  - key: closed
-    label: Closed
-    done: true
-types:
-  - key: story
-    label: Story
-views:
-  plugins:
-    - name: board
-      lanes:
-        - name: Open
-          filter: select where status = "open"
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: open
+        label: Open
+        default: true
+      - value: closed
+        label: Closed
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        default: true
 `
 
-func TestLoadWorkflowRegistries_RejectsNewerVersion(t *testing.T) {
-	cwdDir := setupLoadRegistryTest(t)
+func TestLoadWorkflowFields_RejectsNewerVersion(t *testing.T) {
+	cwdDir := setupLoadWorkflowFieldsTest(t)
 	withAppVersion(t, "0.5.2")
 
 	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(validWorkflowWithVersion), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	err := LoadWorkflowRegistries()
+	err := LoadWorkflowFields()
 	if err == nil {
 		t.Fatal("expected version error, got nil")
 	}
@@ -173,20 +207,20 @@ func TestLoadWorkflowRegistries_RejectsNewerVersion(t *testing.T) {
 	}
 }
 
-func TestLoadWorkflowRegistries_NoFilesErrorFromStatusRegistry(t *testing.T) {
-	_ = setupLoadRegistryTest(t)
+func TestLoadWorkflowFields_NoFilesError(t *testing.T) {
+	_ = setupLoadWorkflowFieldsTest(t)
 	withAppVersion(t, "0.5.2")
 
-	err := LoadWorkflowRegistries()
+	err := LoadWorkflowFields()
 	if err == nil {
 		t.Fatal("expected error when no workflow files found")
 	}
 	if !contains(err.Error(), "no workflow.yaml found") {
-		t.Errorf("expected missing-file error from LoadStatusRegistry, got: %v", err)
+		t.Errorf("expected missing-file error, got: %v", err)
 	}
 }
 
-func TestLoadRegistriesFromFile_RejectsNewerVersion(t *testing.T) {
+func TestLoadWorkflowFieldsFromFile_RejectsNewerVersion(t *testing.T) {
 	withAppVersion(t, "0.5.2")
 
 	dir := t.TempDir()
@@ -195,7 +229,7 @@ func TestLoadRegistriesFromFile_RejectsNewerVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, _, err := LoadRegistriesFromFile(path)
+	_, err := LoadWorkflowFieldsFromFile(path)
 	if err == nil {
 		t.Fatal("expected version error, got nil")
 	}

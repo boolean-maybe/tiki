@@ -7,7 +7,7 @@ type QuickSelectConfig struct {
 	mu sync.RWMutex
 
 	visible  bool
-	onSelect func(taskID string)
+	onSelect func(tikiID string)
 	onCancel func()
 
 	listeners    map[int]func()
@@ -38,7 +38,7 @@ func (qc *QuickSelectConfig) SetVisible(visible bool) {
 	}
 }
 
-func (qc *QuickSelectConfig) SetOnSelect(fn func(taskID string)) {
+func (qc *QuickSelectConfig) SetOnSelect(fn func(tikiID string)) {
 	qc.mu.Lock()
 	defer qc.mu.Unlock()
 	qc.onSelect = fn
@@ -50,13 +50,13 @@ func (qc *QuickSelectConfig) SetOnCancel(fn func()) {
 	qc.onCancel = fn
 }
 
-// Select invokes the select callback with the chosen task ID, then hides.
-func (qc *QuickSelectConfig) Select(taskID string) {
+// Select invokes the select callback with the chosen tiki ID, then hides.
+func (qc *QuickSelectConfig) Select(tikiID string) {
 	qc.mu.RLock()
 	fn := qc.onSelect
 	qc.mu.RUnlock()
 	if fn != nil {
-		fn(taskID)
+		fn(tikiID)
 	}
 	qc.SetVisible(false)
 }

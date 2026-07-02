@@ -15,6 +15,7 @@ linters:
     - unconvert
     - unparam
     - gosec
+    - forbidigo
 
   settings:
     errcheck:
@@ -41,6 +42,31 @@ linters:
       excludes:
         - G304
         - G306
+
+    # Forbid direct tcell.Color usage outside the theme package and a few
+    # allowlisted low-level helpers. All UI code must go through theme.Roles()
+    # for color access — see theme/ package for the role API.
+    forbidigo:
+      forbid:
+        - pattern: '^tcell\.Color[A-Z]\w*$'
+          msg: "use theme.Roles() roles instead of named tcell colors"
+        - pattern: '^tcell\.GetColor$'
+          msg: "use theme.NewColorHex / theme.Roles() instead of tcell.GetColor"
+        - pattern: '^tcell\.NewRGBColor$'
+          msg: "use theme.NewColorRGB / theme.Roles() instead of tcell.NewRGBColor"
+      analyze-types: true
+      exclude-godoc-examples: true
+
+  exclusions:
+    rules:
+      - path: '^theme/'
+        linters: [forbidigo]
+      - path: '^plugin/colorparser(_test)?\.go$'
+        linters: [forbidigo]
+      # Test files often need raw tcell values to construct test fixtures and
+      # assert against parser outputs. Forbid only applies to production code.
+      - path: '_test\.go$'
+        linters: [forbidigo]
 
 formatters:
   enable:

@@ -1,163 +1,98 @@
-# Hello!
+# Welcome
 
-Press `Tab/Shift-Tab` to select below links and `Enter` to open:
+This is your project's wiki — a tree of Markdown documents tracked alongside your
+code. Press `Tab/Shift-Tab` to move between links and `Enter` to follow them.
 
-- [Introduction](#introduction)
-- [Navigation](#navigation)
-- [Multiple entry](#multiple-entry)
-- [Configure plugins](#configure-plugin)
-- [Features](#features)
-- [git managed](#git-managed)
-- [Markdown format](#rich-markdown-format)
-  - [Headings](#headings)
-  - [Emphasis](#emphasis)
-  - [Lists](#lists)
-  - [Blockquotes](#blockquotes)
-  - [Inline Code](#inline-code)
-  - [Code Blocks](#code-blocks)
-  - [Tables](#tables)
-  - [Task Lists](#task-lists)
+- [What is tiki](#what-is-tiki)
+- [How content is organized](#how-content-is-organized)
+- [Adding views](#adding-views)
+- [Markdown reference](#markdown-reference)
 
-![Markdown Support](markdown.png)
+![Markdown](assets/markdown.png)
 
-## Introduction
+## What is tiki
 
-This is a wiki-style documentation called `doki` saved as Markdown files alongside the project
-Since they are stored in git they are versioned and all edits can be seen in the git history along with the timestamp
-and the user. They can also be perfectly synced to the current or past state of the repo or its git branch
+`tiki` is a terminal workspace for a single Markdown directory. Every file under
+`.doc/` is a **document** — identified by a bare 6-character `id` in its
+frontmatter. Documents with workflow fields (`status`, `priority`, …) show up on
+boards and lists; documents with only `id` and `title` act as wiki pages.
 
-This is just a sample entry point. You can modify it and add content or add linked documents 
-to create your own wiki style documentation
+Everything is stored in git, so history, blame, and branches work the same way
+they do for code.
 
-## Navigation
-
-Press `Tab/Enter` to select and follow this [link](linked.md) to see how. 
-You can refer to external documentation by linking an [external link](https://raw.githubusercontent.com/boolean-maybe/navidown/main/README.md)
-
-## Multiple entry
-
-This is just a single example, but you can also create multiple entry points such as:
-- Brainstorm
-- Architecture
-- Prompts
-
-## Configure plugin
-
-Just configuring multiple plugins. Create a file like `brainstorm.yaml`:
+## How content is organized
 
 ```text
-        name: Brainstorm
-        type: doki
-        key: "F6"
-        url: new-doc-root.md
-```
-
-and place it where the `tiki` executable is. Then add it as a plugin to the tiki `config.yaml` located in the same directory:
-
-```text
-        plugins:
-            - file: brainstorm.yaml
-```
-
-## Features
-- [x] stored in git and always in sync
-- [x] built-in terminal UI
-- [x] AI native
-- [x] rich **Markdown** format
-
-## Git managed
-
-`dokis` (short for documents) are just **Markdown** files in your repository
-
-```
-/projects/my-app
+my-project/
 ├── .doc/
-│   └── doki/
-│       ├── index.md
-│       ├── getting-started.md
-│       ├── installation.md
-│       └── architecture.md
-├── src/
-│   ├── components/
-│   │   ├── Header.tsx
-│   │   ├── Footer.tsx
-│   │   └── README.md
-│   └── ...
-├── README.md
-├── package.json
-└── LICENSE
+│   ├── workflow.yaml      # views, fields, actions
+│   ├── index.md           # this file
+│   ├── onboarding.md      # a workflow tiki
+│   ├── architecture.md    # a wiki page
+│   └── assets/
+│       └── markdown.png
+└── src/
 ```
 
-## Rich Markdown format
+The directory layout under `.doc/` is yours — flat or nested, organized however
+suits your project. Filenames are free; identity lives in the frontmatter `id:`,
+so files can be renamed or moved without breaking [[wikilinks]] or `dependsOn`
+references.
 
-Since dokis are just **Markdown** files you can use all of its rich formatting options
+Follow this [link to a second page](linked.md) to see cross-document navigation.
+
+## Adding views
+
+Wiki entry points are declared in `.doc/workflow.yaml` and bound to a key:
+
+```yaml
+views:
+  - name: brainstorm
+    label: Brainstorm
+    kind: wiki
+    path: brainstorm.md
+    key: "F6"
+```
+
+Restart `tiki` and `F6` opens the new view.
+
+## Markdown reference
 
 ### Headings
 
-# H1 Heading
-## H2 Heading
-### H3 Heading
-#### H4 Heading
+# H1
+## H2
+### H3
 
 ### Emphasis
 
-**bold text**
-*italic text*
-***bold and italic***
+**bold**, *italic*, ***bold italic***
 
 ### Lists
 
-Unordered:
 - Item 1
 - Item 2
-  - Nested item
+  - Nested
+1. First
+2. Second
 
-Ordered:
-1. First item
-2. Second item
-   1. Nested item
+### Code
 
-### Blockquotes
+Inline `code` and fenced blocks:
 
-> This is a blockquote
-> It can span multiple lines
->
-> > Nested blockquotes are also possible
-
-### Inline Code
-
-Use `backticks` to highlight code within text.
-Variables like `userName` or functions like `getData()` stand out.
-
-### Code Blocks
-
-python:
 ```python
-def hello_world():
-    print("Hello, World!")
-```
-
-JavaScript:
-```javascript
-const greeting = "Hello, World!";
-console.log(greeting);
+def hello():
+    print("hello, tiki")
 ```
 
 ### Tables
 
-| Column 1 | Column 2 | Column 3 |
-|----------|----------|----------|
-| Cell 1   | Cell 2   | Cell 3   |
-| Cell 4   | Cell 5   | Cell 6   |
+| Field | Type | Notes |
+|---|---|---|
+| id | string | bare 6-char id |
+| title | string | required |
 
-| Left aligned | Center aligned | Right aligned |
-|:-------------|:--------------:|--------------:|
-| Left         | Center         | Right         |
+### Tasks
 
-### Task Lists
-
-- [x] Completed task
-- [ ] Incomplete task
-- [ ] Another task to do
-  - [x] Nested completed task
-  - [ ] Nested incomplete task
+- [x] Done
+- [ ] Not done

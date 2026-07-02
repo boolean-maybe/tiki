@@ -8,47 +8,48 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/theme"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/rivo/tview"
 )
 
-// PluginView renders a filtered/sorted list of tasks across lanes
+// PluginView renders a filtered/sorted list of tikis across lanes
 type PluginView struct {
 	root                *tview.Flex
 	titleBar            tview.Primitive
 	inputHelper         *InputHelper
 	lanes               *tview.Flex
 	laneBoxes           []*ScrollableList
-	taskStore           store.Store
+	tikiStore           store.Store
 	pluginConfig        *model.PluginConfig
-	pluginDef           *plugin.TikiPlugin
+	pluginDef           *plugin.WorkflowPlugin
 	registry            *controller.ActionRegistry
 	showNavigation      bool
 	storeListenerID     int
 	selectionListenerID int
-	getLaneTasks        func(lane int) []*task.Task // injected from controller
-	ensureSelection     func() bool                 // injected from controller
+	getLaneTikis        func(lane int) []*tikipkg.Tiki // injected from controller
+	ensureSelection     func() bool                    // injected from controller
 	actionChangeHandler func()
 }
 
 // NewPluginView creates a plugin view
 func NewPluginView(
-	taskStore store.Store,
+	tikiStore store.Store,
 	pluginConfig *model.PluginConfig,
-	pluginDef *plugin.TikiPlugin,
-	getLaneTasks func(lane int) []*task.Task,
+	pluginDef *plugin.WorkflowPlugin,
+	getLaneTikis func(lane int) []*tikipkg.Tiki,
 	ensureSelection func() bool,
 	registry *controller.ActionRegistry,
 	showNavigation bool,
 ) *PluginView {
 	pv := &PluginView{
-		taskStore:       taskStore,
+		tikiStore:       tikiStore,
 		pluginConfig:    pluginConfig,
 		pluginDef:       pluginDef,
 		registry:        registry,
 		showNavigation:  showNavigation,
-		getLaneTasks:    getLaneTasks,
+		getLaneTikis:    getLaneTikis,
 		ensureSelection: ensureSelection,
 	}
 
@@ -59,15 +60,9 @@ func NewPluginView(
 
 func (pv *PluginView) build() {
 	// title bar with gradient background using theme-derived caption colors
-	colors := config.GetColors()
-	pair := colors.CaptionColorForIndex(pv.pluginDef.ConfigIndex)
-	bgColor := pair.Background
-	textColor := pair.Foreground
-	if pv.pluginDef.ConfigIndex < 0 {
-		// code-only plugin (e.g. deps editor) — use explicit Background
-		bgColor = pv.pluginDef.Background
-		textColor = config.DefaultColor()
-	}
+	pair := theme.Roles().PluginCaptions().At(pv.pluginDef.ConfigIndex)
+	bgColor := theme.NewColor(pair.Bg().TCell())
+	textColor := theme.NewColor(pair.Fg().TCell())
 	laneNames := make([]string, len(pv.pluginDef.Lanes))
 	for i, lane := range pv.pluginDef.Lanes {
 		laneNames[i] = lane.Name
@@ -76,7 +71,7 @@ func (pv *PluginView) build() {
 	for i := range pv.pluginDef.Lanes {
 		laneWidths[i] = pv.pluginConfig.GetWidthForLane(i)
 	}
-	pv.titleBar = NewGradientCaptionRow(laneNames, laneWidths, bgColor, textColor)
+	pv.titleBar = NewGradientCaptionRow(laneNames, laneWidths, theme.NewColorRoleAdapter(bgColor), textColor)
 
 	// lanes container (rows)
 	pv.lanes = tview.NewFlex().SetDirection(tview.FlexColumn)
@@ -120,16 +115,11 @@ func (pv *PluginView) rebuildLayout() {
 }
 
 func (pv *PluginView) refresh() {
-	viewMode := pv.pluginConfig.GetViewMode()
 	if pv.ensureSelection != nil {
 		pv.ensureSelection()
 	}
 
-	// update item height based on view mode
-	itemHeight := config.TaskBoxHeight
-	if viewMode == model.ViewModeExpanded {
-		itemHeight = config.TaskBoxHeightExpanded
-	}
+	itemHeight := tikiBoxItemHeight(pv.pluginDef.Layout)
 	selectedLane := pv.pluginConfig.GetSelectedLane()
 
 	if len(pv.laneBoxes) != len(pv.pluginDef.Lanes) {
@@ -149,11 +139,11 @@ func (pv *PluginView) refresh() {
 		isSelectedLane := laneIdx == selectedLane
 		pv.lanes.AddItem(laneContainer, 0, pv.pluginConfig.GetWidthForLane(laneIdx), isSelectedLane)
 
-		tasks := pv.getLaneTasks(laneIdx)
+		tikis := pv.getLaneTikis(laneIdx)
 		if isSelectedLane {
-			pv.pluginConfig.ClampSelection(len(tasks))
+			pv.pluginConfig.ClampSelection(len(tikis))
 		}
-		if len(tasks) == 0 {
+		if len(tikis) == 0 {
 			laneContainer.SetSelection(-1)
 			continue
 		}
@@ -162,21 +152,16 @@ func (pv *PluginView) refresh() {
 		selectedIndex := pv.pluginConfig.GetSelectedIndexForLane(laneIdx)
 		selectedRow := selectedIndex / columns
 
-		numRows := (len(tasks) + columns - 1) / columns
+		numRows := (len(tikis) + columns - 1) / columns
 		for row := 0; row < numRows; row++ {
 			rowFlex := tview.NewFlex().SetDirection(tview.FlexColumn)
 			for col := 0; col < columns; col++ {
 				idx := row*columns + col
-				if idx < len(tasks) {
-					task := tasks[idx]
+				if idx < len(tikis) {
+					tiki := tikis[idx]
 					isSelected := isSelectedLane && idx == selectedIndex
-					var taskBox *tview.Frame
-					if viewMode == model.ViewModeCompact {
-						taskBox = CreateCompactTaskBox(task, isSelected, config.GetColors())
-					} else {
-						taskBox = CreateExpandedTaskBox(task, isSelected, config.GetColors())
-					}
-					rowFlex.AddItem(taskBox, 0, 1, false)
+					tikiBox := CreateTikiBox(tiki, pv.pluginDef.Layout, isSelected, theme.Roles())
+					rowFlex.AddItem(tikiBox, 0, 1, false)
 				} else {
 					spacer := tview.NewBox()
 					rowFlex.AddItem(spacer, 0, 1, false)
@@ -203,18 +188,18 @@ func (pv *PluginView) refresh() {
 
 func (pv *PluginView) GetSelectedID() string {
 	lane := pv.pluginConfig.GetSelectedLane()
-	tasks := pv.getLaneTasks(lane)
+	tikis := pv.getLaneTikis(lane)
 	idx := pv.pluginConfig.GetSelectedIndexForLane(lane)
-	if idx < 0 || idx >= len(tasks) {
+	if idx < 0 || idx >= len(tikis) {
 		return ""
 	}
-	return tasks[idx].ID
+	return tikis[idx].ID()
 }
 
 func (pv *PluginView) SetSelectedID(id string) {
 	for lane := range pv.pluginDef.Lanes {
-		for i, t := range pv.getLaneTasks(lane) {
-			if t.ID == id {
+		for i, t := range pv.getLaneTikis(lane) {
+			if t.ID() == id {
 				pv.pluginConfig.SetSelectedLane(lane)
 				pv.pluginConfig.SetSelectedIndexForLane(lane, i)
 				return
@@ -253,14 +238,14 @@ func (pv *PluginView) GetViewID() model.ViewID {
 
 // OnFocus is called when the view becomes active
 func (pv *PluginView) OnFocus() {
-	pv.storeListenerID = pv.taskStore.AddListener(pv.refresh)
+	pv.storeListenerID = pv.tikiStore.AddListener(pv.refresh)
 	pv.selectionListenerID = pv.pluginConfig.AddSelectionListener(pv.refresh)
 	pv.refresh()
 }
 
 // OnBlur is called when the view becomes inactive
 func (pv *PluginView) OnBlur() {
-	pv.taskStore.RemoveListener(pv.storeListenerID)
+	pv.tikiStore.RemoveListener(pv.storeListenerID)
 	pv.pluginConfig.RemoveSelectionListener(pv.selectionListenerID)
 }
 
@@ -364,12 +349,12 @@ func (pv *PluginView) SetFocusSetter(setter func(p tview.Primitive)) {
 	pv.inputHelper.SetFocusSetter(setter)
 }
 
-// GetStats returns stats for the header and statusline (Total count of filtered tasks)
+// GetStats returns stats for the header and statusline (Total count of filtered tikis)
 func (pv *PluginView) GetStats() []store.Stat {
 	total := 0
 	for lane := range pv.pluginDef.Lanes {
-		tasks := pv.getLaneTasks(lane)
-		total += len(tasks)
+		tikis := pv.getLaneTikis(lane)
+		total += len(tikis)
 	}
 	return []store.Stat{
 		{Name: "Total", Value: fmt.Sprintf("%d", total), Order: 5},

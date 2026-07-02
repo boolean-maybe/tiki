@@ -312,7 +312,6 @@ func TestIdentityResolver_AllUsers_NoGitWithConfig(t *testing.T) {
 
 func TestTikiStore_GetCurrentUser_NoGitUsesConfig(t *testing.T) {
 	isolateConfig(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 	setIdentityEnv(t, "Configured Alice", "alice@example.com")
 
 	tmpDir := t.TempDir()
@@ -335,7 +334,6 @@ func TestTikiStore_GetCurrentUser_NoGitUsesConfig(t *testing.T) {
 
 func TestTikiStore_GetStats_UsesConfiguredIdentity(t *testing.T) {
 	isolateConfig(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 	setIdentityEnv(t, "Header Alice", "")
 
 	tmpDir := t.TempDir()
@@ -358,7 +356,6 @@ func TestTikiStore_GetStats_UsesConfiguredIdentity(t *testing.T) {
 
 func TestTikiStore_GetStats_EmailOnly_ProjectsEmail(t *testing.T) {
 	isolateConfig(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 	setIdentityEnv(t, "", "me@example.com")
 
 	tmpDir := t.TempDir()
@@ -397,7 +394,6 @@ func TestTikiStore_GetStats_MatchesSharedHelper(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.label, func(t *testing.T) {
 			isolateConfig(t)
-			t.Setenv("TIKI_STORE_GIT", "false")
 			setIdentityEnv(t, tc.name, tc.email)
 
 			tmpDir := t.TempDir()
@@ -427,7 +423,6 @@ func TestTikiStore_GetStats_MatchesSharedHelper(t *testing.T) {
 
 func TestTikiStore_GetAllUsers_NoGitReturnsConfigured(t *testing.T) {
 	isolateConfig(t)
-	t.Setenv("TIKI_STORE_GIT", "false")
 	setIdentityEnv(t, "Allusers Alice", "")
 
 	tmpDir := t.TempDir()

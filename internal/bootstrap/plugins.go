@@ -3,29 +3,34 @@ package bootstrap
 import (
 	"log/slog"
 
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
-	"github.com/boolean-maybe/tiki/ruki"
 )
 
-// LoadPlugins loads plugins from disk. Returns an error if workflow files
-// exist but contain no valid view definitions.
-func LoadPlugins(schema ruki.Schema) ([]plugin.Plugin, error) {
-	plugins, err := plugin.LoadPlugins(schema)
+// LoadPlugins loads plugins and the workflow's top-level global actions from
+// disk. Returns an error if workflow files exist but contain no valid view
+// definitions. Global actions are returned separately so the controller
+// layer can thread them into non-board views (where globals are not merged
+// into per-view Actions slices).
+func LoadPlugins(schema ruki.Schema) ([]plugin.Plugin, []plugin.PluginAction, error) {
+	plugins, globals, err := plugin.LoadPluginsAndGlobals(schema)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(plugins) > 0 {
-		slog.Info("loaded plugins", "count", len(plugins))
+		slog.Info("loaded plugins", "count", len(plugins), "global_actions", len(globals))
 	}
-	return plugins, nil
+	return plugins, globals, nil
 }
 
 // InitPluginActionRegistry initializes the controller plugin action registry
 // from loaded plugin activation keys.
 func InitPluginActionRegistry(plugins []plugin.Plugin) {
 	pluginInfos := make([]controller.PluginInfo, 0, len(plugins))
+	detailViewIDs := make(map[model.ViewID]struct{})
+	singleLaneViewIDs := make(map[model.ViewID]struct{})
 	for _, p := range plugins {
 		pk, pr, pm := p.GetActivationKey()
 		pluginInfos = append(pluginInfos, controller.PluginInfo{
@@ -33,9 +38,35 @@ func InitPluginActionRegistry(plugins []plugin.Plugin) {
 			Key:      pk,
 			Rune:     pr,
 			Modifier: pm,
+			// Surface the view's own require: so the activation-key gate
+			// honors it (6B.15).
+			Require: p.GetRequire(),
 		})
+		if p.GetKind() == plugin.KindDetail {
+			detailViewIDs[model.MakePluginViewID(p.GetName())] = struct{}{}
+		}
+		if wp, ok := p.(*plugin.WorkflowPlugin); ok && len(wp.Lanes) <= 1 {
+			singleLaneViewIDs[model.MakePluginViewID(p.GetName())] = struct{}{}
+		}
 	}
 	controller.InitPluginActions(pluginInfos)
+	// the controller package can't depend on plugin, so bootstrap installs a
+	// predicate that recognizes any `kind: detail` plugin's view id.
+	controller.SetDetailViewIDPredicate(func(id model.ViewID) bool {
+		_, ok := detailViewIDs[id]
+		return ok
+	})
+	// gates workflow actions that require a Detail view: the action is
+	// silently absent when the active workflow declares no Detail plugin.
+	hasDetailPlugin := len(detailViewIDs) > 0
+	controller.SetDetailPluginPredicate(func() bool { return hasDetailPlugin })
+
+	// gates Move ←/→ on single-lane board/list views: lane navigation is
+	// meaningless when there is one lane or fewer.
+	controller.SetSingleLanePredicate(func(id model.ViewID) bool {
+		_, ok := singleLaneViewIDs[id]
+		return ok
+	})
 }
 
 // BuildPluginConfigsAndDefs builds per-plugin configs and a name->definition map
@@ -46,10 +77,7 @@ func BuildPluginConfigsAndDefs(plugins []plugin.Plugin) (map[string]*model.Plugi
 	for _, p := range plugins {
 		pc := model.NewPluginConfig(p.GetName())
 
-		if tp, ok := p.(*plugin.TikiPlugin); ok {
-			if tp.ViewMode == "expanded" {
-				pc.SetViewMode("expanded")
-			}
+		if tp, ok := p.(*plugin.WorkflowPlugin); ok {
 			columns := make([]int, len(tp.Lanes))
 			widths := make([]int, len(tp.Lanes))
 			for i, lane := range tp.Lanes {

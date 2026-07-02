@@ -6,31 +6,43 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
-	"github.com/boolean-maybe/tiki/workflow"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
+
+// newRunnerTiki builds a minimal tiki for runner test fixtures. priority
+// is the canonical enum key (e.g. "high"); pass "" to omit the field.
+func newRunnerTiki(id, title, status, priority, assignee string) *tikipkg.Tiki {
+	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID(id); t.SetTitle(title); return t }()
+	if status != "" {
+		tk.Set(tikipkg.FieldStatus, status)
+	}
+	if priority != "" {
+		tk.Set(tikipkg.FieldPriority, priority)
+	}
+	if assignee != "" {
+		tk.Set(tikipkg.FieldAssignee, assignee)
+	}
+	return tk
+}
 
 func setupRunnerTest(t *testing.T) store.Store {
 	t.Helper()
-	config.ResetStatusRegistry([]workflow.StatusDef{
-		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
-		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
-		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
-	})
+	teststatuses.Init()
 
 	s := store.NewInMemoryStore()
-	_ = s.CreateTask(&task.Task{ID: "TIKI-AAA001", Title: "Build API", Status: "ready", Priority: 1})
-	_ = s.CreateTask(&task.Task{ID: "TIKI-BBB002", Title: "Write Docs", Status: "done", Priority: 2})
+	// give every fixture an explicit assignee (even if empty)
+	// so queries that read assignee don't hard-error on the absent case.
+	_ = s.CreateTiki(newRunnerTiki("TIKI-AAA001", "Build API", "ready", "high", "nobody"))
+	_ = s.CreateTiki(newRunnerTiki("TIKI-BBB002", "Write Docs", "done", "medium-high", "nobody"))
 	return s
 }
 
 // gateFor wraps a store in a bare gate (no field validators) for tests.
-func gateFor(s store.Store) *service.TaskMutationGate {
-	g := service.NewTaskMutationGate()
+func gateFor(s store.Store) *service.TikiMutationGate {
+	g := service.NewTikiMutationGate()
 	g.SetStore(s)
 	return g
 }
@@ -63,9 +75,9 @@ func TestRunSelectQueryBareSelect(t *testing.T) {
 	}
 
 	out := buf.String()
-	// bare select returns all tasks with all fields
+	// bare select returns all tikis with all fields
 	if !strings.Contains(out, "TIKI-AAA001") || !strings.Contains(out, "TIKI-BBB002") {
-		t.Errorf("bare select should return all tasks:\n%s", out)
+		t.Errorf("bare select should return all tikis:\n%s", out)
 	}
 }
 
@@ -148,7 +160,7 @@ func TestRunSelectQuerySemicolonOnly(t *testing.T) {
 func TestRunSelectQueryUserFunction(t *testing.T) {
 	s := setupRunnerTest(t)
 	// InMemoryStore returns "memory-user"
-	_ = s.CreateTask(&task.Task{ID: "TIKI-CCC003", Title: "My Task", Status: "ready", Assignee: "memory-user"})
+	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "My Tiki", "ready", "", "memory-user"))
 
 	var buf bytes.Buffer
 	err := RunSelectQuery(s, `select id where assignee = user()`, &buf)
@@ -186,7 +198,7 @@ func TestRunSelectQueryWithOrderBy(t *testing.T) {
 
 	out := buf.String()
 	if !strings.Contains(out, "TIKI-AAA001") || !strings.Contains(out, "TIKI-BBB002") {
-		t.Errorf("order by query should return all tasks:\n%s", out)
+		t.Errorf("order by query should return all tikis:\n%s", out)
 	}
 }
 
@@ -201,13 +213,13 @@ func TestRunQueryUpdatePersists(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	updated := s.GetTask("TIKI-AAA001")
+	updated := s.GetTiki("TIKI-AAA001")
 	if updated == nil {
-		t.Fatal("task not found after update")
+		t.Fatal("tiki not found after update")
 		return
 	}
-	if updated.Title != "Updated API" {
-		t.Errorf("expected title 'Updated API', got %q", updated.Title)
+	if updated.Title() != "Updated API" {
+		t.Errorf("expected title 'Updated API', got %q", updated.Title())
 	}
 }
 
@@ -215,14 +227,14 @@ func TestRunQueryUpdateSummarySuccess(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(gateFor(s), `update where status = "ready" set priority=5`, &buf)
+	err := RunQuery(gateFor(s), `update where status = "ready" set priority="low"`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "updated 1 tasks") {
-		t.Errorf("expected 'updated 1 tasks' in output, got: %s", out)
+	if !strings.Contains(out, "updated 1 tikis") {
+		t.Errorf("expected 'updated 1 tikis' in output, got: %s", out)
 	}
 }
 
@@ -236,15 +248,18 @@ func TestRunQueryUpdateZeroMatches(t *testing.T) {
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "updated 0 tasks") {
-		t.Errorf("expected 'updated 0 tasks' in output, got: %s", out)
+	if !strings.Contains(out, "updated 0 tikis") {
+		t.Errorf("expected 'updated 0 tikis' in output, got: %s", out)
 	}
 }
 
 func TestRunQueryUpdateListArithmeticE2E(t *testing.T) {
 	s := setupRunnerTest(t)
-	// set up a task with tags
-	_ = s.CreateTask(&task.Task{ID: "TIKI-TAG001", Title: "Tagged", Status: "ready", Tags: []string{"old"}})
+	// set up a tiki with tags
+	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("TIKI-TAG001"); t.SetTitle("Tagged"); return t }()
+	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set(tikipkg.FieldTags, []string{"old"})
+	_ = s.CreateTiki(tk)
 
 	var buf bytes.Buffer
 	err := RunQuery(gateFor(s), `update where id = "TIKI-TAG001" set tags=tags+"new"`, &buf)
@@ -252,24 +267,25 @@ func TestRunQueryUpdateListArithmeticE2E(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	updated := s.GetTask("TIKI-TAG001")
-	if len(updated.Tags) != 2 || updated.Tags[0] != "old" || updated.Tags[1] != "new" {
-		t.Errorf("expected tags [old new], got %v", updated.Tags)
+	updated := s.GetTiki("TIKI-TAG001")
+	tags, _, _ := updated.StringSliceField(tikipkg.FieldTags)
+	if len(tags) != 2 || tags[0] != "old" || tags[1] != "new" {
+		t.Errorf("expected tags [old new], got %v", tags)
 	}
 }
 
 func TestRunQueryUpdatePartialFailure(t *testing.T) {
 	s := setupRunnerTest(t)
 
-	// create a second ready task so we update multiple
-	_ = s.CreateTask(&task.Task{ID: "TIKI-CCC003", Title: "Third", Status: "ready", Priority: 3})
+	// create a second ready tiki so we update multiple
+	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "Third", "ready", "medium", ""))
 
-	// delete the first task's file to cause UpdateTask to fail on it
-	// (InMemoryStore won't fail on UpdateTask, so we test with a wrapper)
+	// delete the first tiki's file to cause UpdateTiki to fail on it
+	// (InMemoryStore won't fail on UpdateTiki, so we test with a wrapper)
 	fs := &failingUpdateStore{Store: s, failID: "TIKI-AAA001"}
 
 	var buf bytes.Buffer
-	err := RunQuery(gateFor(fs), `update where status = "ready" set priority=5`, &buf)
+	err := RunQuery(gateFor(fs), `update where status = "ready" set priority="low"`, &buf)
 
 	out := buf.String()
 	if err == nil {
@@ -283,17 +299,17 @@ func TestRunQueryUpdatePartialFailure(t *testing.T) {
 	}
 }
 
-// failingUpdateStore wraps a Store and fails UpdateTask for a specific task ID.
+// failingUpdateStore wraps a Store and fails UpdateTiki for a specific tiki ID.
 type failingUpdateStore struct {
 	store.Store
 	failID string
 }
 
-func (f *failingUpdateStore) UpdateTask(t *task.Task) error {
-	if t.ID == f.failID {
-		return fmt.Errorf("simulated update failure for %s", t.ID)
+func (f *failingUpdateStore) UpdateTiki(tk *tikipkg.Tiki) error {
+	if tk.ID() == f.failID {
+		return fmt.Errorf("simulated update failure for %s", tk.ID())
 	}
-	return f.Store.UpdateTask(t)
+	return f.Store.UpdateTiki(tk)
 }
 
 // failingUserStore wraps a Store and makes GetCurrentUser fail.
@@ -347,18 +363,11 @@ func TestRunQueryExecuteError(t *testing.T) {
 	}
 }
 
-func TestRunQueryUpdateInvalidPointsE2E(t *testing.T) {
-	s := setupRunnerTest(t)
-
-	var buf bytes.Buffer
-	err := RunQuery(gateFor(s), `update where id = "TIKI-AAA001" set points=999`, &buf)
-	if err == nil {
-		t.Fatal("expected error for invalid points")
-	}
-	if !strings.Contains(err.Error(), "points value out of range") {
-		t.Errorf("expected points range error, got: %v", err)
-	}
-}
+// Removed: TestRunQueryUpdateInvalidPointsE2E used to pin the
+// kanban-specific 1..maxPoints range. Under the workflow-as-source-of-truth
+// model, points is an ordinary int field and ranges are expressed via
+// workflow triggers. See workflow.yaml triggers: in bundled workflows for
+// how this is now enforced.
 
 // --- CREATE via runner ---
 
@@ -366,34 +375,37 @@ func TestRunQueryCreatePersists(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(gateFor(s), `create title="New Task" status="ready" priority=1`, &buf)
+	err := RunQuery(gateFor(s), `create title="New Tiki" status="ready" priority="high"`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "created TIKI-") {
-		t.Fatalf("expected 'created TIKI-' in output, got: %s", out)
+	// Post-Phase-1: created IDs are bare uppercase (no TIKI- prefix).
+	if !strings.Contains(out, "created ") {
+		t.Fatalf("expected 'created ' in output, got: %s", out)
 	}
 
-	// verify task exists in store
-	allTasks := s.GetAllTasks()
-	var found *task.Task
-	for _, tk := range allTasks {
-		if tk.Title == "New Task" {
+	// verify tiki exists in store
+	allTikis := s.GetAllTikis()
+	var found *tikipkg.Tiki
+	for _, tk := range allTikis {
+		if tk.Title() == "New Tiki" {
 			found = tk
 			break
 		}
 	}
 	if found == nil {
-		t.Fatal("created task not found in store")
+		t.Fatal("created tiki not found in store")
 		return
 	}
-	if !strings.HasPrefix(found.ID, "TIKI-") || len(found.ID) != 11 {
-		t.Errorf("ID = %q, want TIKI-XXXXXX format (11 chars)", found.ID)
+	// Post-Phase-1: IDs are bare uppercase, 6 chars.
+	if len(found.ID()) != 6 {
+		t.Errorf("ID = %q, want 6-character bare ID", found.ID())
 	}
-	if found.Priority != 1 {
-		t.Errorf("priority = %d, want 1", found.Priority)
+	priority, _, _ := found.StringField(tikipkg.FieldPriority)
+	if priority != "high" {
+		t.Errorf("priority = %q, want %q", priority, "high")
 	}
 }
 
@@ -405,7 +417,7 @@ func TestRunQueryCreateMissingTitle(t *testing.T) {
 	g.SetStore(s)
 
 	var buf bytes.Buffer
-	err := RunQuery(g, `create priority=1 status="ready"`, &buf)
+	err := RunQuery(g, `create priority="high" status="ready"`, &buf)
 	if err == nil {
 		t.Fatal("expected error for missing title")
 	}
@@ -423,25 +435,27 @@ func TestRunQueryCreateTemplateDefaults(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	allTasks := s.GetAllTasks()
-	var found *task.Task
-	for _, tk := range allTasks {
-		if tk.Title == "Templated" {
+	allTikis := s.GetAllTikis()
+	var found *tikipkg.Tiki
+	for _, tk := range allTikis {
+		if tk.Title() == "Templated" {
 			found = tk
 			break
 		}
 	}
 	if found == nil {
-		t.Fatal("created task not found in store")
+		t.Fatal("created tiki not found in store")
 		return
 	}
 	// InMemoryStore template has tags=["idea"], so result should be ["idea", "extra"]
-	if len(found.Tags) != 2 || found.Tags[0] != "idea" || found.Tags[1] != "extra" {
-		t.Errorf("tags = %v, want [idea extra]", found.Tags)
+	tags, _, _ := found.StringSliceField(tikipkg.FieldTags)
+	if len(tags) != 2 || tags[0] != "idea" || tags[1] != "extra" {
+		t.Errorf("tags = %v, want [idea extra]", tags)
 	}
-	// priority should be template default (3 = medium)
-	if found.Priority != 3 {
-		t.Errorf("priority = %d, want 3 (template default)", found.Priority)
+	// priority should be template default ("medium" enum key)
+	priority, _, _ := found.StringField(tikipkg.FieldPriority)
+	if priority != "medium" {
+		t.Errorf("priority = %q, want %q (template default)", priority, "medium")
 	}
 }
 
@@ -459,12 +473,12 @@ func TestRunQueryCreateTemplateFailure(t *testing.T) {
 	}
 }
 
-// failingTemplateStore wraps a Store and fails NewTaskTemplate.
+// failingTemplateStore wraps a Store and fails NewTikiTemplate.
 type failingTemplateStore struct {
 	store.Store
 }
 
-func (f *failingTemplateStore) NewTaskTemplate() (*task.Task, error) {
+func (f *failingTemplateStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
 	return nil, fmt.Errorf("simulated template failure")
 }
 
@@ -482,35 +496,35 @@ func TestRunQueryCreateNilTemplate(t *testing.T) {
 	}
 }
 
-// nilTemplateStore wraps a Store and returns (nil, nil) from NewTaskTemplate.
+// nilTemplateStore wraps a Store and returns (nil, nil) from NewTikiTemplate.
 type nilTemplateStore struct {
 	store.Store
 }
 
-func (f *nilTemplateStore) NewTaskTemplate() (*task.Task, error) {
+func (f *nilTemplateStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
 	return nil, nil
 }
 
-func TestRunQueryCreateTaskFailure(t *testing.T) {
+func TestRunQueryCreateTikiFailure(t *testing.T) {
 	s := setupRunnerTest(t)
 	fs := &failingCreateStore{Store: s}
 
 	var buf bytes.Buffer
 	err := RunQuery(gateFor(fs), `create title="test"`, &buf)
 	if err == nil {
-		t.Fatal("expected error for CreateTask failure")
+		t.Fatal("expected error for CreateTiki failure")
 	}
-	if !strings.Contains(err.Error(), "create task") {
-		t.Errorf("expected 'create task' error, got: %v", err)
+	if !strings.Contains(err.Error(), "create tiki") {
+		t.Errorf("expected 'create tiki' error, got: %v", err)
 	}
 }
 
-// failingCreateStore wraps a Store and fails CreateTask.
+// failingCreateStore wraps a Store and fails CreateTiki.
 type failingCreateStore struct {
 	store.Store
 }
 
-func (f *failingCreateStore) CreateTask(t *task.Task) error {
+func (f *failingCreateStore) CreateTiki(_ *tikipkg.Tiki) error {
 	return fmt.Errorf("simulated create failure")
 }
 
@@ -526,11 +540,11 @@ func TestRunQueryDeletePersists(t *testing.T) {
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "deleted 1 tasks") {
-		t.Errorf("expected 'deleted 1 tasks' in output, got: %s", out)
+	if !strings.Contains(out, "deleted 1 tikis") {
+		t.Errorf("expected 'deleted 1 tikis' in output, got: %s", out)
 	}
-	if s.GetTask("TIKI-AAA001") != nil {
-		t.Error("task should be deleted from store")
+	if s.GetTiki("TIKI-AAA001") != nil {
+		t.Error("tiki should be deleted from store")
 	}
 }
 
@@ -544,15 +558,15 @@ func TestRunQueryDeleteZeroMatches(t *testing.T) {
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "deleted 0 tasks") {
-		t.Errorf("expected 'deleted 0 tasks' in output, got: %s", out)
+	if !strings.Contains(out, "deleted 0 tikis") {
+		t.Errorf("expected 'deleted 0 tikis' in output, got: %s", out)
 	}
 }
 
 func TestRunQueryDeletePartialFailure(t *testing.T) {
 	s := setupRunnerTest(t)
-	// add a second ready task so we match multiple
-	_ = s.CreateTask(&task.Task{ID: "TIKI-CCC003", Title: "Third", Status: "ready", Priority: 3})
+	// add a second ready tiki so we match multiple
+	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "Third", "ready", "medium", ""))
 
 	fs := &failingDeleteStore{Store: s, failID: "TIKI-AAA001"}
 
@@ -571,17 +585,17 @@ func TestRunQueryDeletePartialFailure(t *testing.T) {
 	}
 }
 
-// failingDeleteStore wraps a Store and silently no-ops DeleteTask for a specific ID.
+// failingDeleteStore wraps a Store and silently no-ops DeleteTiki for a specific ID.
 type failingDeleteStore struct {
 	store.Store
 	failID string
 }
 
-func (f *failingDeleteStore) DeleteTask(id string) {
+func (f *failingDeleteStore) DeleteTiki(id string) {
 	if id == f.failID {
 		return // simulate silent failure
 	}
-	f.Store.DeleteTask(id)
+	f.Store.DeleteTiki(id)
 }
 
 func TestRunQueryEmptyQuery(t *testing.T) {
@@ -639,7 +653,7 @@ func TestRunQuerySelectViaRunQuery(t *testing.T) {
 	}
 }
 
-// --- DELETE partial failure via silent DeleteTask no-op detection ---
+// --- DELETE partial failure via silent DeleteTiki no-op detection ---
 
 func TestRunQueryDeleteSilentFailure(t *testing.T) {
 	s := setupRunnerTest(t)
@@ -670,15 +684,15 @@ func TestRunSelectQueryExecuteError(t *testing.T) {
 	}
 }
 
-// failingDeleteTaskStore wraps a Store and makes DeleteTask error via the gate.
-type failingDeleteTaskStore struct {
+// failingDeleteTikiStore wraps a Store and makes DeleteTiki error via the gate.
+type failingDeleteTikiStore struct {
 	store.Store
 	failID string
 }
 
-func (f *failingDeleteTaskStore) DeleteTask(id string) {
+func (f *failingDeleteTikiStore) DeleteTiki(id string) {
 	if id != f.failID {
-		f.Store.DeleteTask(id)
+		f.Store.DeleteTiki(id)
 	}
 	// for failID: silently no-op
 }
@@ -687,13 +701,13 @@ func TestRunQueryDeleteGateError(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	// use a gate with a validator that rejects the delete
-	g := service.NewTaskMutationGate()
-	fds := &failingDeleteTaskStore{Store: s, failID: "TIKI-AAA001"}
+	g := service.NewTikiMutationGate()
+	fds := &failingDeleteTikiStore{Store: s, failID: "TIKI-AAA001"}
 	g.SetStore(fds)
 
 	var buf bytes.Buffer
 	err := RunQuery(g, `delete where id = "TIKI-AAA001"`, &buf)
-	// the store silently fails to delete, so persistDelete detects task still exists
+	// the store silently fails to delete, so persistDelete detects tiki still exists
 	if err == nil {
 		t.Fatal("expected error for delete gate failure")
 	}
@@ -715,7 +729,7 @@ func TestRunQueryUserFunction(t *testing.T) {
 func TestRunQueryUserFunctionViaRunQuery(t *testing.T) {
 	s := setupRunnerTest(t)
 	// InMemoryStore.GetCurrentUser returns "memory-user"
-	_ = s.CreateTask(&task.Task{ID: "TIKI-CCC003", Title: "Owned", Status: "ready", Assignee: "memory-user"})
+	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "Owned", "ready", "", "memory-user"))
 
 	var buf bytes.Buffer
 	err := RunQuery(gateFor(s), `select id where assignee = user()`, &buf)
@@ -727,7 +741,7 @@ func TestRunQueryUserFunctionViaRunQuery(t *testing.T) {
 	if !strings.Contains(out, "TIKI-CCC003") {
 		t.Errorf("expected TIKI-CCC003 in output:\n%s", out)
 	}
-	// tasks without the matching assignee should be filtered out
+	// tikis without the matching assignee should be filtered out
 	if strings.Contains(out, "TIKI-AAA001") {
 		t.Errorf("TIKI-AAA001 should be filtered out:\n%s", out)
 	}
@@ -767,7 +781,7 @@ func TestRunQueryScalarExistsFalse(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(gateFor(s), `exists(select where priority = 99)`, &buf)
+	err := RunQuery(gateFor(s), `exists(select where escalations = 99)`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -837,7 +851,7 @@ func TestRunQueryWithOptionsScalarJSON(t *testing.T) {
 	}{
 		{"count", `count(select where status = "ready")`, "1"},
 		{"exists true", `exists(select where status = "done")`, "true"},
-		{"exists false", `exists(select where priority = 99)`, "false"},
+		{"exists false", `exists(select where escalations = 99)`, "false"},
 		{"arithmetic", `1 + 2`, "3"},
 	}
 	for _, tt := range tests {
@@ -879,8 +893,8 @@ func TestRunQueryWithOptionsCreateJSON(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	out := strings.TrimSpace(buf.String())
-	// shape: {"created":"TIKI-XXXXXX"}
-	if !strings.HasPrefix(out, `{"created":"TIKI-`) || !strings.HasSuffix(out, `"}`) {
+	// Post-Phase-1: shape is {"created":"XXXXXX"} (bare uppercase id).
+	if !strings.HasPrefix(out, `{"created":"`) || !strings.HasSuffix(out, `"}`) {
 		t.Errorf("unexpected create JSON: %q", out)
 	}
 }
@@ -939,11 +953,11 @@ func TestRunQueryWithOptionsTableIsDefault(t *testing.T) {
 
 func TestRunQueryWithOptionsUpdatePartialFailureJSON(t *testing.T) {
 	s := setupRunnerTest(t)
-	_ = s.CreateTask(&task.Task{ID: "TIKI-CCC003", Title: "Third", Status: "ready", Priority: 3})
+	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "Third", "ready", "medium", ""))
 	fs := &failingUpdateStore{Store: s, failID: "TIKI-AAA001"}
 
 	var buf bytes.Buffer
-	err := RunQueryWithOptions(gateFor(fs), `update where status = "ready" set priority=5`, &buf,
+	err := RunQueryWithOptions(gateFor(fs), `update where status = "ready" set priority="low"`, &buf,
 		RunQueryOptions{OutputFormat: OutputJSON})
 	if err == nil {
 		t.Fatal("expected partial failure error")
@@ -958,9 +972,9 @@ func TestRunQueryWithOptionsUpdatePartialFailureJSON(t *testing.T) {
 func TestRunQueryDeleteValidatorRejection(t *testing.T) {
 	s := setupRunnerTest(t)
 
-	g := service.NewTaskMutationGate()
+	g := service.NewTikiMutationGate()
 	g.SetStore(s)
-	g.OnDelete(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+	g.OnDelete(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "deletes forbidden"}
 	})
 
@@ -972,8 +986,8 @@ func TestRunQueryDeleteValidatorRejection(t *testing.T) {
 	if !strings.Contains(err.Error(), "partially failed") {
 		t.Errorf("expected 'partially failed' error, got: %v", err)
 	}
-	// task should still exist
-	if s.GetTask("TIKI-AAA001") == nil {
-		t.Error("task should not have been deleted")
+	// tiki should still exist
+	if s.GetTiki("TIKI-AAA001") == nil {
+		t.Error("tiki should not have been deleted")
 	}
 }

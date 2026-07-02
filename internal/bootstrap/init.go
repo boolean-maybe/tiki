@@ -11,13 +11,13 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/internal/app"
-	"github.com/boolean-maybe/tiki/internal/background"
+	gradcore "github.com/boolean-maybe/tiki/internal/gradient"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/store/tikistore"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 	"github.com/boolean-maybe/tiki/view"
 	"github.com/boolean-maybe/tiki/view/header"
@@ -33,9 +33,8 @@ type Result struct {
 	// Fields include: OS, Architecture, TermType, DetectedTheme, ColorSupport, ColorCount.
 	// Collected early using terminfo lookup (no screen initialization needed).
 	SystemInfo        *sysinfo.SystemInfo
-	MutationGate      *service.TaskMutationGate
-	TikiStore         *tikistore.TikiStore
-	TaskStore         store.Store
+	MutationGate      *service.TikiMutationGate
+	TikiStore         store.Store
 	HeaderConfig      *model.HeaderConfig
 	LayoutModel       *model.LayoutModel
 	Plugins           []plugin.Plugin
@@ -56,17 +55,15 @@ type Result struct {
 	AppRoot           tview.Primitive // Pages root for app.SetRoot
 	Context           context.Context
 	CancelFunc        context.CancelFunc
-	TikiSkillContent  string
-	DokiSkillContent  string
 	WorkflowPath      string
 	WorkflowScope     config.Scope
 }
 
-// Bootstrap orchestrates the complete application initialization sequence.
-// It takes the embedded AI skill content and returns all initialized components.
-func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
-	// Phase 0: Configuration and logging — loaded first so store.git and store.name
-	// are available before any git checks or side effects.
+// Bootstrap orchestrates the complete application initialization sequence and
+// returns all initialized components.
+func Bootstrap() (*Result, error) {
+	// Phase 0: Configuration and logging — loaded first so store.name is
+	// available before any side effects.
 	cfg, err := LoadConfig()
 	if err != nil {
 		return nil, err
@@ -78,35 +75,14 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		return nil, fmt.Errorf("unknown store backend: %q (supported: tiki)", name)
 	}
 
-	// Phase 1: Pre-flight git check (skipped when git is disabled)
-	if config.GetStoreGit() {
-		if err := EnsureGitRepo(); err != nil {
-			return nil, err
-		}
-	}
-
-	// Phase 2: Project initialization (creates dirs and seeds sample files)
-	var gitAdd func(...string) error
-	if config.GetStoreGit() {
-		gitAdd = tikistore.NewGitAdder("")
-	}
-	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent, gitAdd)
-	if err != nil {
-		return nil, err
-	}
-	if !proceed {
-		return nil, nil // User chose not to proceed
-	}
-
 	// Phase 2.5: Install default workflow to user config dir (first-run or upgrade)
-	// Runs on every launch outside BootstrapSystem so that upgrades from older versions
-	// get workflow.yaml installed even though their project is already initialized.
+	// Runs on every launch so upgrades from older versions get workflow.yaml installed.
 	if err := config.InstallDefaultWorkflow(); err != nil {
 		slog.Warn("failed to install default workflow", "error", err)
 	}
 
 	// Phase 2.7: Load workflow registries (statuses, types, custom fields)
-	if err := config.LoadWorkflowRegistries(); err != nil {
+	if err := config.LoadWorkflowFields(); err != nil {
 		return nil, fmt.Errorf("load workflow registries: %w", err)
 	}
 
@@ -121,21 +97,21 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	gate := service.BuildGate()
 
 	// Phase 4: Store initialization
-	tikiStore, taskStore, err := InitStores()
+	tikiStoreConcrete, tikiStore, err := InitStores()
 	if err != nil {
 		return nil, err
 	}
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 
 	// Phase 5: Model initialization
 	headerConfig, layoutModel := InitHeaderAndLayoutModels()
-	statuslineConfig := InitStatuslineModel(tikiStore, workflowScope)
+	statuslineConfig := InitStatuslineModel(tikiStoreConcrete, workflowScope)
 
 	// Phase 5.5: Ruki schema (needed by plugin parser and trigger system)
 	schema := rukiRuntime.NewSchema()
 
 	// Phase 6: Plugin system
-	plugins, err := LoadPlugins(schema)
+	plugins, globalActions, err := LoadPlugins(schema)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +122,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Phase 6.5: Trigger system — share the same identity projection as the
 	// runtime/plugin executors so email-only identity configurations reach
 	// `user()` calls inside triggers
-	userFunc, err := store.CurrentUserDisplayFunc(taskStore)
+	userFunc, err := store.CurrentUserDisplayFunc(tikiStore)
 	if err != nil {
 		return nil, fmt.Errorf("resolve current user: %w", err)
 	}
@@ -164,9 +140,10 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 
 	controllers := BuildControllers(
 		application,
-		taskStore,
+		tikiStore,
 		gate,
 		plugins,
+		globalActions,
 		pluginConfigs,
 		statuslineConfig,
 		schema,
@@ -175,21 +152,33 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Phase 8: Input routing
 	inputRouter := controller.NewInputRouter(
 		controllers.Nav,
-		controllers.Task,
+		controllers.TikiEdit,
 		controllers.Plugins,
-		taskStore,
+		tikiStore,
 		gate,
 		statuslineConfig,
 		schema,
 	)
 
 	// Phase 9: View factory and layout
-	viewFactory := view.NewViewFactory(taskStore)
-	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins)
+	viewFactory := view.NewViewFactory(tikiStore)
+	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins, globalActions)
 
-	// Wire dynamic plugin registration (deps editor creates plugins at runtime)
-	inputRouter.SetPluginRegistrar(func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl controller.PluginControllerInterface) {
-		viewFactory.RegisterPlugin(name, cfg, def, ctrl)
+	// Wire fresh-per-navigation WikiController creation so each view instance
+	// on the nav stack holds its own selectedTikiID (prevents a second wiki
+	// navigation from overwriting the first view's context).
+	viewFactory.SetWikiControllerFactory(func(def plugin.Plugin, selectedTikiID string) *controller.WikiController {
+		dc := controller.NewWikiController(def, controllers.Nav, statuslineConfig, globalActions, tikiStore, gate, schema)
+		dc.SetSelectedTikiID(selectedTikiID)
+		return dc
+	})
+
+	// Same fresh-per-navigation pattern for kind: detail views — two pushed
+	// Detail views must not share selectedTikiID state.
+	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController {
+		dc := controller.NewDetailController(def, controllers.Nav, statuslineConfig, tikiStore, gate, schema, controllers.TikiEdit)
+		dc.SetSelectedTikiID(selectedTikiID)
+		return dc
 	})
 
 	headerWidget := header.NewHeaderWidget(headerConfig, viewContext)
@@ -200,7 +189,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		ViewContext:      viewContext,
 		LayoutModel:      layoutModel,
 		ViewFactory:      viewFactory,
-		TaskStore:        taskStore,
+		TikiStore:        tikiStore,
 		App:              application,
 		StatuslineWidget: statuslineWidget,
 		StatuslineConfig: statuslineConfig,
@@ -211,7 +200,6 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 
 	// Phase 11: Background tasks
 	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel stored in Result.CancelFunc, called by app shutdown
-	background.StartBurndownHistoryBuilder(ctx, tikiStore, headerConfig, application)
 	triggerEngine.StartScheduler(ctx)
 
 	// Phase 11.5: Action palette
@@ -286,7 +274,6 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		SystemInfo:        systemInfo,
 		MutationGate:      gate,
 		TikiStore:         tikiStore,
-		TaskStore:         taskStore,
 		HeaderConfig:      headerConfig,
 		LayoutModel:       layoutModel,
 		Plugins:           plugins,
@@ -307,8 +294,6 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		AppRoot:           pages,
 		Context:           ctx,
 		CancelFunc:        cancel,
-		TikiSkillContent:  tikiSkillContent,
-		DokiSkillContent:  dokiSkillContent,
 		WorkflowPath:      workflowPath,
 		WorkflowScope:     workflowScope,
 	}, nil
@@ -317,7 +302,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 // wireOnViewActivated wires focus setters into views as they become active.
 func wireOnViewActivated(rootLayout *view.RootLayout, app *tview.Application) {
 	rootLayout.SetOnViewActivated(func(v controller.View) {
-		// generic focus settable check (covers TaskEditView and any other view with focus needs)
+		// generic focus settable check (covers the configurable detail view and any other view with focus needs)
 		if focusSettable, ok := v.(controller.FocusSettable); ok {
 			focusSettable.SetFocusSetter(func(p tview.Primitive) {
 				app.SetFocus(p)
@@ -428,6 +413,12 @@ func restoreFocusAfterPalette(application *tview.Application, previousFocus tvie
 // Returns the collected SystemInfo for use in bootstrap result.
 func InitColorAndGradientSupport(cfg *config.Config) *sysinfo.SystemInfo {
 	_ = cfg
+	// Initialize the role-based theme. Must happen before any view code calls
+	// theme.Roles() — view code is not yet migrated to call theme.Roles(), but
+	// the role system needs to be ready ahead of that migration so subsequent
+	// work can switch one caller at a time without bootstrapping order bugs.
+	theme.SetTheme(theme.LoadByName(config.GetEffectiveTheme()))
+
 	// Collect initial system information using terminfo lookup
 	systemInfo := sysinfo.NewSystemInfo()
 	slog.Debug("collected system information",
@@ -458,29 +449,36 @@ func InitColorAndGradientSupport(cfg *config.Config) *sysinfo.SystemInfo {
 	// Initialize gradient support based on terminal color capabilities
 	threshold := config.GetGradientThreshold()
 	if systemInfo.ColorCount < threshold {
-		config.UseGradients = false
-		config.UseWideGradients = false
+		gradcore.UseGradients.Store(false)
 		slog.Debug("gradients disabled",
 			"colorCount", systemInfo.ColorCount,
 			"threshold", threshold)
 	} else {
-		config.UseGradients = true
-		// Wide gradients (caption rows) require truecolor to avoid visible banding
-		// 256-color terminals show noticeable banding on screen-wide gradients
-		config.UseWideGradients = systemInfo.ColorCount >= 16777216
+		gradcore.UseGradients.Store(true)
 		slog.Debug("gradients enabled",
 			"colorCount", systemInfo.ColorCount,
-			"threshold", threshold,
-			"wideGradients", config.UseWideGradients)
+			"threshold", threshold)
 	}
+
+	// Wide (per-column) gradients require truecolor: on 256-color terminals
+	// adjacent columns quantize to the same palette index and produce a
+	// banded appearance, so consumers like GradientCaptionRow flatten to a
+	// single color instead. Truecolor is detected by ColorCount==16777216
+	// (set when $COLORTERM is truecolor/24bit). On 8/16-color terminals
+	// UseGradients is already false, so this flag is moot.
+	wide := systemInfo.ColorCount >= 16777216
+	gradcore.UseWideGradients.Store(wide)
+	slog.Debug("wide gradients",
+		"enabled", wide,
+		"colorCount", systemInfo.ColorCount)
 
 	// set tview global styles so all primitives inherit the theme colors.
 	// PrimaryTextColor must be set for light theme — tview defaults to white,
 	// which is invisible on light backgrounds.
-	colors := config.GetColors()
-	tview.Styles.PrimitiveBackgroundColor = colors.ContentBackgroundColor.TCell()
+	roles := theme.Roles()
+	tview.Styles.PrimitiveBackgroundColor = roles.SurfaceCanvas().TCell()
 	if config.IsLightTheme() {
-		tview.Styles.PrimaryTextColor = colors.ContentTextColor.TCell()
+		tview.Styles.PrimaryTextColor = roles.TextPrimary().TCell()
 	}
 
 	return systemInfo

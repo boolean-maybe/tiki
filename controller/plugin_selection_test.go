@@ -6,14 +6,50 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 
+	"github.com/boolean-maybe/ruki"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
-	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
+
+// seedTiki creates a workflow tiki with the given id/title/status/priority and
+// adds it to the store. priority is now a workflow-enum key — callers that
+// previously passed an int rank should pass the canonical key (e.g. "high").
+// The legacy int values map: 1=high, 2=medium-high, 3=medium, 4=medium-low,
+// 5=low; pass an empty string to omit the priority field entirely.
+func seedTiki(t *testing.T, s store.Store, id, title, status string, priorityRank int) {
+	t.Helper()
+	tk := tikipkg.New()
+	tk.SetID(id)
+	tk.SetTitle(title)
+	tk.Set("status", status)
+	tk.Set("type", "story")
+	if key := priorityRankToKey(priorityRank); key != "" {
+		tk.Set("priority", key)
+	}
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("seedTiki %s: %v", id, err)
+	}
+}
+
+func priorityRankToKey(rank int) string {
+	switch rank {
+	case 1:
+		return "high"
+	case 2:
+		return "medium-high"
+	case 3:
+		return "medium"
+	case 4:
+		return "medium-low"
+	case 5:
+		return "low"
+	}
+	return ""
+}
 
 // mustParseStmt is a test helper that parses and validates a ruki statement,
 // failing the test on error.
@@ -31,8 +67,8 @@ func mustParseStmt(t *testing.T, input string) *ruki.ValidatedStatement {
 type navHarness struct {
 	pb      *pluginBase
 	config  *model.PluginConfig
-	byLane  map[int][]*task.Task
-	getLane func(int) []*task.Task
+	byLane  map[int][]*tikipkg.Tiki
+	getLane func(int) []*tikipkg.Tiki
 }
 
 func newNavHarness(columns []int, counts []int) *navHarness {
@@ -44,23 +80,23 @@ func newNavHarness(columns []int, counts []int) *navHarness {
 	config := model.NewPluginConfig("TestPlugin")
 	config.SetLaneLayout(columns, nil)
 
-	byLane := make(map[int][]*task.Task, len(counts))
+	byLane := make(map[int][]*tikipkg.Tiki, len(counts))
 	for lane, count := range counts {
-		tasks := make([]*task.Task, count)
+		tikis := make([]*tikipkg.Tiki, count)
 		for i := 0; i < count; i++ {
-			tasks[i] = &task.Task{
-				ID:     fmt.Sprintf("T-%d-%d", lane, i),
-				Title:  "Task",
-				Status: task.StatusReady,
-				Type:   task.TypeStory,
-			}
+			tk := tikipkg.New()
+			tk.SetID(fmt.Sprintf("T-%d-%d", lane, i))
+			tk.SetTitle("Tiki")
+			tk.Set(tikipkg.FieldStatus, "ready")
+			tk.Set(tikipkg.FieldType, "story")
+			tikis[i] = tk
 		}
-		byLane[lane] = tasks
+		byLane[lane] = tikis
 	}
 
 	pb := &pluginBase{
 		pluginConfig: config,
-		pluginDef: &plugin.TikiPlugin{
+		pluginDef: &plugin.WorkflowPlugin{
 			BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 			Lanes:      lanes,
 		},
@@ -70,35 +106,21 @@ func newNavHarness(columns []int, counts []int) *navHarness {
 		pb:     pb,
 		config: config,
 		byLane: byLane,
-		getLane: func(lane int) []*task.Task {
+		getLane: func(lane int) []*tikipkg.Tiki {
 			return byLane[lane]
 		},
 	}
 }
 
-func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTask(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	if err := taskStore.CreateTask(&task.Task{
-		ID:     "T-1",
-		Title:  "Task 1",
-		Status: task.StatusReady,
-		Type:   task.TypeStory,
-	}); err != nil {
-		t.Fatalf("create task: %v", err)
-	}
-	if err := taskStore.CreateTask(&task.Task{
-		ID:     "T-2",
-		Title:  "Task 2",
-		Status: task.StatusReady,
-		Type:   task.TypeStory,
-	}); err != nil {
-		t.Fatalf("create task: %v", err)
-	}
+func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTiki(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 0)
+	seedTiki(t, tikiStore, "0000T2", "Tiki 2", "ready", 0)
 
 	emptyFilter := mustParseStmt(t, `select where status = "done"`)
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
@@ -113,9 +135,9 @@ func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTask(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 1)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 	pc.EnsureFirstNonEmptyLaneSelection()
 
 	if pluginConfig.GetSelectedLane() != 1 {
@@ -127,19 +149,12 @@ func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTask(t *testing.T) {
 }
 
 func TestEnsureFirstNonEmptyLaneSelectionKeepsCurrentLane(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	if err := taskStore.CreateTask(&task.Task{
-		ID:     "T-1",
-		Title:  "Task 1",
-		Status: task.StatusReady,
-		Type:   task.TypeStory,
-	}); err != nil {
-		t.Fatalf("create task: %v", err)
-	}
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 0)
 
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
@@ -154,9 +169,9 @@ func TestEnsureFirstNonEmptyLaneSelectionKeepsCurrentLane(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(1, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 	pc.EnsureFirstNonEmptyLaneSelection()
 
 	if pluginConfig.GetSelectedLane() != 1 {
@@ -167,11 +182,11 @@ func TestEnsureFirstNonEmptyLaneSelectionKeepsCurrentLane(t *testing.T) {
 	}
 }
 
-func TestEnsureFirstNonEmptyLaneSelectionNoTasks(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+func TestEnsureFirstNonEmptyLaneSelectionNoTikis(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
 	emptyFilter := mustParseStmt(t, `select where status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
@@ -186,9 +201,9 @@ func TestEnsureFirstNonEmptyLaneSelectionNoTasks(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(1, 2)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 	pc.EnsureFirstNonEmptyLaneSelection()
 
 	if pluginConfig.GetSelectedLane() != 1 {
@@ -518,68 +533,21 @@ func TestLaneSwitchFromEmptySourceUsesTopViewportContext(t *testing.T) {
 	}
 }
 
-func TestPluginController_HandleOpenTask(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory,
-	})
+// Phase 3 cleanup: TestPluginController_HandleOpenTiki and its empty
+// counterpart were removed. Boards/lists no longer dispatch
+// ActionOpenFromPlugin — Enter is now a workflow-declared `kind: view`
+// action that targets the configurable detail view, exercised by the
+// `kind: view` integration tests instead.
+
+func TestPluginController_HandleDeleteTiki(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
-	}
-	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1}, nil)
-	pluginConfig.SetSelectedLane(0)
-	pluginConfig.SetSelectedIndexForLane(0, 0)
-
-	navController := newMockNavigationController()
-	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, navController, nil, schema)
-
-	if !pc.HandleAction(ActionOpenFromPlugin) {
-		t.Error("expected HandleAction(open) to return true when task is selected")
-	}
-
-	// verify navigation was pushed
-	if navController.navState.depth() == 0 {
-		t.Error("expected navigation push for open task")
-	}
-}
-
-func TestPluginController_HandleOpenTask_Empty(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	emptyFilter := mustParseStmt(t, `select where status = "done"`)
-	pluginDef := &plugin.TikiPlugin{
-		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
-		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
-	}
-	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1}, nil)
-
-	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil, schema)
-
-	if pc.HandleAction(ActionOpenFromPlugin) {
-		t.Error("expected false when no task is selected")
-	}
-}
-
-func TestPluginController_HandleDeleteTask(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
-
-	todoFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
-		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
-		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
+		Actions:    []plugin.PluginAction{deleteSelectedAction(t)},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
 	pluginConfig.SetLaneLayout([]int{1}, nil)
@@ -587,49 +555,62 @@ func TestPluginController_HandleDeleteTask(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil, schema)
 
-	if !pc.HandleAction(ActionDeleteTask) {
+	if !pc.HandleAction(pluginActionID("Delete")) {
 		t.Error("expected HandleAction(delete) to return true")
 	}
 
-	if taskStore.GetTask("T-1") != nil {
-		t.Error("task should have been deleted")
+	if tikiStore.GetTiki("0000T1") != nil {
+		t.Error("tiki should have been deleted")
 	}
 }
 
-func TestPluginController_HandleDeleteTask_Empty(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+// deleteSelectedAction builds the workflow-declared "Delete" action — the
+// global `delete where id = id()` binding (require: selection:one) that
+// replaced the former hardcoded ActionDeleteTiki.
+func deleteSelectedAction(t *testing.T) plugin.PluginAction {
+	t.Helper()
+	return plugin.PluginAction{
+		Key: tcell.KeyDelete, KeyStr: "Delete",
+		Label:   "Delete",
+		Action:  mustParseStmt(t, `delete where id = id()`),
+		Require: []string{"selection:one"},
+	}
+}
+
+func TestPluginController_HandleDeleteTiki_Empty(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
 	emptyFilter := mustParseStmt(t, `select where status = "done"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
+		Actions:    []plugin.PluginAction{deleteSelectedAction(t)},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil, schema)
 
-	if pc.HandleAction(ActionDeleteTask) {
-		t.Error("expected false when no task is selected")
+	if pc.HandleAction(pluginActionID("Delete")) {
+		t.Error("expected false when no tiki is selected")
 	}
 }
 
-func TestPluginController_HandleDeleteTask_Rejected(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+func TestPluginController_HandleDeleteTiki_Rejected(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
+		Actions:    []plugin.PluginAction{deleteSelectedAction(t)},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
 	pluginConfig.SetLaneLayout([]int{1}, nil)
@@ -638,27 +619,114 @@ func TestPluginController_HandleDeleteTask_Rejected(t *testing.T) {
 
 	statusline := model.NewStatuslineConfig()
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	gate.OnDelete(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	gate.OnDelete(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "cannot delete"}
 	})
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), statusline, schema)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, newMockNavigationController(), statusline, schema)
 
-	if pc.HandleAction(ActionDeleteTask) {
+	if pc.HandleAction(pluginActionID("Delete")) {
 		t.Error("expected false when delete is rejected")
 	}
 
-	// task should still exist
-	if taskStore.GetTask("T-1") == nil {
-		t.Error("task should not have been deleted")
+	// tiki should still exist
+	if tikiStore.GetTiki("0000T1") == nil {
+		t.Error("tiki should not have been deleted")
+	}
+}
+
+// TestPluginController_NewModeFiresOnEmptyBoard reproduces the bug where
+// pressing the "New" key on an empty board (no tikis, hence no selection)
+// silently did nothing. The "New" action is a kind: view action with
+// mode: new targeting a Detail view that declares require: selection:one.
+// Because mode: new synthesizes its own draft and ignores the carried
+// selection, the target view's selection requirement must not gate it.
+func TestPluginController_NewModeFiresOnEmptyBoard(t *testing.T) {
+	// register the Detail view's require list, mirroring workflow.yaml.
+	InitPluginActions([]PluginInfo{{Name: "Detail", Require: []string{"selection:one"}}})
+	t.Cleanup(func() { InitPluginActions(nil) })
+
+	tikiStore := store.NewInMemoryStore() // empty: no tikis, no selection
+	emptyFilter := mustParseStmt(t, `select where status = "done"`)
+	newAction := plugin.PluginAction{
+		Key: 0, Rune: 'n', KeyStr: "n",
+		Label:      "New",
+		Kind:       plugin.ActionKindView,
+		Mode:       plugin.DetailModeNew,
+		TargetView: "Detail",
+	}
+	pluginDef := &plugin.WorkflowPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
+		Actions:    []plugin.PluginAction{newAction},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	schema := rukiRuntime.NewSchema()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	nav := newMockNavigationController()
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nav, nil, schema)
+
+	if !pc.HandleAction(pluginActionID("n")) {
+		t.Fatal("expected New action to fire on an empty board (mode: new needs no selection)")
+	}
+}
+
+func TestHandleViewAction_NewWithCreateSeed_SeedsDraftNoPersist(t *testing.T) {
+	tikiStore := store.NewInMemoryStore() // empty: no tikis, no selection
+	emptyFilter := mustParseStmt(t, `select where status = "done"`)
+	seed := mustParseStmt(t, `create type="project"`)
+	newAction := plugin.PluginAction{
+		Key: 0, Rune: 'n', KeyStr: "n",
+		Label:      "New",
+		Kind:       plugin.ActionKindView,
+		Mode:       plugin.DetailModeNew,
+		TargetView: "Project",
+		CreateSeed: seed,
+	}
+	pluginDef := &plugin.WorkflowPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "Roadmap"},
+		Lanes:      []plugin.TikiLane{{Name: "All", Columns: 1, Filter: emptyFilter}},
+		Actions:    []plugin.PluginAction{newAction},
+	}
+	pluginConfig := model.NewPluginConfig("Roadmap")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	schema := rukiRuntime.NewSchema()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	nav := newMockNavigationController()
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nav, nil, schema)
+
+	before := len(tikiStore.GetAllTikis())
+	if !pc.handleViewAction(&newAction) {
+		t.Fatal("expected New-with-seed to fire")
+	}
+	if after := len(tikiStore.GetAllTikis()); after != before {
+		t.Fatalf("dispatch must not persist: store %d -> %d", before, after)
+	}
+
+	entry := nav.CurrentView()
+	if entry == nil {
+		t.Fatal("expected a pushed view on the nav stack")
+	}
+	pvp := model.DecodePluginViewParams(entry.Params)
+	if pvp.Draft == nil {
+		t.Fatalf("expected pushed draft, got params %+v", entry.Params)
+	}
+	got, present, _ := pvp.Draft.StringField("type")
+	if !present || got != "project" {
+		t.Fatalf("expected pushed draft with type=project, got %q (present=%v)", got, present)
 	}
 }
 
 func TestPluginController_GetNameAndRegistry(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "MyPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
 	}
@@ -666,9 +734,9 @@ func TestPluginController_GetNameAndRegistry(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	if pc.GetPluginName() != "MyPlugin" {
 		t.Errorf("GetPluginName() = %q, want %q", pc.GetPluginName(), "MyPlugin")
@@ -678,17 +746,15 @@ func TestPluginController_GetNameAndRegistry(t *testing.T) {
 	}
 }
 
-func TestPluginController_HandleMoveTask_Rejected(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+func TestPluginController_HandleMoveTiki_Rejected(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	inProgressFilter := mustParseStmt(t, `select where status = "inProgress"`)
 	inProgressAction := mustParseStmt(t, `update where id = id() set status = "inProgress"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes: []plugin.TikiLane{
 			{Name: "Ready", Columns: 1, Filter: readyFilter},
@@ -702,34 +768,33 @@ func TestPluginController_HandleMoveTask_Rejected(t *testing.T) {
 
 	statusline := model.NewStatuslineConfig()
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	gate.OnUpdate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "updates blocked"}
 	})
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
 
-	if pc.HandleAction(ActionMoveTaskRight) {
+	if pc.HandleAction(ActionMoveTikiRight) {
 		t.Error("expected false when move is rejected by gate")
 	}
 
-	// task should still have original status
-	tk := taskStore.GetTask("T-1")
-	if tk.Status != task.StatusReady {
-		t.Errorf("expected status ready, got %s", tk.Status)
+	// tiki should still have original status
+	tk := tikiStore.GetTiki("0000T1")
+	status, _, _ := tk.StringField("status")
+	if status != "ready" {
+		t.Errorf("expected status ready, got %s", status)
 	}
 }
 
 func TestPluginController_HandlePluginAction_Success(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	markDoneAction := mustParseStmt(t, `update where id = id() set status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -746,30 +811,29 @@ func TestPluginController_HandlePluginAction_Success(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	if !pc.HandleAction(pluginActionID("d")) {
 		t.Error("expected true for successful plugin action")
 	}
 
-	tk := taskStore.GetTask("T-1")
-	if tk.Status != "done" {
-		t.Errorf("expected status done, got %s", tk.Status)
+	tk := tikiStore.GetTiki("0000T1")
+	tkStatus, _, _ := tk.StringField("status")
+	if tkStatus != "done" {
+		t.Errorf("expected status done, got %s", tkStatus)
 	}
 }
 
 func TestPluginController_HandlePluginAction_Rejected(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	markDoneAction := mustParseStmt(t, `update where id = id() set status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -787,31 +851,32 @@ func TestPluginController_HandlePluginAction_Rejected(t *testing.T) {
 
 	statusline := model.NewStatuslineConfig()
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	gate.OnUpdate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "updates blocked"}
 	})
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
 
 	if pc.HandleAction(pluginActionID("d")) {
 		t.Error("expected false when plugin action is rejected by gate")
 	}
 
-	// task should still have original status
-	tk2 := taskStore.GetTask("T-1")
-	if tk2.Status != task.StatusReady {
-		t.Errorf("expected status ready, got %s", tk2.Status)
+	// tiki should still have original status
+	tk2 := tikiStore.GetTiki("0000T1")
+	tk2Status, _, _ := tk2.StringField("status")
+	if tk2Status != "ready" {
+		t.Errorf("expected status ready, got %s", tk2Status)
 	}
 }
 
 func TestPluginController_HandlePluginAction_Create(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	createAction := mustParseStmt(t, `create title="New Task" status="ready" type="story" priority=3`)
+	createAction := mustParseStmt(t, `create title="New Tiki" status="ready" type="story" priority="medium"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -827,33 +892,31 @@ func TestPluginController_HandlePluginAction_Create(t *testing.T) {
 	pluginConfig.SetSelectedLane(0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	if !pc.HandleAction(pluginActionID("c")) {
 		t.Error("expected true for successful create action")
 	}
 
-	allTasks := taskStore.GetAllTasks()
-	if len(allTasks) != 1 {
-		t.Fatalf("expected 1 task after create, got %d", len(allTasks))
+	allTikis := tikiStore.GetAllTikis()
+	if len(allTikis) != 1 {
+		t.Fatalf("expected 1 tiki after create, got %d", len(allTikis))
 	}
-	if allTasks[0].Title != "New Task" {
-		t.Errorf("expected title 'New Task', got %q", allTasks[0].Title)
+	if allTikis[0].Title() != "New Tiki" {
+		t.Errorf("expected title 'New Tiki', got %q", allTikis[0].Title())
 	}
 }
 
 func TestPluginController_HandlePluginAction_Delete(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusDone, Type: task.TypeStory, Priority: 3,
-	})
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "done", 3)
 
 	doneFilter := mustParseStmt(t, `select where status = "done"`)
 	deleteAction := mustParseStmt(t, `delete where status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Done", Columns: 1, Filter: doneFilter}},
 		Actions: []plugin.PluginAction{
@@ -870,27 +933,25 @@ func TestPluginController_HandlePluginAction_Delete(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	if !pc.HandleAction(pluginActionID("x")) {
 		t.Error("expected true for successful delete action")
 	}
 
-	if taskStore.GetTask("T-1") != nil {
-		t.Error("task should have been deleted")
+	if tikiStore.GetTiki("0000T1") != nil {
+		t.Error("tiki should have been deleted")
 	}
 }
 
 func TestPluginController_HandlePluginAction_NoMatchingRune(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions:    []plugin.PluginAction{},
@@ -899,22 +960,22 @@ func TestPluginController_HandlePluginAction_NoMatchingRune(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	if pc.HandleAction(pluginActionID("z")) {
 		t.Error("expected false for non-matching plugin action rune")
 	}
 }
 
-func TestPluginController_HandlePluginAction_NoSelectedTask(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+func TestPluginController_HandlePluginAction_NoSelectedTiki(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
 
 	emptyFilter := mustParseStmt(t, `select where status = "done"`)
 	updateAction := mustParseStmt(t, `update where id = id() set status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
 		Actions: []plugin.PluginAction{
@@ -925,25 +986,23 @@ func TestPluginController_HandlePluginAction_NoSelectedTask(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	if pc.HandleAction(pluginActionID("d")) {
-		t.Error("expected false when no task is selected for update action")
+		t.Error("expected false when no tiki is selected for update action")
 	}
 }
 
-func TestPluginController_HandleMoveTask_NoActionOnTargetLane(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+func TestPluginController_HandleMoveTiki_NoActionOnTargetLane(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	doneFilter := mustParseStmt(t, `select where status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes: []plugin.TikiLane{
 			{Name: "Ready", Columns: 1, Filter: readyFilter},
@@ -956,26 +1015,24 @@ func TestPluginController_HandleMoveTask_NoActionOnTargetLane(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if pc.HandleAction(ActionMoveTaskRight) {
+	if pc.HandleAction(ActionMoveTikiRight) {
 		t.Error("expected false when target lane has no action")
 	}
 }
 
-func TestPluginController_HandleMoveTask_Success(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+func TestPluginController_HandleMoveTiki_Success(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	doneFilter := mustParseStmt(t, `select where status = "done"`)
 	doneAction := mustParseStmt(t, `update where id = id() set status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes: []plugin.TikiLane{
 			{Name: "Ready", Columns: 1, Filter: readyFilter},
@@ -988,28 +1045,27 @@ func TestPluginController_HandleMoveTask_Success(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if !pc.HandleAction(ActionMoveTaskRight) {
+	if !pc.HandleAction(ActionMoveTikiRight) {
 		t.Error("expected true for successful move")
 	}
 
-	tk := taskStore.GetTask("T-1")
-	if tk.Status != "done" {
-		t.Errorf("expected status done, got %s", tk.Status)
+	moved := tikiStore.GetTiki("0000T1")
+	movedStatus, _, _ := moved.StringField("status")
+	if movedStatus != "done" {
+		t.Errorf("expected status done, got %s", movedStatus)
 	}
 }
 
-func TestPluginController_HandleMoveTask_OutOfBounds(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+func TestPluginController_HandleMoveTiki_OutOfBounds(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1019,29 +1075,29 @@ func TestPluginController_HandleMoveTask_OutOfBounds(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if pc.HandleAction(ActionMoveTaskLeft) {
+	if pc.HandleAction(ActionMoveTikiLeft) {
 		t.Error("expected false for out-of-bounds move left")
 	}
-	if pc.HandleAction(ActionMoveTaskRight) {
+	if pc.HandleAction(ActionMoveTikiRight) {
 		t.Error("expected false for out-of-bounds move right")
 	}
 }
 
-func TestPluginController_GetFilteredTasksForLane_NilPluginDef(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+func TestPluginController_GetFilteredTikisForLane_NilPluginDef(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
 	pluginConfig := model.NewPluginConfig("TestPlugin")
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
 	pc := &PluginController{
 		pluginBase: pluginBase{
-			taskStore:    taskStore,
+			tikiStore:    tikiStore,
 			mutationGate: gate,
 			pluginConfig: pluginConfig,
 			pluginDef:    nil,
@@ -1049,15 +1105,15 @@ func TestPluginController_GetFilteredTasksForLane_NilPluginDef(t *testing.T) {
 		},
 	}
 
-	if tasks := pc.GetFilteredTasksForLane(0); tasks != nil {
+	if tikis := pc.GetFilteredTikisForLane(0); tikis != nil {
 		t.Error("expected nil for nil pluginDef")
 	}
 }
 
-func TestPluginController_GetFilteredTasksForLane_OutOfRange(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+func TestPluginController_GetFilteredTikisForLane_OutOfRange(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1065,25 +1121,23 @@ func TestPluginController_GetFilteredTasksForLane_OutOfRange(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if tasks := pc.GetFilteredTasksForLane(-1); tasks != nil {
+	if tikis := pc.GetFilteredTikisForLane(-1); tikis != nil {
 		t.Error("expected nil for negative lane")
 	}
-	if tasks := pc.GetFilteredTasksForLane(5); tasks != nil {
+	if tikis := pc.GetFilteredTikisForLane(5); tikis != nil {
 		t.Error("expected nil for out-of-range lane")
 	}
 }
 
-func TestPluginController_GetFilteredTasksForLane_NilFilter(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+func TestPluginController_GetFilteredTikisForLane_NilFilter(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "All", Columns: 1}},
 	}
@@ -1091,27 +1145,23 @@ func TestPluginController_GetFilteredTasksForLane_NilFilter(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	tasks := pc.GetFilteredTasksForLane(0)
-	if len(tasks) != 1 {
-		t.Errorf("expected all tasks when filter is nil, got %d", len(tasks))
+	tikis := pc.GetFilteredTikisForLane(0)
+	if len(tikis) != 1 {
+		t.Errorf("expected all tikis when filter is nil, got %d", len(tikis))
 	}
 }
 
-func TestPluginController_GetFilteredTasksForLane_WithSearchNarrowing(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Alpha", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-2", Title: "Beta", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+func TestPluginController_GetFilteredTikisForLane_WithSearchNarrowing(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Alpha", "ready", 3)
+	seedTiki(t, tikiStore, "0000T2", "Beta", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1119,26 +1169,26 @@ func TestPluginController_GetFilteredTasksForLane_WithSearchNarrowing(t *testing
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	t1 := taskStore.GetTask("T-1")
-	pluginConfig.SetSearchResults([]task.SearchResult{{Task: t1, Score: 1.0}}, "Alpha")
+	t1 := tikiStore.GetTiki("0000T1")
+	pluginConfig.SetSearchResults([]*tikipkg.Tiki{t1}, "Alpha")
 
-	tasks := pc.GetFilteredTasksForLane(0)
-	if len(tasks) != 1 {
-		t.Fatalf("expected 1 task with search narrowing, got %d", len(tasks))
+	tikis := pc.GetFilteredTikisForLane(0)
+	if len(tikis) != 1 {
+		t.Fatalf("expected 1 tiki with search narrowing, got %d", len(tikis))
 	}
-	if tasks[0].ID != "T-1" {
-		t.Errorf("expected T-1, got %s", tasks[0].ID)
+	if tikis[0].ID() != "0000T1" {
+		t.Errorf("expected T-1, got %s", tikis[0].ID())
 	}
 }
 
 func TestPluginController_HandleAction_UnknownAction(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1146,9 +1196,9 @@ func TestPluginController_HandleAction_UnknownAction(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	if pc.HandleAction("nonexistent_action") {
 		t.Error("expected false for unknown action")
@@ -1156,13 +1206,11 @@ func TestPluginController_HandleAction_UnknownAction(t *testing.T) {
 }
 
 func TestPluginController_HandleSearch(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Alpha", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Alpha", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1170,9 +1218,9 @@ func TestPluginController_HandleSearch(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	pc.HandleSearch("Alpha")
 	results := pluginConfig.GetSearchResults()
@@ -1182,9 +1230,9 @@ func TestPluginController_HandleSearch(t *testing.T) {
 }
 
 func TestPluginController_ShowNavigation(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1192,50 +1240,23 @@ func TestPluginController_ShowNavigation(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	if !pc.ShowNavigation() {
 		t.Error("PluginController.ShowNavigation() should return true")
 	}
 }
 
-func TestPluginController_HandleToggleViewMode(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
-		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
-		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
-	}
-	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1}, nil)
-
-	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
-
-	before := pluginConfig.GetViewMode()
-	if !pc.HandleAction(ActionToggleViewMode) {
-		t.Error("expected true for toggle view mode")
-	}
-	after := pluginConfig.GetViewMode()
-	if before == after {
-		t.Error("view mode should change after toggle")
-	}
-}
-
 func TestPluginController_HandlePluginAction_Select(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	selectAction := mustParseStmt(t, `select where status = "ready"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1248,28 +1269,29 @@ func TestPluginController_HandlePluginAction_Select(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	if !pc.HandleAction(pluginActionID("s")) {
 		t.Error("expected true for SELECT plugin action")
 	}
 
-	// task should be unchanged (SELECT is side-effect only)
-	tk := taskStore.GetTask("T-1")
-	if tk.Status != task.StatusReady {
-		t.Errorf("expected status ready (unchanged), got %s", tk.Status)
+	// tiki should be unchanged (SELECT is side-effect only)
+	selTk := tikiStore.GetTiki("0000T1")
+	selStatus, _, _ := selTk.StringField("status")
+	if selStatus != "ready" {
+		t.Errorf("expected status ready (unchanged), got %s", selStatus)
 	}
 }
 
-func TestPluginController_HandlePluginAction_SelectNoSelectedTask(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+func TestPluginController_HandlePluginAction_SelectNoSelectedTiki(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
 
 	emptyFilter := mustParseStmt(t, `select where status = "done"`)
 	selectAction := mustParseStmt(t, `select where status = "ready"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1280,13 +1302,13 @@ func TestPluginController_HandlePluginAction_SelectNoSelectedTask(t *testing.T) 
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	// SELECT should succeed even with no selected task
+	// SELECT should succeed even with no selected tiki
 	if !pc.HandleAction(pluginActionID("s")) {
-		t.Error("expected true for SELECT action even with no selected task")
+		t.Error("expected true for SELECT action even with no selected tiki")
 	}
 }
 
@@ -1302,15 +1324,13 @@ func mustParseStmtWithInput(t *testing.T, input string, inputType ruki.ValueType
 }
 
 func TestPluginController_HandleActionInput_ValidInput(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	assignAction := mustParseStmtWithInput(t, `update where id = id() set assignee = input()`, ruki.ValueString)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1323,31 +1343,30 @@ func TestPluginController_HandleActionInput_ValidInput(t *testing.T) {
 
 	statusline := model.NewStatuslineConfig()
 	gate := service.BuildGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	schema := rukiRuntime.NewSchema()
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
 
 	result := pc.HandleActionInput(pluginActionID("a"), "alice")
 	if result != InputClose {
 		t.Fatalf("expected InputClose for valid input, got %d", result)
 	}
 
-	updated := taskStore.GetTask("T-1")
-	if updated.Assignee != "alice" {
-		t.Fatalf("expected assignee=alice, got %q", updated.Assignee)
+	updated := tikiStore.GetTiki("0000T1")
+	assignee, _, _ := updated.StringField("assignee")
+	if assignee != "alice" {
+		t.Fatalf("expected assignee=alice, got %q", assignee)
 	}
 }
 
 func TestPluginController_HandleActionInput_InvalidInput(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pointsAction := mustParseStmtWithInput(t, `update where id = id() set points = input()`, ruki.ValueInt)
+	pointsAction := mustParseStmtWithInput(t, `update where id = id() set escalations = input()`, ruki.ValueInt)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1360,9 +1379,9 @@ func TestPluginController_HandleActionInput_InvalidInput(t *testing.T) {
 
 	statusline := model.NewStatuslineConfig()
 	gate := service.BuildGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	schema := rukiRuntime.NewSchema()
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
 
 	result := pc.HandleActionInput(pluginActionID("p"), "abc")
 	if result != InputKeepEditing {
@@ -1376,19 +1395,17 @@ func TestPluginController_HandleActionInput_InvalidInput(t *testing.T) {
 }
 
 func TestPluginController_HandleActionInput_ExecutionFailure_StillCloses(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	// no tasks in store — executor will find no match for id(), which means
+	tikiStore := store.NewInMemoryStore()
+	// no tikis in store — executor will find no match for id(), which means
 	// the update produces no results (not an error), but executeAndApply still returns true.
-	// Instead, test with a task that exists but use input on a field
+	// Instead, test with a tiki that exists but use input on a field
 	// where the assignment succeeds at parse/execution level.
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	assignAction := mustParseStmtWithInput(t, `update where id = id() set assignee = input()`, ruki.ValueString)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1401,9 +1418,9 @@ func TestPluginController_HandleActionInput_ExecutionFailure_StillCloses(t *test
 
 	statusline := model.NewStatuslineConfig()
 	gate := service.BuildGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	schema := rukiRuntime.NewSchema()
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
 
 	// valid parse, successful execution — still returns InputClose
 	result := pc.HandleActionInput(pluginActionID("a"), "bob")
@@ -1417,7 +1434,7 @@ func TestPluginController_GetActionInputSpec(t *testing.T) {
 	assignAction := mustParseStmtWithInput(t, `update where id = id() set assignee = input()`, ruki.ValueString)
 	markDoneAction := mustParseStmt(t, `update where id = id() set status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1463,18 +1480,14 @@ func TestPluginController_BulkAction_EnabledWithNoSelection(t *testing.T) {
 }
 
 func TestPluginController_BulkAction_ExecutesWithNoSelection(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusDone, Type: task.TypeStory, Priority: 3,
-	})
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-2", Title: "Task 2", Status: task.StatusDone, Type: task.TypeStory, Priority: 3,
-	})
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "done", 3)
+	seedTiki(t, tikiStore, "0000T2", "Tiki 2", "done", 3)
 
 	doneFilter := mustParseStmt(t, `select where status = "done"`)
 	bulkDelete := mustParseStmt(t, `delete where status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Done", Columns: 1, Filter: doneFilter}},
 		Actions: []plugin.PluginAction{
@@ -1490,33 +1503,31 @@ func TestPluginController_BulkAction_ExecutesWithNoSelection(t *testing.T) {
 	pluginConfig.SetSelectedLane(0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	if !pc.HandleAction(pluginActionID("x")) {
 		t.Error("bulk delete should succeed with no selection")
 	}
 
-	if taskStore.GetTask("T-1") != nil {
+	if tikiStore.GetTiki("0000T1") != nil {
 		t.Error("T-1 should have been deleted by bulk action")
 	}
-	if taskStore.GetTask("T-2") != nil {
+	if tikiStore.GetTiki("0000T2") != nil {
 		t.Error("T-2 should have been deleted by bulk action")
 	}
 }
 
 func TestPluginController_IDRequiredAction_FailsPreflightWithNoSelection(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
-	})
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
-	// filter matches "done" but the task is "ready" → lane is empty, no selection possible
+	// filter matches "done" but the tiki is "ready" → lane is empty, no selection possible
 	emptyFilter := mustParseStmt(t, `select where status = "done"`)
 	updateAction := mustParseStmt(t, `update where id = id() set status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1533,18 +1544,19 @@ func TestPluginController_IDRequiredAction_FailsPreflightWithNoSelection(t *test
 	pluginConfig.SetSelectedLane(0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	if pc.HandleAction(pluginActionID("m")) {
 		t.Error("action with id requirement should fail preflight when nothing is selected")
 	}
 
-	// task should be unchanged
-	tk := taskStore.GetTask("T-1")
-	if tk.Status != task.StatusReady {
-		t.Errorf("expected status ready (unchanged), got %s", tk.Status)
+	// tiki should be unchanged
+	unchanged := tikiStore.GetTiki("0000T1")
+	unchangedStatus, _, _ := unchanged.StringField("status")
+	if unchangedStatus != "ready" {
+		t.Errorf("expected status ready (unchanged), got %s", unchangedStatus)
 	}
 }
 

@@ -3,8 +3,8 @@ package component
 import (
 	"time"
 
-	"github.com/boolean-maybe/tiki/config"
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/theme"
+	"github.com/boolean-maybe/tiki/workflow/value"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -27,9 +27,9 @@ type DateEdit struct {
 // NewDateEdit creates a new date input field.
 func NewDateEdit() *DateEdit {
 	inputField := tview.NewInputField()
-	colors := config.GetColors()
-	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
-	inputField.SetFieldTextColor(colors.ContentTextColor.TCell())
+	roles := theme.Roles()
+	inputField.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
+	inputField.SetFieldTextColor(roles.TextPrimary().TCell())
 
 	de := &DateEdit{
 		InputField: inputField,
@@ -55,9 +55,9 @@ func (de *DateEdit) SetLabel(label string) *DateEdit {
 }
 
 // SetInitialValue sets the current date text. Empty string is valid (no due date).
-func (de *DateEdit) SetInitialValue(value string) *DateEdit {
-	de.currentText = value
-	de.SetText(value)
+func (de *DateEdit) SetInitialValue(text string) *DateEdit {
+	de.currentText = text
+	de.SetText(text)
 	return de
 }
 
@@ -82,14 +82,14 @@ func (de *DateEdit) decrementDay() {
 
 func (de *DateEdit) parseOrTomorrow() time.Time {
 	text := de.GetText()
-	if parsed, ok := taskpkg.ParseDueDate(text); ok && !parsed.IsZero() {
+	if parsed, ok := value.ParseDate(text); ok && !parsed.IsZero() {
 		return parsed
 	}
 	return time.Now().AddDate(0, 0, 1)
 }
 
 func (de *DateEdit) applyDate(t time.Time) {
-	formatted := t.Format(taskpkg.DateFormat)
+	formatted := t.Format(value.DateFormat)
 	de.currentText = formatted
 	de.SetText(formatted)
 	if de.onChange != nil {
@@ -102,7 +102,7 @@ func (de *DateEdit) applyDate(t time.Time) {
 func (de *DateEdit) validateAndUpdate() {
 	text := de.GetText()
 
-	parsed, ok := taskpkg.ParseDueDate(text)
+	parsed, ok := value.ParseDate(text)
 	if !ok {
 		// invalid — revert to last valid text
 		de.SetText(de.currentText)
@@ -112,7 +112,7 @@ func (de *DateEdit) validateAndUpdate() {
 	// valid date or empty
 	var newText string
 	if !parsed.IsZero() {
-		newText = parsed.Format(taskpkg.DateFormat)
+		newText = parsed.Format(value.DateFormat)
 	}
 
 	if newText != de.currentText {

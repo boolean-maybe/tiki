@@ -8,17 +8,22 @@ import (
 	"testing"
 )
 
-const validTestWorkflow = `version: 0.5.3
-statuses:
-  - key: todo
-    label: Todo
-    default: true
-  - key: done
-    label: Done
-    done: true
-types:
-  - key: task
-    label: Task
+const validTestWorkflow = `version: 0.6.0
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: todo
+        label: Todo
+        default: true
+      - value: done
+        label: Done
+        done: true
+  - name: type
+    type: enum
+    values:
+      - value: tiki
+        label: Tiki
 `
 
 func TestInstallWorkflow_URL(t *testing.T) {

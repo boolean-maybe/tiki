@@ -1,103 +1,81 @@
 package model
 
-import taskpkg "github.com/boolean-maybe/tiki/task"
-
-// typed view params live here to avoid stringly-typed param maps being spread across layers.
-
-const (
-	paramTaskID    = "taskID"
-	paramDraftTask = "draftTask"
-	paramFocus     = "focus"
-	paramDescOnly  = "descOnly"
-	paramTagsOnly  = "tagsOnly"
-	paramReadOnly  = "readOnly"
+import (
+	"github.com/boolean-maybe/tiki/plugin"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// TaskDetailParams are params for TaskDetailViewID.
-type TaskDetailParams struct {
-	TaskID   string
-	ReadOnly bool
+// typed view params live here to avoid stringly-typed param maps being
+// spread across layers. PluginViewParams is the only typed wrapper now —
+// all detail-edit modes flow through it.
+
+const (
+	paramTikiID    = "tikiID"
+	paramDraftTiki = "draftTiki"
+	paramFocus     = "focus"
+	paramMode      = "mode"
+)
+
+// PluginViewParams are params accepted by any plugin view. TikiID carries the
+// selected document across `kind: view` navigation (6B.3) and drives
+// `kind: detail` rendering (6B.2). Boards / lists / wikis ignore TikiID —
+// only the detail kind reads it today.
+//
+// Mode/Focus/Draft are consumed by `kind: detail` views via
+// DetailController.ApplyDetailMode (called from view/factory.go after
+// BindEditView). Mode is the closed vocabulary declared on the source
+// PluginAction; Focus is the metadata field to focus on entry; Draft is
+// only set for mode: new and carries a freshly synthesized tiki that the
+// edit session adopts as its in-flight draft.
+type PluginViewParams struct {
+	TikiID string
+	Mode   plugin.DetailMode
+	Focus  EditField
+	Draft  *tikipkg.Tiki
 }
 
-// EncodeTaskDetailParams converts typed params into a navigation params map.
-func EncodeTaskDetailParams(p TaskDetailParams) map[string]interface{} {
-	if p.TaskID == "" {
+// EncodePluginViewParams serializes PluginViewParams to a navigation map.
+// Returns nil when there is nothing to carry — no TikiID, no Draft, no
+// Mode. For mode: new the dispatcher passes Draft != nil with TikiID
+// empty; the encoder lifts the draft's ID into TikiID so the wire keys
+// stay consistent.
+func EncodePluginViewParams(p PluginViewParams) map[string]interface{} {
+	if p.TikiID == "" && p.Draft != nil {
+		p.TikiID = p.Draft.ID()
+	}
+	if p.TikiID == "" && p.Draft == nil && p.Mode == "" {
 		return nil
 	}
-	m := map[string]interface{}{
-		paramTaskID: p.TaskID,
-	}
-	if p.ReadOnly {
-		m[paramReadOnly] = true
-	}
-	return m
-}
-
-// DecodeTaskDetailParams converts a navigation params map into typed params.
-func DecodeTaskDetailParams(params map[string]interface{}) TaskDetailParams {
-	var p TaskDetailParams
-	if params == nil {
-		return p
-	}
-	if id, ok := params[paramTaskID].(string); ok {
-		p.TaskID = id
-	}
-	if readOnly, ok := params[paramReadOnly].(bool); ok {
-		p.ReadOnly = readOnly
-	}
-	return p
-}
-
-// TaskEditParams are params for TaskEditViewID.
-type TaskEditParams struct {
-	TaskID   string
-	Draft    *taskpkg.Task
-	Focus    EditField
-	DescOnly bool
-	TagsOnly bool
-}
-
-// EncodeTaskEditParams converts typed params into a navigation params map.
-func EncodeTaskEditParams(p TaskEditParams) map[string]interface{} {
-	if p.TaskID == "" && p.Draft != nil {
-		p.TaskID = p.Draft.ID
-	}
-	if p.TaskID == "" {
-		return nil
-	}
-
-	m := map[string]interface{}{
-		paramTaskID: p.TaskID,
+	m := map[string]interface{}{}
+	if p.TikiID != "" {
+		m[paramTikiID] = p.TikiID
 	}
 	if p.Draft != nil {
-		m[paramDraftTask] = p.Draft
+		m[paramDraftTiki] = p.Draft
 	}
 	if p.Focus != "" {
-		// Store focus as a plain string for interop and stable params fingerprinting.
 		m[paramFocus] = string(p.Focus)
 	}
-	if p.DescOnly {
-		m[paramDescOnly] = true
-	}
-	if p.TagsOnly {
-		m[paramTagsOnly] = true
+	if p.Mode != "" {
+		m[paramMode] = string(p.Mode)
 	}
 	return m
 }
 
-// DecodeTaskEditParams converts a navigation params map into typed params.
-func DecodeTaskEditParams(params map[string]interface{}) TaskEditParams {
-	var p TaskEditParams
+// DecodePluginViewParams extracts PluginViewParams from a navigation map.
+// Unknown keys are ignored; an empty map yields a zero-valued struct.
+func DecodePluginViewParams(params map[string]interface{}) PluginViewParams {
+	var p PluginViewParams
 	if params == nil {
 		return p
 	}
-	if id, ok := params[paramTaskID].(string); ok {
-		p.TaskID = id
+	if id, ok := params[paramTikiID].(string); ok {
+		p.TikiID = id
 	}
-	if draft, ok := params[paramDraftTask].(*taskpkg.Task); ok {
+	if draft, ok := params[paramDraftTiki].(*tikipkg.Tiki); ok {
 		p.Draft = draft
-		if p.TaskID == "" && draft != nil {
-			p.TaskID = draft.ID
+		if p.TikiID == "" && draft != nil {
+			p.TikiID = draft.ID()
 		}
 	}
 	switch f := params[paramFocus].(type) {
@@ -106,11 +84,11 @@ func DecodeTaskEditParams(params map[string]interface{}) TaskEditParams {
 	case EditField:
 		p.Focus = f
 	}
-	if descOnly, ok := params[paramDescOnly].(bool); ok {
-		p.DescOnly = descOnly
-	}
-	if tagsOnly, ok := params[paramTagsOnly].(bool); ok {
-		p.TagsOnly = tagsOnly
+	switch m := params[paramMode].(type) {
+	case string:
+		p.Mode = plugin.DetailMode(m)
+	case plugin.DetailMode:
+		p.Mode = m
 	}
 	return p
 }

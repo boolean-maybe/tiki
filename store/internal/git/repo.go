@@ -1,7 +1,6 @@
 package git
 
 import (
-	"io"
 	"os"
 	"os/exec"
 
@@ -39,16 +38,6 @@ func Init(dir string) error {
 		return shell.Init(dir)
 	default:
 		return gogit.Init(dir)
-	}
-}
-
-// Clone clones a git repository from url into dir.
-func Clone(url, dir string, stdout, stderr io.Writer) error {
-	switch probeBackendKind() {
-	case backendShell:
-		return shell.Clone(url, dir, stdout, stderr)
-	default:
-		return gogit.Clone(url, dir, stdout, stderr)
 	}
 }
 

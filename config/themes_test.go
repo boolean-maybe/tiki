@@ -7,34 +7,8 @@ import (
 )
 
 func TestThemeRegistryComplete(t *testing.T) {
-	names := ThemeNames()
-	if len(names) != 14 {
-		t.Fatalf("expected 14 themes, got %d: %v", len(names), names)
-	}
-}
-
-func TestThemeNamesAreSorted(t *testing.T) {
-	names := ThemeNames()
-	for i := 1; i < len(names); i++ {
-		if names[i] < names[i-1] {
-			t.Errorf("ThemeNames() not sorted: %q before %q", names[i-1], names[i])
-		}
-	}
-}
-
-func TestAllPalettesResolve(t *testing.T) {
-	for name, info := range themeRegistry {
-		// calling Palette() must not panic
-		p := info.Palette()
-		if p.TextColor.IsDefault() {
-			t.Errorf("theme %q: TextColor is default/transparent", name)
-		}
-		if p.HighlightColor.IsDefault() {
-			t.Errorf("theme %q: HighlightColor is default/transparent", name)
-		}
-		if p.AccentColor.IsDefault() {
-			t.Errorf("theme %q: AccentColor is default/transparent", name)
-		}
+	if len(themeRegistry) != 14 {
+		t.Fatalf("expected 14 themes, got %d", len(themeRegistry))
 	}
 }
 

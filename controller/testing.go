@@ -2,7 +2,7 @@ package controller
 
 import (
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/rivo/tview"
 )
@@ -32,21 +32,21 @@ func (m *mockSelectableView) SetSelectedID(_ string)             {}
 
 // Test fixtures
 
-// newTestTask creates a test task with default values
-func newTestTask() *task.Task {
-	return &task.Task{
-		ID:       "TIKI-1",
-		Title:    "Test Task",
-		Status:   task.StatusReady,
-		Type:     task.TypeStory,
-		Priority: 3,
-		Points:   5,
-	}
+// newTestTiki creates a workflow tiki with default test values.
+func newTestTiki() *tikipkg.Tiki {
+	tk := tikipkg.New()
+	tk.SetID("000001")
+	tk.SetTitle("Test Tiki")
+	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set(tikipkg.FieldType, "story")
+	tk.Set(tikipkg.FieldPriority, "medium")
+	tk.Set(tikipkg.FieldPoints, 5)
+	return tk
 }
 
-// newTestTaskWithID creates a test task with ID "DRAFT-1"
-func newTestTaskWithID() *task.Task {
-	t := newTestTask()
-	t.ID = "DRAFT-1"
-	return t
+// newTestTikiWithID creates a workflow tiki with ID "DRAFT1".
+func newTestTikiWithID() *tikipkg.Tiki {
+	tk := newTestTiki()
+	tk.SetID("DRAFT1")
+	return tk
 }

@@ -188,6 +188,36 @@ func TestParseKey(t *testing.T) {
 			t.Fatalf("Expected error, got nil")
 		}
 	})
+
+	t.Run("named delete", func(t *testing.T) {
+		k, r, m, err := parseKey("Delete")
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if k != tcell.KeyDelete || r != 0 || m != 0 {
+			t.Fatalf("Expected (KeyDelete,0,0), got (%v,%q,%v)", k, r, m)
+		}
+	})
+
+	t.Run("named del abbreviation", func(t *testing.T) {
+		k, r, m, err := parseKey("del")
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if k != tcell.KeyDelete || r != 0 || m != 0 {
+			t.Fatalf("Expected (KeyDelete,0,0), got (%v,%q,%v)", k, r, m)
+		}
+	})
+
+	t.Run("named backspace", func(t *testing.T) {
+		k, r, m, err := parseKey("Backspace")
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if k != tcell.KeyBackspace2 || r != 0 || m != 0 {
+			t.Fatalf("Expected (KeyBackspace2,0,0), got (%v,%q,%v)", k, r, m)
+		}
+	})
 }
 
 func TestParseFunctionKey(t *testing.T) {

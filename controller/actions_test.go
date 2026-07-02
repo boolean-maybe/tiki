@@ -168,7 +168,7 @@ func TestActionRegistry_Register(t *testing.T) {
 			actions: []Action{
 				{ID: ActionQuit, Key: tcell.KeyRune, Rune: 'q', Label: "Quit"},
 				{ID: ActionBack, Key: tcell.KeyEscape, Label: "Back"},
-				{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save"},
+				{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save"},
 			},
 			wantCount:     3,
 			wantByKeyLen:  2,
@@ -230,22 +230,22 @@ func TestActionRegistry_Match(t *testing.T) {
 			name: "match key with modifier",
 			registry: func() *ActionRegistry {
 				r := NewActionRegistry()
-				r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Modifier: tcell.ModCtrl, Label: "Save"})
+				r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Modifier: tcell.ModCtrl, Label: "Save"})
 				return r
 			},
 			event:      tcell.NewEventKey(tcell.KeyCtrlS, 0, tcell.ModCtrl),
-			wantMatch:  ActionSaveTask,
+			wantMatch:  ActionSaveTiki,
 			shouldFind: true,
 		},
 		{
 			name: "match key with shift modifier",
 			registry: func() *ActionRegistry {
 				r := NewActionRegistry()
-				r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →"})
+				r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →"})
 				return r
 			},
 			event:      tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModShift),
-			wantMatch:  ActionMoveTaskRight,
+			wantMatch:  ActionMoveTikiRight,
 			shouldFind: true,
 		},
 		{
@@ -262,11 +262,11 @@ func TestActionRegistry_Match(t *testing.T) {
 			name: "ctrl key without explicit ModCtrl still matches via normalization",
 			registry: func() *ActionRegistry {
 				r := NewActionRegistry()
-				r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Modifier: tcell.ModCtrl, Label: "Save"})
+				r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Modifier: tcell.ModCtrl, Label: "Save"})
 				return r
 			},
 			event:      tcell.NewEventKey(tcell.KeyCtrlS, 0, tcell.ModNone),
-			wantMatch:  ActionSaveTask,
+			wantMatch:  ActionSaveTiki,
 			shouldFind: true,
 		},
 		{
@@ -274,7 +274,7 @@ func TestActionRegistry_Match(t *testing.T) {
 			registry: func() *ActionRegistry {
 				r := NewActionRegistry()
 				r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "←"})
-				r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←"})
+				r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←"})
 				return r
 			},
 			event:      tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone),
@@ -326,81 +326,6 @@ func TestActionRegistry_GetHeaderActions(t *testing.T) {
 	}
 }
 
-func TestGetActionsForField(t *testing.T) {
-	tests := []struct {
-		name            string
-		field           model.EditField
-		wantActionCount int
-		mustHaveActions []ActionID
-	}{
-		{
-			name:            "title field has quick save and save",
-			field:           model.EditFieldTitle,
-			wantActionCount: 4, // QuickSave, Save, NextField, PrevField
-			mustHaveActions: []ActionID{ActionQuickSave, ActionSaveTask, ActionNextField, ActionPrevField},
-		},
-		{
-			name:            "status field has next/prev value",
-			field:           model.EditFieldStatus,
-			wantActionCount: 4, // NextField, PrevField, NextValue, PrevValue
-			mustHaveActions: []ActionID{ActionNextField, ActionPrevField, ActionNextValue, ActionPrevValue},
-		},
-		{
-			name:            "type field has next/prev value",
-			field:           model.EditFieldType,
-			wantActionCount: 4, // NextField, PrevField, NextValue, PrevValue
-			mustHaveActions: []ActionID{ActionNextField, ActionPrevField, ActionNextValue, ActionPrevValue},
-		},
-		{
-			name:            "assignee field has next/prev value",
-			field:           model.EditFieldAssignee,
-			wantActionCount: 4, // NextField, PrevField, NextValue, PrevValue
-			mustHaveActions: []ActionID{ActionNextField, ActionPrevField, ActionNextValue, ActionPrevValue},
-		},
-		{
-			name:            "priority field has only navigation",
-			field:           model.EditFieldPriority,
-			wantActionCount: 2, // NextField, PrevField
-			mustHaveActions: []ActionID{ActionNextField, ActionPrevField},
-		},
-		{
-			name:            "points field has only navigation",
-			field:           model.EditFieldPoints,
-			wantActionCount: 2, // NextField, PrevField
-			mustHaveActions: []ActionID{ActionNextField, ActionPrevField},
-		},
-		{
-			name:            "description field has save",
-			field:           model.EditFieldDescription,
-			wantActionCount: 3, // Save, NextField, PrevField
-			mustHaveActions: []ActionID{ActionSaveTask, ActionNextField, ActionPrevField},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			registry := GetActionsForField(tt.field)
-
-			actions := registry.GetActions()
-			if len(actions) != tt.wantActionCount {
-				t.Errorf("expected %d actions, got %d", tt.wantActionCount, len(actions))
-			}
-
-			// Check that all required actions are present
-			actionMap := make(map[ActionID]bool)
-			for _, action := range actions {
-				actionMap[action.ID] = true
-			}
-
-			for _, mustHave := range tt.mustHaveActions {
-				if !actionMap[mustHave] {
-					t.Errorf("missing required action: %v", mustHave)
-				}
-			}
-		})
-	}
-}
-
 func TestDefaultGlobalActions(t *testing.T) {
 	registry := DefaultGlobalActions()
 	actions := registry.GetActions()
@@ -420,14 +345,14 @@ func TestDefaultGlobalActions(t *testing.T) {
 		}
 	}
 
-	// ActionOpenPalette should show in header with label "All" and use Ctrl+A binding
+	// ActionOpenPalette should show in header with label "All actions" and use Ctrl+A binding
 	for _, a := range actions {
 		if a.ID == ActionOpenPalette {
 			if !a.ShowInHeader {
 				t.Error("ActionOpenPalette should have ShowInHeader=true")
 			}
-			if a.Label != "All" {
-				t.Errorf("ActionOpenPalette label = %q, want %q", a.Label, "All")
+			if a.Label != "All actions" {
+				t.Errorf("ActionOpenPalette label = %q, want %q", a.Label, "All actions")
 			}
 			if a.Key != tcell.KeyCtrlA {
 				t.Errorf("ActionOpenPalette Key = %v, want KeyCtrlA", a.Key)
@@ -456,15 +381,15 @@ func TestDefaultGlobalActions(t *testing.T) {
 	}
 }
 
-func TestTaskDetailViewActions(t *testing.T) {
-	registry := TaskDetailViewActions()
+func TestTikiDetailViewActions(t *testing.T) {
+	registry := TikiDetailViewActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 7 {
-		t.Errorf("expected 7 task detail actions (always includes Chat), got %d", len(actions))
+	if len(actions) != 3 {
+		t.Errorf("expected 3 tiki detail actions (always includes Chat), got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionEditTitle, ActionEditDesc, ActionEditSource, ActionFullscreen, ActionEditDeps, ActionEditTags, ActionChat}
+	expectedActions := []ActionID{ActionEditSource, ActionFullscreen, ActionChat}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)
@@ -473,37 +398,6 @@ func TestTaskDetailViewActions(t *testing.T) {
 		if actions[i].ID != expected {
 			t.Errorf("action at index %d: want %v, got %v", i, expected, actions[i].ID)
 		}
-	}
-}
-
-func TestCommonFieldNavigationActions(t *testing.T) {
-	registry := CommonFieldNavigationActions()
-	actions := registry.GetActions()
-
-	if len(actions) != 2 {
-		t.Errorf("expected 2 navigation actions, got %d", len(actions))
-	}
-
-	expectedActions := []ActionID{ActionNextField, ActionPrevField}
-	for i, expected := range expectedActions {
-		if i >= len(actions) {
-			t.Errorf("missing action at index %d: want %v", i, expected)
-			continue
-		}
-		if actions[i].ID != expected {
-			t.Errorf("action at index %d: want %v, got %v", i, expected, actions[i].ID)
-		}
-		if !actions[i].ShowInHeader {
-			t.Errorf("navigation action %v should have ShowInHeader=true", expected)
-		}
-	}
-
-	// Verify specific keys
-	if actions[0].Key != tcell.KeyTab {
-		t.Errorf("NextField should use Tab key, got %v", actions[0].Key)
-	}
-	if actions[1].Key != tcell.KeyBacktab {
-		t.Errorf("PrevField should use Backtab key, got %v", actions[1].Key)
 	}
 }
 
@@ -515,7 +409,7 @@ func TestDescOnlyEditActions(t *testing.T) {
 		t.Errorf("expected 1 desc-only action, got %d", len(actions))
 	}
 
-	if actions[0].ID != ActionSaveTask {
+	if actions[0].ID != ActionSaveTiki {
 		t.Errorf("expected save action, got %v", actions[0].ID)
 	}
 
@@ -527,26 +421,11 @@ func TestDescOnlyEditActions(t *testing.T) {
 	}
 }
 
-func TestTaskDetailViewActions_HasEditDesc(t *testing.T) {
-	registry := TaskDetailViewActions()
-
-	// Shift+D should match ActionEditDesc
-	event := tcell.NewEventKey(tcell.KeyRune, 'D', tcell.ModNone)
-	action := registry.Match(event)
-	if action == nil {
-		t.Fatal("expected Shift+D to match an action")
-		return
-	}
-	if action.ID != ActionEditDesc {
-		t.Errorf("expected ActionEditDesc, got %v", action.ID)
-	}
-}
-
-func TestTaskDetailViewActions_ChatAlwaysRegistered(t *testing.T) {
+func TestTikiDetailViewActions_ChatAlwaysRegistered(t *testing.T) {
 	viper.Set("ai.agent", "")
 	defer viper.Set("ai.agent", "")
 
-	registry := TaskDetailViewActions()
+	registry := TikiDetailViewActions()
 	action, found := registry.LookupRune('c')
 	if !found {
 		t.Fatal("chat action should always be registered")
@@ -562,18 +441,18 @@ func TestTaskDetailViewActions_ChatAlwaysRegistered(t *testing.T) {
 		t.Error("chat should be disabled when ai.agent is empty")
 	}
 
-	// total count should always be 7
+	// total count should always be 3
 	actions := registry.GetActions()
-	if len(actions) != 7 {
-		t.Errorf("expected 7 actions, got %d", len(actions))
+	if len(actions) != 3 {
+		t.Errorf("expected 3 actions, got %d", len(actions))
 	}
 }
 
-func TestTaskDetailViewActions_ChatEnabledWithConfig(t *testing.T) {
+func TestTikiDetailViewActions_ChatEnabledWithConfig(t *testing.T) {
 	viper.Set("ai.agent", "claude")
 	defer viper.Set("ai.agent", "")
 
-	registry := TaskDetailViewActions()
+	registry := TikiDetailViewActions()
 
 	action, found := registry.LookupRune('c')
 	if !found {
@@ -587,11 +466,11 @@ func TestTaskDetailViewActions_ChatEnabledWithConfig(t *testing.T) {
 	}
 
 	ctx := BuildAppContext(
-		&ViewEntry{ViewID: model.TaskDetailViewID, Params: model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "TIKI-ABC123"})},
+		&ViewEntry{ViewID: model.MakePluginViewID("Detail"), Params: model.EncodePluginViewParams(model.PluginViewParams{TikiID: "ABC123"})},
 		nil,
 	)
 	if !ActionEnabled(action, ctx) {
-		t.Error("chat should be enabled when ai.agent is configured and task ID present")
+		t.Error("chat should be enabled when ai.agent is configured and tiki ID present")
 	}
 }
 
@@ -621,16 +500,19 @@ func TestLookupRune_ConflictDetection(t *testing.T) {
 	r := PluginViewActions()
 
 	// built-in plugin view keys should be found
-	conflicting := []rune{'k', 'j', 'h', 'l', 'n', 'd', '/', 'v'}
+	conflicting := []rune{'k', 'j', 'h', 'l', '/'}
 	for _, ch := range conflicting {
 		if _, ok := r.LookupRune(ch); !ok {
 			t.Errorf("expected built-in action for rune %q", ch)
 		}
 	}
 
-	// non-conflicting key should not be found
-	if _, ok := r.LookupRune('b'); ok {
-		t.Errorf("rune 'b' should not conflict with built-in actions")
+	// non-conflicting keys should not be found. 'd' is now free: delete was
+	// migrated to a global workflow action, so it is no longer a built-in.
+	for _, ch := range []rune{'b', 'd'} {
+		if _, ok := r.LookupRune(ch); ok {
+			t.Errorf("rune %q should not conflict with built-in actions", ch)
+		}
 	}
 
 	// global actions
@@ -690,6 +572,29 @@ func TestMatchBinding_CtrlLetterNormalization(t *testing.T) {
 	}
 	if a := registry.MatchBinding('U', 0, tcell.ModCtrl); a == nil || a.ID != "test_ctrl_u" {
 		t.Error("Key='U'+ModCtrl should match via normalization")
+	}
+}
+
+func TestMatchBinding_DeleteBackspaceEquivalence(t *testing.T) {
+	// a workflow `key: "Delete"` registers under KeyDelete (forward-delete),
+	// but the Mac main delete key sends KeyBackspace2. All "delete-ish" keys
+	// must collapse to one equivalence class so the binding fires regardless
+	// of which physical key the platform reports.
+	registry := NewActionRegistry()
+	registry.Register(Action{ID: "test_delete", Key: tcell.KeyDelete})
+
+	for _, key := range []tcell.Key{tcell.KeyDelete, tcell.KeyBackspace, tcell.KeyBackspace2} {
+		if a := registry.MatchBinding(key, 0, 0); a == nil || a.ID != "test_delete" {
+			t.Errorf("key %v should match the Delete-bound action", tcell.KeyNames[key])
+		}
+	}
+
+	// the reverse direction: a `key: "Backspace"` binding must also match a
+	// forward-delete event.
+	bsRegistry := NewActionRegistry()
+	bsRegistry.Register(Action{ID: "test_backspace", Key: tcell.KeyBackspace2})
+	if a := bsRegistry.MatchBinding(tcell.KeyDelete, 0, 0); a == nil || a.ID != "test_backspace" {
+		t.Error("KeyDelete should match the Backspace-bound action")
 	}
 }
 
@@ -852,33 +757,13 @@ func TestPluginViewActions_NavHiddenFromPalette(t *testing.T) {
 	for _, a := range paletteActions {
 		found[a.ID] = true
 	}
-	for _, want := range []ActionID{ActionOpenFromPlugin, ActionNewTask, ActionDeleteTask, ActionSearch} {
+	// open, new-tiki, and delete are now workflow-declared actions (`kind: view`
+	// for open/new, a global `delete where id = id()` for delete). The remaining
+	// built-in semantic actions still surface in the palette.
+	for _, want := range []ActionID{ActionSearch} {
 		if !found[want] {
 			t.Errorf("expected palette-visible action %v", want)
 		}
-	}
-}
-
-func TestTaskEditActions_FieldLocalHidden_SaveVisible(t *testing.T) {
-	registry := TaskEditTitleActions()
-	paletteActions := registry.GetPaletteActions()
-
-	found := map[ActionID]bool{}
-	for _, a := range paletteActions {
-		found[a.ID] = true
-	}
-
-	if !found[ActionSaveTask] {
-		t.Error("Save should be palette-visible in task edit")
-	}
-	if found[ActionQuickSave] {
-		t.Error("Quick Save should be hidden from palette")
-	}
-	if found[ActionNextField] {
-		t.Error("Next field should be hidden from palette")
-	}
-	if found[ActionPrevField] {
-		t.Error("Prev field should be hidden from palette")
 	}
 }
 
@@ -994,7 +879,7 @@ func TestActionEnabled(t *testing.T) {
 func TestBuildAppContext_SelectableView(t *testing.T) {
 	pluginViewEntry := &ViewEntry{ViewID: model.MakePluginViewID("Kanban")}
 
-	mockView := &mockSelectableView{selectedID: "TIKI-ABC123"}
+	mockView := &mockSelectableView{selectedID: "ABC123"}
 	ctx := BuildAppContext(pluginViewEntry, mockView)
 	if !ctx.Has("id") {
 		t.Error("context should have 'id' when view has selection")
@@ -1058,34 +943,32 @@ func TestSelectionSatisfies(t *testing.T) {
 	}
 }
 
-func TestBuildAppContext_TaskDetail(t *testing.T) {
+func TestBuildAppContext_TikiDetail(t *testing.T) {
 	entry := &ViewEntry{
-		ViewID: model.TaskDetailViewID,
-		Params: model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "TIKI-ABC123"}),
+		ViewID: model.MakePluginViewID("Detail"),
+		Params: model.EncodePluginViewParams(model.PluginViewParams{TikiID: "ABC123"}),
 	}
 	ctx := BuildAppContext(entry, nil)
 	if !ctx.Has("id") {
-		t.Error("context should have 'id' from task detail params")
+		t.Error("context should have 'id' from tiki detail params")
 	}
 
 	emptyEntry := &ViewEntry{
-		ViewID: model.TaskDetailViewID,
-		Params: model.EncodeTaskDetailParams(model.TaskDetailParams{}),
+		ViewID: model.MakePluginViewID("Detail"),
+		Params: model.EncodePluginViewParams(model.PluginViewParams{}),
 	}
 	ctx = BuildAppContext(emptyEntry, nil)
 	if ctx.Has("id") {
-		t.Error("context should not have 'id' with empty task detail params")
+		t.Error("context should not have 'id' with empty tiki detail params")
 	}
 }
 
 func TestNoCallbackBasedEnablement(t *testing.T) {
 	registries := []*ActionRegistry{
 		DefaultGlobalActions(),
-		TaskDetailViewActions(),
+		TikiDetailViewActions(),
 		PluginViewActions(),
-		DepsViewActions(),
-		TaskEditViewActions(),
-		ReadonlyTaskDetailViewActions(),
+		TikiEditViewActions(),
 	}
 
 	for _, r := range registries {
@@ -1121,5 +1004,132 @@ func TestEditWorkflow_EmptyPath(t *testing.T) {
 	}
 	if level != model.MessageLevelError {
 		t.Errorf("level = %v, want MessageLevelError", level)
+	}
+}
+
+func TestActionEnabled_RequireDetailPluginDefaultsAbsent(t *testing.T) {
+	// default predicate reports no detail plugin -> action with the
+	// requirement is disabled.
+	SetDetailPluginPredicate(nil) // reset to default
+	a := Action{Require: []Requirement{RequireDetailPlugin}}
+	if ActionEnabled(a, BuildAppContext(nil, nil)) {
+		t.Fatal("action with RequireDetailPlugin should be disabled when predicate reports false")
+	}
+}
+
+func TestActionEnabled_RequireDetailPluginPresentEnables(t *testing.T) {
+	SetDetailPluginPredicate(func() bool { return true })
+	defer SetDetailPluginPredicate(nil)
+	a := Action{Require: []Requirement{RequireDetailPlugin}}
+	if !ActionEnabled(a, BuildAppContext(nil, nil)) {
+		t.Fatal("action with RequireDetailPlugin should be enabled when predicate reports true")
+	}
+}
+
+func TestPluginViewActions_MoveTikiNegatesSingleLane(t *testing.T) {
+	r := PluginViewActions()
+	for _, id := range []ActionID{ActionMoveTikiLeft, ActionMoveTikiRight} {
+		var found bool
+		for _, a := range r.GetActions() {
+			if a.ID != id {
+				continue
+			}
+			for _, req := range a.Require {
+				if req == "!"+RequireSingleLane {
+					found = true
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("%s must carry !single-lane requirement", id)
+		}
+	}
+}
+
+func TestActionEnabled_MoveTikiHiddenWhenSingleLane(t *testing.T) {
+	viewID := model.MakePluginViewID("Solo")
+	SetSingleLanePredicate(func(id model.ViewID) bool { return id == viewID })
+	defer SetSingleLanePredicate(nil)
+
+	a := Action{Require: []Requirement{RequireID, "!" + RequireSingleLane}}
+	ctx := BuildAppContext(&ViewEntry{ViewID: viewID}, nil)
+	ctx.Set(string(RequireID))
+	if ActionEnabled(a, ctx) {
+		t.Fatal("move-tiki action should be disabled on single-lane plugin view")
+	}
+}
+
+func TestActionEnabled_MoveTikiVisibleWhenMultiLane(t *testing.T) {
+	SetSingleLanePredicate(nil) // default: nothing is single-lane
+	a := Action{Require: []Requirement{RequireID, "!" + RequireSingleLane}}
+	ctx := BuildAppContext(&ViewEntry{ViewID: model.MakePluginViewID("Multi")}, nil)
+	ctx.Set(string(RequireID))
+	if !ActionEnabled(a, ctx) {
+		t.Fatal("move-tiki action should be enabled on multi-lane plugin view")
+	}
+}
+
+func TestToHeaderActions_MoveTikiHiddenOnSingleLaneView(t *testing.T) {
+	viewID := model.MakePluginViewID("Solo")
+	SetSingleLanePredicate(func(id model.ViewID) bool { return id == viewID })
+	defer SetSingleLanePredicate(nil)
+
+	r := PluginViewActions()
+	ctx := BuildAppContext(&ViewEntry{ViewID: viewID}, nil)
+	out := r.ToHeaderActionsForContext(ctx)
+
+	for _, a := range out {
+		if a.ID == string(ActionMoveTikiLeft) || a.ID == string(ActionMoveTikiRight) {
+			t.Fatalf("%s must be omitted from header on single-lane view, got %+v", a.ID, a)
+		}
+	}
+}
+
+func TestToHeaderActions_ActivePluginOmittedFromHeader(t *testing.T) {
+	InitPluginActions([]PluginInfo{
+		{Name: "Kanban", Key: tcell.KeyRune, Rune: '1'},
+		{Name: "Backlog", Key: tcell.KeyRune, Rune: '2'},
+	})
+	defer InitPluginActions(nil)
+
+	r := GetPluginActions()
+	ctx := BuildAppContext(&ViewEntry{ViewID: model.MakePluginViewID("Kanban")}, nil)
+	out := r.ToHeaderActionsForContext(ctx)
+
+	var sawKanban, sawBacklog bool
+	for _, a := range out {
+		switch a.ID {
+		case "plugin:Kanban":
+			sawKanban = true
+		case "plugin:Backlog":
+			sawBacklog = true
+		}
+	}
+	if sawKanban {
+		t.Fatal("plugin:Kanban must be omitted from header when Kanban is the active view")
+	}
+	if !sawBacklog {
+		t.Fatal("plugin:Backlog must remain in header when Kanban is the active view")
+	}
+}
+
+func TestToHeaderActions_MoveTikiVisibleOnMultiLaneView(t *testing.T) {
+	SetSingleLanePredicate(nil)
+
+	r := PluginViewActions()
+	ctx := BuildAppContext(&ViewEntry{ViewID: model.MakePluginViewID("Multi")}, nil)
+	out := r.ToHeaderActionsForContext(ctx)
+
+	var sawLeft, sawRight bool
+	for _, a := range out {
+		switch a.ID {
+		case string(ActionMoveTikiLeft):
+			sawLeft = true
+		case string(ActionMoveTikiRight):
+			sawRight = true
+		}
+	}
+	if !sawLeft || !sawRight {
+		t.Fatalf("move-tiki actions must remain in header on multi-lane view (left=%v right=%v)", sawLeft, sawRight)
 	}
 }

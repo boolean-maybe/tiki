@@ -1,53 +1,31 @@
 package runtime
 
 import (
-	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// workflowSchema adapts a snapshot of workflow.Fields(), config.GetStatusRegistry(),
-// and config.GetTypeRegistry() into the ruki.Schema interface used by the parser
-// and executor. The field catalog is snapshotted at construction time so an old
-// schema never observes newly loaded custom fields through live global lookups.
+// workflowSchema adapts a snapshot of workflow.Fields() (system + workflow)
+// into the ruki.Schema interface used by the parser and executor. The field
+// catalog is snapshotted at construction time so an old schema never
+// observes newly loaded workflow fields through live global lookups.
 type workflowSchema struct {
-	statusReg    *workflow.StatusRegistry
-	typeReg      *workflow.TypeRegistry
-	fieldsByName map[string]ruki.FieldSpec // snapshotted at construction
+	fieldsByName map[string]ruki.FieldSpec
 }
 
-// NewSchema constructs a ruki.Schema backed by the loaded workflow registries.
-// Snapshots the current field catalog (built-in + custom) so the schema is
-// immutable after creation. Must be called after config.LoadStatusRegistry()
-// (and config.LoadCustomFields() if custom fields are in use).
+// NewSchema constructs a ruki.Schema backed by the loaded workflow fields.
+// Snapshots the current field catalog (system + workflow) so the schema is
+// immutable after creation. Must be called after config.LoadWorkflowFields().
 func NewSchema() ruki.Schema {
-	fields := workflow.Fields() // includes custom fields
-	byName := make(map[string]ruki.FieldSpec, len(fields))
-	for _, fd := range fields {
-		spec := ruki.FieldSpec{
-			Name:   fd.Name,
-			Type:   mapValueType(fd.Type),
-			Custom: fd.Custom,
-		}
-		if fd.AllowedValues != nil {
-			spec.AllowedValues = make([]string, len(fd.AllowedValues))
-			copy(spec.AllowedValues, fd.AllowedValues)
-		}
-		byName[fd.Name] = spec
-	}
-	return &workflowSchema{
-		statusReg:    config.GetStatusRegistry(),
-		typeReg:      config.GetTypeRegistry(),
-		fieldsByName: byName,
-	}
+	return NewSchemaFromFields(workflow.Fields())
 }
 
-// NewSchemaFromRegistries constructs a ruki.Schema from explicitly provided
-// registries and custom field definitions, without touching global state.
-// Used by init to validate a candidate workflow file.
-func NewSchemaFromRegistries(statusReg *workflow.StatusRegistry, typeReg *workflow.TypeRegistry, customFields []workflow.FieldDef) ruki.Schema {
-	fields := workflow.BuiltinFields()
-	fields = append(fields, customFields...)
+// NewSchemaFromFields constructs a ruki.Schema from explicitly provided
+// field definitions, without touching global state. Used by init/validation
+// to validate a candidate workflow file. The caller is responsible for
+// passing the system fields (workflow.SystemFields()) plus any workflow
+// fields they want included.
+func NewSchemaFromFields(fields []workflow.FieldDef) ruki.Schema {
 	byName := make(map[string]ruki.FieldSpec, len(fields))
 	for _, fd := range fields {
 		spec := ruki.FieldSpec{
@@ -55,17 +33,12 @@ func NewSchemaFromRegistries(statusReg *workflow.StatusRegistry, typeReg *workfl
 			Type:   mapValueType(fd.Type),
 			Custom: fd.Custom,
 		}
-		if fd.AllowedValues != nil {
-			spec.AllowedValues = make([]string, len(fd.AllowedValues))
-			copy(spec.AllowedValues, fd.AllowedValues)
+		if vals := fd.AllowedValues(); vals != nil {
+			spec.AllowedValues = vals
 		}
 		byName[fd.Name] = spec
 	}
-	return &workflowSchema{
-		statusReg:    statusReg,
-		typeReg:      typeReg,
-		fieldsByName: byName,
-	}
+	return &workflowSchema{fieldsByName: byName}
 }
 
 func (s *workflowSchema) Field(name string) (ruki.FieldSpec, bool) {
@@ -73,7 +46,6 @@ func (s *workflowSchema) Field(name string) (ruki.FieldSpec, bool) {
 	if !ok {
 		return ruki.FieldSpec{}, false
 	}
-	// return a defensive copy so callers cannot mutate schema state
 	out := spec
 	if spec.AllowedValues != nil {
 		out.AllowedValues = make([]string, len(spec.AllowedValues))
@@ -82,21 +54,7 @@ func (s *workflowSchema) Field(name string) (ruki.FieldSpec, bool) {
 	return out, true
 }
 
-func (s *workflowSchema) NormalizeStatus(raw string) (string, bool) {
-	def, ok := s.statusReg.Lookup(raw)
-	if !ok {
-		return "", false
-	}
-	return def.Key, true
-}
-
-func (s *workflowSchema) NormalizeType(raw string) (string, bool) {
-	canonical, ok := s.typeReg.ParseType(raw)
-	return string(canonical), ok
-}
-
 // mapValueType converts workflow.ValueType to ruki.ValueType.
-// The two enums are defined in lockstep, so this is a 1:1 mapping.
 func mapValueType(wt workflow.ValueType) ruki.ValueType {
 	switch wt {
 	case workflow.TypeString:
@@ -121,10 +79,6 @@ func mapValueType(wt workflow.ValueType) ruki.ValueType {
 		return ruki.ValueListString
 	case workflow.TypeListRef:
 		return ruki.ValueListRef
-	case workflow.TypeStatus:
-		return ruki.ValueStatus
-	case workflow.TypeTaskType:
-		return ruki.ValueTaskType
 	case workflow.TypeEnum:
 		return ruki.ValueEnum
 	default:

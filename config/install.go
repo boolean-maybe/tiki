@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
-	"regexp"
 	"time"
 )
 
@@ -12,13 +11,6 @@ const (
 	httpTimeout     = 15 * time.Second
 	maxResponseSize = 1 << 20 // 1 MiB
 )
-
-var validWorkflowName = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$`)
-
-// ValidWorkflowName reports whether name is a valid workflow name.
-func ValidWorkflowName(name string) bool {
-	return validWorkflowName.MatchString(name)
-}
 
 // InstallResult describes the outcome for a single installed file.
 type InstallResult struct {

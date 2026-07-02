@@ -23,10 +23,10 @@ func TestViewContext_Getters(t *testing.T) {
 	viewActions := []HeaderAction{{ID: "edit", Label: "Edit"}}
 	pluginActions := []HeaderAction{{ID: "plugin:Kanban", Label: "Kanban"}}
 
-	vc.SetFromView(TaskDetailViewID, "Tiki Detail", "desc", nil, viewActions, pluginActions)
+	vc.SetFromView(MakePluginViewID("Detail"), "Tiki Detail", "desc", nil, viewActions, pluginActions)
 
-	if vc.GetViewID() != TaskDetailViewID {
-		t.Errorf("expected %v, got %v", TaskDetailViewID, vc.GetViewID())
+	if vc.GetViewID() != MakePluginViewID("Detail") {
+		t.Errorf("expected %v, got %v", MakePluginViewID("Detail"), vc.GetViewID())
 	}
 	if vc.GetViewName() != "Tiki Detail" {
 		t.Errorf("expected 'Tiki Detail', got %q", vc.GetViewName())

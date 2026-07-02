@@ -1,62 +1,52 @@
-version: 0.5.3
+version: "0.6.0"
 description: |
-  Minimal two-lane todo list. One task type, two statuses (Todo → Done).
-  Use when you just want a lightweight checklist and don't need prioritization,
-  multiple task types, or review stages.
-statuses:
-  - key: todo
-    label: Todo
-    emoji: "📌"
-    default: true
-    active: true
-  - key: done
-    label: Done
-    emoji: "✅"
-    done: true
+  Minimal single-lane todo list. Two statuses (todo / done), two fields
+  (status, priority). One lane shows all tikis: open items first by
+  priority, completed items below by completion time. Use when you want
+  a plain prioritized checklist and nothing else.
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: todo
+        label: Todo
+        visual: "○"
+        default: true
+      - value: done
+        label: Done
+        visual: "✓"
+  - name: priority
+    type: integer
+    default: 3
 
-types:
-  - key: task
-    label: Task
-    emoji: "📝"
+actions:
+  - key: "n"
+    label: "New"
+    action: create title=input()
+    input: string
+    hot: true
+  - key: "x"
+    label: "Mark done"
+    action: update where id = id() set status="done"
+  - key: "+"
+    label: "Bump priority"
+    action: update where id = id() and priority > 1 set priority = priority - 1
+  - key: "-"
+    label: "Lower priority"
+    action: update where id = id() and priority < 5 set priority = priority + 1
 
 views:
-  actions:
-    - key: "y"
-      label: "Copy ID"
-      action: select id where id = id() | clipboard()
-    - key: "Y"
-      label: "Copy content"
-      action: select title, description where id = id() | clipboard()
-    - key: "t"
-      label: "Add tag"
-      action: update where id = id() set tags=tags+[input()]
-      input: string
-      hot: false
-    - key: "T"
-      label: "Remove tag"
-      action: update where id = id() set tags=tags-[input()]
-      input: string
-      hot: false
-    - key: Ctrl-Q
-      label: "Quick create"
-      action: create title=input()
-      input: string
-      hot: false
-  plugins:
-    - name: Todo
-      description: "Simple todo list with two lanes"
-      default: true
-      key: "F1"
-      lanes:
-        - name: Todo
-          columns: 3
-          width: 75
-          filter: select where status = "todo" order by priority, createdAt
-          action: update where id = id() set status="todo"
-        - name: Done
-          columns: 1
-          filter: select where status = "done" order by updatedAt desc
-          action: update where id = id() set status="done"
+  - name: Todo
+    kind: board
+    description: "Single-lane todo list"
+    default: true
+    key: "F1"
+    layout: |
+      status.visual + " " + id + " " + <text.secondary>title + "  p" + priority
+    lanes:
+      - name: Tasks
+        columns: 1
+        filter: select where has(status) order by status, priority, updatedAt desc
 
 triggers:
   - description: clean up completed tasks after 24 hours

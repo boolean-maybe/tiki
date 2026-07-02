@@ -11,7 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/util"
-	"github.com/boolean-maybe/tiki/view/taskdetail"
+	"github.com/boolean-maybe/tiki/view/tikidetail"
 )
 
 // ViewFactory instantiates views by ID, injecting required dependencies.
@@ -19,19 +19,33 @@ import (
 
 // ViewFactory creates views on demand
 type ViewFactory struct {
-	taskStore    store.Store
+	tikiStore    store.Store
 	imageManager *navtview.ImageManager
 	mermaidOpts  *nav.MermaidOptions
 	// Plugin support
 	pluginConfigs     map[string]*model.PluginConfig
 	pluginDefs        map[string]plugin.Plugin
 	pluginControllers map[string]controller.PluginControllerInterface
+	globalActions     []plugin.PluginAction
+	// wikiControllerFactory creates a fresh WikiController for each view navigation,
+	// preventing the shared-singleton problem where SetSelectedTikiID on one navigation
+	// would overwrite the selected tiki ID seen by a previously-pushed view of the same plugin.
+	wikiControllerFactory func(pluginDef plugin.Plugin, selectedTikiID string) *controller.WikiController
+	// detailControllerFactory mirrors wikiControllerFactory for kind: detail
+	// views: each navigation gets its own DetailController so multiple Detail
+	// views on the stack hold independent selectedTikiID values. Without this,
+	// the most recent navigation overwrites the selection of every earlier
+	// detail view of the same plugin.
+	detailControllerFactory func(pluginDef *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController
 }
 
 // NewViewFactory creates a view factory
-func NewViewFactory(taskStore store.Store) *ViewFactory {
-	// Configure image resolver with task directory as search root for relative image paths
-	searchRoots := []string{config.GetTaskDir()}
+func NewViewFactory(tikiStore store.Store) *ViewFactory {
+	// Configure image resolver with the unified document root as the primary
+	// search root so images referenced from nested or root-level `.md`
+	// documents resolve (e.g. `.doc/projects/foo/diagram.png` or
+	// `.doc/assets/logo.png`).
+	searchRoots := []string{config.GetDocDir()}
 	resolver := nav.NewImageResolver(searchRoots)
 	resolver.SetDarkMode(!config.IsLightTheme())
 	imgMgr := navtview.NewImageManager(resolver, 8, 16)
@@ -39,89 +53,144 @@ func NewViewFactory(taskStore store.Store) *ViewFactory {
 	imgMgr.SetSupported(util.SupportsKittyGraphics())
 
 	return &ViewFactory{
-		taskStore:    taskStore,
+		tikiStore:    tikiStore,
 		imageManager: imgMgr,
 		mermaidOpts:  &nav.MermaidOptions{},
 	}
 }
 
-// SetPlugins configures plugin support in the factory
+// SetPlugins configures plugin support in the factory. globalActions carries
+// the workflow's top-level `actions:` list so non-board views can surface
+// `kind: view` entries in their own registry.
 func (f *ViewFactory) SetPlugins(
 	configs map[string]*model.PluginConfig,
 	defs map[string]plugin.Plugin,
 	controllers map[string]controller.PluginControllerInterface,
+	globalActions []plugin.PluginAction,
 ) {
 	f.pluginConfigs = configs
 	f.pluginDefs = defs
 	f.pluginControllers = controllers
+	f.globalActions = globalActions
 }
 
-// RegisterPlugin registers a dynamically created plugin (e.g., deps editor) with the view factory.
-func (f *ViewFactory) RegisterPlugin(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl controller.PluginControllerInterface) {
-	f.pluginConfigs[name] = cfg
-	f.pluginDefs[name] = def
-	f.pluginControllers[name] = ctrl
+// SetWikiControllerFactory registers a factory function that creates a fresh
+// WikiController per view navigation, capturing nav/status/gate/schema from
+// the bootstrap context. Must be called before any wiki view is created.
+func (f *ViewFactory) SetWikiControllerFactory(fn func(pluginDef plugin.Plugin, selectedTikiID string) *controller.WikiController) {
+	f.wikiControllerFactory = fn
 }
 
-// CreateView instantiates a view by ID with optional parameters
+// SetDetailControllerFactory registers a factory for fresh DetailControllers
+// per navigation. Same rationale as SetWikiControllerFactory but for
+// kind: detail views, so two pushed Detail views can each carry their own
+// selected tiki id without trampling each other.
+func (f *ViewFactory) SetDetailControllerFactory(fn func(pluginDef *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController) {
+	f.detailControllerFactory = fn
+}
+
+// CreateView instantiates a view by ID with optional parameters.
+// Plugin views are the only views the factory builds; built-in view IDs no
+// longer route through here.
 func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interface{}) controller.View {
-	var v controller.View
-
-	switch viewID {
-	case model.TaskDetailViewID:
-		detailParams := model.DecodeTaskDetailParams(params)
-		v = taskdetail.NewTaskDetailView(f.taskStore, detailParams.TaskID, detailParams.ReadOnly, f.imageManager, f.mermaidOpts)
-
-	case model.TaskEditViewID:
-		editParams := model.DecodeTaskEditParams(params)
-		v = taskdetail.NewTaskEditView(f.taskStore, editParams.TaskID, f.imageManager)
-		if tev, ok := v.(*taskdetail.TaskEditView); ok {
-			if editParams.Draft != nil {
-				tev.SetFallbackTask(editParams.Draft)
-			}
-			if editParams.DescOnly {
-				tev.SetDescOnly(true)
-			}
-			if editParams.TagsOnly {
-				tev.SetTagsOnly(true)
-			}
-		}
-
-	default:
-		// Check if it's a plugin view
-		if model.IsPluginViewID(viewID) {
-			pluginName := model.GetPluginName(viewID)
-			pluginConfig := f.pluginConfigs[pluginName]
-			pluginDef := f.pluginDefs[pluginName]
-			pluginControllerInterface := f.pluginControllers[pluginName]
-
-			if pluginDef != nil {
-				if tikiPlugin, ok := pluginDef.(*plugin.TikiPlugin); ok && pluginConfig != nil && pluginControllerInterface != nil {
-					if tikiCtrl, ok := pluginControllerInterface.(controller.TikiViewProvider); ok {
-						v = NewPluginView(
-							f.taskStore,
-							pluginConfig,
-							tikiPlugin,
-							tikiCtrl.GetFilteredTasksForLane,
-							tikiCtrl.EnsureFirstNonEmptyLaneSelection,
-							tikiCtrl.GetActionRegistry(),
-							tikiCtrl.ShowNavigation(),
-						)
-					} else {
-						slog.Error("plugin controller does not implement TikiViewProvider", "plugin", pluginName)
-					}
-				} else if dokiPlugin, ok := pluginDef.(*plugin.DokiPlugin); ok {
-					v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts)
-				} else {
-					slog.Error("unknown plugin type or missing config", "plugin", pluginName)
-				}
-			} else {
-				slog.Error("plugin not found", "plugin", pluginName)
-			}
-		} else {
-			slog.Error("unknown view ID", "viewID", viewID)
-		}
+	if !model.IsPluginViewID(viewID) {
+		slog.Error("unknown view ID", "viewID", viewID)
+		return nil
 	}
 
-	return v
+	pluginName := model.GetPluginName(viewID)
+	pluginConfig := f.pluginConfigs[pluginName]
+	pluginDef := f.pluginDefs[pluginName]
+	pluginControllerInterface := f.pluginControllers[pluginName]
+
+	if pluginDef == nil {
+		slog.Error("plugin not found", "plugin", pluginName)
+		return nil
+	}
+
+	switch pluginDef.GetKind() {
+	case plugin.KindBoard, plugin.KindList:
+		tikiPlugin, ok := pluginDef.(*plugin.WorkflowPlugin)
+		if !ok {
+			slog.Error("board/list plugin is not a WorkflowPlugin", "plugin", pluginName)
+			return nil
+		}
+		if pluginConfig == nil || pluginControllerInterface == nil {
+			slog.Error("missing plugin config or controller", "plugin", pluginName)
+			return nil
+		}
+		tikiCtrl, ok := pluginControllerInterface.(controller.TikiViewProvider)
+		if !ok {
+			slog.Error("plugin controller does not implement TikiViewProvider", "plugin", pluginName)
+			return nil
+		}
+		return NewPluginView(
+			f.tikiStore,
+			pluginConfig,
+			tikiPlugin,
+			tikiCtrl.GetFilteredTikisForLane,
+			tikiCtrl.EnsureFirstNonEmptyLaneSelection,
+			tikiCtrl.GetActionRegistry(),
+			tikiCtrl.ShowNavigation(),
+		)
+	case plugin.KindWiki:
+		wikiPlugin, ok := pluginDef.(*plugin.WikiPlugin)
+		if !ok {
+			slog.Error("wiki plugin is not a WikiPlugin", "plugin", pluginName)
+			return nil
+		}
+		pluginParams := model.DecodePluginViewParams(params)
+		// create a fresh WikiController per navigation so each view
+		// instance on the nav stack holds its own selectedTikiID. the
+		// shared map entry is updated so InputRouter always dispatches
+		// through the controller that owns the currently-active view.
+		if f.wikiControllerFactory != nil {
+			freshCtrl := f.wikiControllerFactory(pluginDef, pluginParams.TikiID)
+			f.pluginControllers[pluginName] = freshCtrl
+		} else if dc, ok := pluginControllerInterface.(*controller.WikiController); ok {
+			dc.SetSelectedTikiID(pluginParams.TikiID)
+		}
+		return NewWikiView(wikiPlugin, f.imageManager, f.mermaidOpts, f.globalActions, f.tikiStore, pluginParams.TikiID)
+	case plugin.KindDetail:
+		detailPlugin, ok := pluginDef.(*plugin.DetailPlugin)
+		if !ok {
+			slog.Error("detail plugin is not a DetailPlugin", "plugin", pluginName)
+			return nil
+		}
+		pluginParams := model.DecodePluginViewParams(params)
+		// build (or refresh) the controller that owns this view's
+		// selectedTikiID. each navigation gets a fresh controller —
+		// matching the wiki path — so two pushed Detail views
+		// of the same plugin don't overwrite each other's selection.
+		// the shared map is updated to the freshest controller so the
+		// InputRouter dispatches keys against the active view.
+		var dc *controller.DetailController
+		if f.detailControllerFactory != nil {
+			dc = f.detailControllerFactory(detailPlugin, pluginParams.TikiID)
+			f.pluginControllers[pluginName] = dc
+		} else if existing, ok := pluginControllerInterface.(*controller.DetailController); ok {
+			existing.SetSelectedTikiID(pluginParams.TikiID)
+			dc = existing
+		}
+		registry := controller.DetailViewActions()
+		if dc != nil {
+			registry = dc.GetActionRegistry()
+		}
+		cv := tikidetail.NewConfigurableDetailView(
+			f.tikiStore,
+			pluginParams.TikiID,
+			detailPlugin,
+			registry,
+			f.imageManager,
+			f.mermaidOpts,
+		)
+		if dc != nil {
+			dc.BindEditView(cv)
+			dc.ApplyDetailMode(pluginParams.Mode, pluginParams.Focus, pluginParams.Draft)
+		}
+		return cv
+	default:
+		slog.Error("unknown plugin kind", "plugin", pluginName, "kind", pluginDef.GetKind())
+		return nil
+	}
 }

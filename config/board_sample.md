@@ -1,8 +1,10 @@
 ---
+id: XXXXXX
 title: Welcome to tiki-land!
 type: story
-status: ready
-priority: 1
+status: inbox
+priority: medium-high
+points: 7
 tags:
   - info
   - ideas
@@ -22,7 +24,7 @@ check it out: https://github.com/boolean-maybe/tiki
 - [x] AI native
 - [x] rich **Markdown** format
 
-![Markdown](markdown.png)
+![Markdown](assets/markdown.png)
 ## Git managed
 
 `tikis` (short for tickets) are just **Markdown** files in your repository
@@ -30,11 +32,13 @@ check it out: https://github.com/boolean-maybe/tiki
 ```
 /projects/my-app
 ├── .doc/
-│   └── tiki/
-│       ├── tiki-k3x9m2.md
-│       ├── tiki-7wq4na.md
-│       ├── tiki-p8j1fz.md
-│       └── tiki-5r2bvh.md
+│   ├── workflow.yaml
+│   ├── onboarding.md
+│   ├── auth-refactor.md
+│   ├── architecture.md
+│   ├── ideas.md
+│   └── assets/
+│       └── markdown.png
 ├── src/
 │   ├── components/
 │   │   ├── Header.tsx
@@ -45,6 +49,8 @@ check it out: https://github.com/boolean-maybe/tiki
 ├── package.json
 └── LICENSE
 ```
+
+Filenames are free — identity lives in the `id:` frontmatter field.
 
 ## Built-in terminal UI
 
@@ -61,9 +67,9 @@ A built-in `tiki` command displays a nice Scrum/Kanban board and a searchable Ba
 since they are simple **Markdown** files they can also be easily manipulated via AI. For example, you can
 use Claude Code with skills to search, create, view, update and delete `tikis`
 
-> hey Claude show me a tiki TIKI-m7n2xk
+> hey Claude show me tiki M7N2XK
 > change it from story to a bug
-> and assign priority 1
+> and set priority to high
 
 
 ## Rich Markdown format

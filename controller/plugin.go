@@ -5,12 +5,12 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
-	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // PluginController handles plugin view actions: navigation, open, create, delete.
@@ -20,17 +20,17 @@ type PluginController struct {
 
 // NewPluginController creates a plugin controller
 func NewPluginController(
-	taskStore store.Store,
-	mutationGate *service.TaskMutationGate,
+	tikiStore store.Store,
+	mutationGate *service.TikiMutationGate,
 	pluginConfig *model.PluginConfig,
-	pluginDef *plugin.TikiPlugin,
+	pluginDef *plugin.WorkflowPlugin,
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
 	schema ruki.Schema,
 ) *PluginController {
 	pc := &PluginController{
 		pluginBase: pluginBase{
-			taskStore:     taskStore,
+			tikiStore:     tikiStore,
 			mutationGate:  mutationGate,
 			pluginConfig:  pluginConfig,
 			pluginDef:     pluginDef,
@@ -96,33 +96,24 @@ func (pc *PluginController) ShowNavigation() bool { return true }
 
 // EnsureFirstNonEmptyLaneSelection delegates to pluginBase with this controller's filter.
 func (pc *PluginController) EnsureFirstNonEmptyLaneSelection() bool {
-	return pc.pluginBase.EnsureFirstNonEmptyLaneSelection(pc.GetFilteredTasksForLane)
+	return pc.pluginBase.EnsureFirstNonEmptyLaneSelection(pc.GetFilteredTikisForLane)
 }
 
 // HandleAction processes a plugin action
 func (pc *PluginController) HandleAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionNavUp:
-		return pc.handleNav("up", pc.GetFilteredTasksForLane)
+		return pc.handleNav("up", pc.GetFilteredTikisForLane)
 	case ActionNavDown:
-		return pc.handleNav("down", pc.GetFilteredTasksForLane)
+		return pc.handleNav("down", pc.GetFilteredTikisForLane)
 	case ActionNavLeft:
-		return pc.handleNav("left", pc.GetFilteredTasksForLane)
+		return pc.handleNav("left", pc.GetFilteredTikisForLane)
 	case ActionNavRight:
-		return pc.handleNav("right", pc.GetFilteredTasksForLane)
-	case ActionMoveTaskLeft:
-		return pc.handleMoveTask(-1)
-	case ActionMoveTaskRight:
-		return pc.handleMoveTask(1)
-	case ActionOpenFromPlugin:
-		return pc.handleOpenTask(pc.GetFilteredTasksForLane)
-	case ActionNewTask:
-		return pc.handleNewTask()
-	case ActionDeleteTask:
-		return pc.handleDeleteTask(pc.GetFilteredTasksForLane)
-	case ActionToggleViewMode:
-		pc.pluginConfig.ToggleViewMode()
-		return true
+		return pc.handleNav("right", pc.GetFilteredTikisForLane)
+	case ActionMoveTikiLeft:
+		return pc.handleMoveTiki(-1)
+	case ActionMoveTikiRight:
+		return pc.handleMoveTiki(1)
 	default:
 		if keyStr := getPluginActionKeyStr(actionID); keyStr != "" {
 			return pc.handlePluginAction(actionID)
@@ -134,7 +125,7 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 // HandleSearch processes a search query for the plugin view
 func (pc *PluginController) HandleSearch(query string) {
 	pc.handleSearch(query, func() bool {
-		return pc.selectFirstNonEmptyLane(pc.GetFilteredTasksForLane)
+		return pc.selectFirstNonEmptyLane(pc.GetFilteredTikisForLane)
 	})
 }
 
@@ -156,22 +147,22 @@ func (pc *PluginController) getPluginAction(actionID ActionID) (*plugin.PluginAc
 // selection/create-template preflight. Returns ok=false if the action can't run.
 func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.ExecutionInput, bool) {
 	input := ruki.ExecutionInput{}
-	ids := pc.getSelectedTaskIDs(pc.GetFilteredTasksForLane)
+	ids := pc.getSelectedTikiIDs(pc.GetFilteredTikisForLane)
 
 	if !selectionSatisfies(pa.Require, len(ids)) {
 		return input, false
 	}
 	if len(ids) > 0 {
-		input.SelectedTaskIDs = ids
+		input.SelectedTikiIDs = ids
 	}
 
-	if pa.Action.IsCreate() {
-		template, err := pc.taskStore.NewTaskTemplate()
+	if pa.Action != nil && pa.Action.IsCreate() {
+		template, err := pc.tikiStore.NewTikiTemplate()
 		if err != nil {
-			slog.Error("failed to create task template for plugin action", "error", err)
+			slog.Error("failed to create tiki template for plugin action", "error", err)
 			return input, false
 		}
-		input.CreateTemplate = template
+		input.CreateTemplate = tikipkg.WrapDoc(template)
 	}
 
 	return input, true
@@ -217,11 +208,11 @@ func selectionRequirements(reqs []string) []Requirement {
 }
 
 // logSelectionFields returns the slog key/value pairs that describe the
-// current selection — task_id only when exactly one is selected, otherwise
+// current selection — tiki_id only when exactly one is selected, otherwise
 // just selected_count.
 func logSelectionFields(input ruki.ExecutionInput) []any {
-	if id, ok := input.SingleSelectedTaskID(); ok {
-		return []any{"task_id", id, "selected_count", 1}
+	if id, ok := input.SingleSelectedTikiID(); ok {
+		return []any{"tiki_id", id, "selected_count", 1}
 	}
 	return []any{"selected_count", input.SelectionCount()}
 }
@@ -229,9 +220,9 @@ func logSelectionFields(input ruki.ExecutionInput) []any {
 // executeAndApply runs the executor and applies the result (store mutations, pipe, clipboard).
 func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.ExecutionInput) bool {
 	executor := pc.newExecutor()
-	allTasks := pc.taskStore.GetAllTasks()
+	allTikis := pc.tikiStore.GetAllTikis()
 
-	result, err := executor.Execute(pa.Action, allTasks, input)
+	result, err := executor.Execute(pa.Action, tikipkg.WrapDocs(allTikis), input)
 	if err != nil {
 		args := append(logSelectionFields(input), "key", pa.KeyStr, "error", err)
 		slog.Error("failed to execute plugin action", args...)
@@ -244,32 +235,34 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	ctx := context.Background()
 	switch {
 	case result.Select != nil:
-		args := append(logSelectionFields(input), "key", pa.KeyStr, "label", pa.Label, "matched", len(result.Select.Tasks))
+		args := append(logSelectionFields(input), "key", pa.KeyStr, "label", pa.Label, "matched", len(result.Select.Tikis))
 		slog.Info("select plugin action executed", args...)
 		return true
 	case result.Update != nil:
-		for _, updated := range result.Update.Updated {
-			if err := pc.mutationGate.UpdateTask(ctx, updated); err != nil {
-				slog.Error("failed to update task after plugin action", "task_id", updated.ID, "key", pa.KeyStr, "error", err)
+		for _, doc := range result.Update.Updated {
+			tk := tikipkg.UnwrapDoc(doc)
+			if err := pc.mutationGate.UpdateTiki(ctx, tk); err != nil {
+				slog.Error("failed to update tiki after plugin action", "tiki_id", tk.ID(), "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
 				return false
 			}
-			pc.ensureSearchResultIncludesTask(updated)
+			pc.ensureSearchResultIncludesTiki(tk)
 		}
 	case result.Create != nil:
-		if err := pc.mutationGate.CreateTask(ctx, result.Create.Task); err != nil {
-			slog.Error("failed to create task from plugin action", "key", pa.KeyStr, "error", err)
+		if err := pc.mutationGate.CreateTiki(ctx, tikipkg.UnwrapDoc(result.Create.Tiki)); err != nil {
+			slog.Error("failed to create tiki from plugin action", "key", pa.KeyStr, "error", err)
 			if pc.statusline != nil {
 				pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 			}
 			return false
 		}
 	case result.Delete != nil:
-		for _, deleted := range result.Delete.Deleted {
-			if err := pc.mutationGate.DeleteTask(ctx, deleted); err != nil {
-				slog.Error("failed to delete task from plugin action", "task_id", deleted.ID, "key", pa.KeyStr, "error", err)
+		for _, doc := range result.Delete.Deleted {
+			tk := tikipkg.UnwrapDoc(doc)
+			if err := pc.mutationGate.DeleteTiki(ctx, tk); err != nil {
+				slog.Error("failed to delete tiki from plugin action", "tiki_id", tk.ID(), "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
@@ -303,17 +296,113 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	return true
 }
 
-// handlePluginAction applies a plugin shortcut action to the currently selected task.
+// handlePluginAction applies a plugin shortcut action. Ruki-kind actions run
+// through the executor pipeline; view-kind actions navigate to another view.
 func (pc *PluginController) handlePluginAction(actionID ActionID) bool {
 	pa, ok := pc.getPluginAction(actionID)
 	if !ok {
 		return false
+	}
+	if pa.Kind == plugin.ActionKindView {
+		return pc.handleViewAction(pa)
 	}
 	input, ok := pc.buildExecutionInput(pa)
 	if !ok {
 		return false
 	}
 	return pc.executeAndApply(pa, input)
+}
+
+// handleViewAction switches to the target view declared by a kind: view action.
+// Two gates run before navigation:
+//   - the action's own `require:` (e.g. an action may demand selection:one
+//     on the source view before it's allowed to fire at all).
+//   - the target view's `require:` (e.g. a `kind: detail` view declares
+//     selection:one so it refuses to open without a selection).
+//
+// Both are evaluated against the current selection because kind: view
+// carries selection through; a separate pair for the target would need
+// its own context, which is not how passthrough works today.
+//
+// When exactly one tiki is selected, its id is carried into the target
+// view's params (6B.3) so `kind: detail` and other selection-aware
+// views see the current selection.
+func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
+	ids := pc.getSelectedTikiIDs(pc.GetFilteredTikisForLane)
+	if !selectionSatisfies(pa.Require, len(ids)) {
+		return false
+	}
+	if pa.TargetView == "" {
+		return false
+	}
+	// Carried selection is what the target view will see. `kind: view`
+	// passthrough today carries at most one id (when exactly one tiki is
+	// selected on the source), matching the encode branch below.
+	carried := 0
+	if len(ids) == 1 {
+		carried = 1
+	}
+	// modes that supply their own subject (mode: new) don't operate on the
+	// carried selection, so the target view's selection requirement must not
+	// gate them — otherwise New can never fire on an empty board.
+	if !pa.Mode.SuppliesOwnSubject() && !TargetViewEnabled(pa.TargetView, carried) {
+		return false
+	}
+	pvp, ok := buildDetailViewParams(pa, ids, pc.tikiStore, pc.pluginExecutor())
+	if !ok {
+		return false
+	}
+	pc.navController.PushView(model.MakePluginViewID(pa.TargetView), model.EncodePluginViewParams(pvp))
+	return true
+}
+
+// buildDetailViewParams encodes the per-mode dispatch contract shared by
+// PluginController.handleViewAction and DetailController.dispatchViewAction.
+// For mode: new it synthesizes a fresh draft from the store; for the other
+// four modes it threads the carried selection (if any) and the appropriate
+// focus field. Returns false when a mode requires a single selection and
+// none was provided, or when draft synthesis fails.
+func buildDetailViewParams(pa *plugin.PluginAction, ids []string, s store.Store, exec *PluginExecutor) (model.PluginViewParams, bool) {
+	pvp := model.PluginViewParams{Mode: pa.Mode}
+	switch pa.Mode {
+	case plugin.DetailModeNew:
+		draft, err := newModeDraft(pa, s, exec)
+		if err != nil {
+			slog.Error("mode: new failed to create draft", "error", err)
+			return model.PluginViewParams{}, false
+		}
+		pvp.Draft = draft
+		pvp.Focus = model.EditFieldTitle
+	case plugin.DetailModeEditDesc:
+		if len(ids) != 1 {
+			return model.PluginViewParams{}, false
+		}
+		pvp.TikiID = ids[0]
+		pvp.Focus = model.EditFieldDescription
+	case plugin.DetailModeEditTags:
+		if len(ids) != 1 {
+			return model.PluginViewParams{}, false
+		}
+		pvp.TikiID = ids[0]
+		pvp.Focus = model.EditFieldTags
+	default:
+		// "", view, edit
+		if len(ids) == 1 {
+			pvp.TikiID = ids[0]
+		}
+	}
+	return pvp, true
+}
+
+// newModeDraft returns the draft for a mode: new dispatch. With a CreateSeed it
+// runs the seed through the executor (no persist) so explicit field values are
+// pre-filled; otherwise a bare template from the store. A nil executor falls
+// back to the bare template, keeping pure-navigation callers working.
+func newModeDraft(pa *plugin.PluginAction, s store.Store, exec *PluginExecutor) (*tikipkg.Tiki, error) {
+	if pa.CreateSeed != nil && exec != nil {
+		return exec.BuildCreateDraft(pa.CreateSeed)
+	}
+	return createDraftTiki(s)
 }
 
 // GetActionInputSpec returns the prompt and input type for an action, if it has input.
@@ -373,8 +462,12 @@ func (pc *PluginController) GetActionChooseSpec(actionID ActionID) (string, bool
 	return pa.Label, true
 }
 
-// CanStartActionChoose checks preflight and evaluates the subquery to build candidates.
-func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*task.Task, bool) {
+// CanStartActionChoose checks preflight and evaluates the subquery to build
+// candidates. Empty results flow through and open an empty QuickSelect — the
+// empty list is itself the answer the user wanted to see (e.g. "this epic
+// has no tasks", "no matching candidates"), and is more discoverable than a
+// statusline message.
+func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*tikipkg.Tiki, bool) {
 	pa, ok := pc.getPluginAction(actionID)
 	if !ok || !pa.HasChoose {
 		return "", nil, false
@@ -384,9 +477,9 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 		return "", nil, false
 	}
 
-	allTasks := pc.taskStore.GetAllTasks()
+	allTikis := pc.tikiStore.GetAllTikis()
 	executor := pc.newExecutor()
-	candidates, err := executor.EvalSubQueryFilter(pa.ChooseFilter, allTasks, input)
+	candidateDocs, err := executor.EvalSubQueryFilter(pa.ChooseFilter, tikipkg.WrapDocs(allTikis), input)
 	if err != nil {
 		slog.Error("failed to evaluate choose filter", "key", pa.KeyStr, "error", err)
 		if pc.statusline != nil {
@@ -394,33 +487,56 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 		}
 		return "", nil, false
 	}
-	if len(candidates) == 0 {
-		if pc.statusline != nil {
-			pc.statusline.SetMessage("no matching tasks for choose()", model.MessageLevelError, true)
-		}
-		return "", nil, false
-	}
-	return pa.Label, candidates, true
+	candidateTikis := tikipkg.UnwrapDocs(candidateDocs)
+	sortTikisByPriorityTitle(candidateTikis)
+	return pa.Label, candidateTikis, true
 }
 
-// HandleActionChoose handles the selected task ID from the QuickSelect picker.
-func (pc *PluginController) HandleActionChoose(actionID ActionID, taskID string) bool {
+// HandleActionChoose handles the selected tiki ID from the QuickSelect picker.
+// For ruki-kind actions the chosen id is fed back into the validated statement
+// via ExecutionInput.ChooseValue. For view-kind actions the chosen id replaces
+// the source view's cursor selection in the navigation params, so the target
+// detail view opens on the picked tiki rather than the cursor row.
+func (pc *PluginController) HandleActionChoose(actionID ActionID, tikiID string) bool {
 	pa, ok := pc.getPluginAction(actionID)
 	if !ok || !pa.HasChoose {
 		return false
+	}
+	if pa.Kind == plugin.ActionKindView {
+		return pc.handleViewActionWithChosenID(pa, tikiID)
 	}
 	input, ok := pc.buildExecutionInput(pa)
 	if !ok {
 		return false
 	}
-	input.ChooseValue = taskID
+	input.ChooseValue = tikiID
 	input.HasChoose = true
 	return pc.executeAndApply(pa, input)
 }
 
-func (pc *PluginController) handleMoveTask(offset int) bool {
-	taskID := pc.getSelectedTaskID(pc.GetFilteredTasksForLane)
-	if taskID == "" {
+// handleViewActionWithChosenID is handleViewAction's choose-driven sibling:
+// the chosen tiki id (from QuickSelect) drives the target view's navigation
+// params, replacing what handleViewAction would have read from the cursor.
+// The target view's `require:` is still evaluated, but against a carried
+// count of 1 (the chosen id), since QuickSelect always produces exactly one.
+func (pc *PluginController) handleViewActionWithChosenID(pa *plugin.PluginAction, tikiID string) bool {
+	if pa.TargetView == "" || tikiID == "" {
+		return false
+	}
+	if !TargetViewEnabled(pa.TargetView, 1) {
+		return false
+	}
+	pvp, ok := buildDetailViewParams(pa, []string{tikiID}, pc.tikiStore, pc.pluginExecutor())
+	if !ok {
+		return false
+	}
+	pc.navController.PushView(model.MakePluginViewID(pa.TargetView), model.EncodePluginViewParams(pvp))
+	return true
+}
+
+func (pc *PluginController) handleMoveTiki(offset int) bool {
+	tikiID := pc.getSelectedTikiID(pc.GetFilteredTikisForLane)
+	if tikiID == "" {
 		return false
 	}
 
@@ -439,11 +555,11 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	allTasks := pc.taskStore.GetAllTasks()
+	allTikis := pc.tikiStore.GetAllTikis()
 	executor := pc.newExecutor()
-	result, err := executor.Execute(actionStmt, allTasks, ruki.NewSingleSelectionInput(taskID))
+	result, err := executor.Execute(actionStmt, tikipkg.WrapDocs(allTikis), ruki.NewSingleSelectionInput(tikiID))
 	if err != nil {
-		slog.Error("failed to execute lane action", "task_id", taskID, "error", err)
+		slog.Error("failed to execute lane action", "tiki_id", tikiID, "error", err)
 		return false
 	}
 
@@ -451,22 +567,22 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	updated := result.Update.Updated[0]
-	if err := pc.mutationGate.UpdateTask(context.Background(), updated); err != nil {
-		slog.Error("failed to update task after lane move", "task_id", taskID, "error", err)
+	movedTiki := tikipkg.UnwrapDoc(result.Update.Updated[0])
+	if err := pc.mutationGate.UpdateTiki(context.Background(), movedTiki); err != nil {
+		slog.Error("failed to update tiki after lane move", "tiki_id", tikiID, "error", err)
 		if pc.statusline != nil {
 			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 		}
 		return false
 	}
 
-	pc.ensureSearchResultIncludesTask(updated)
-	pc.selectTaskInLane(targetLane, taskID, pc.GetFilteredTasksForLane)
+	pc.ensureSearchResultIncludesTiki(movedTiki)
+	pc.selectTikiInLane(targetLane, tikiID, pc.GetFilteredTikisForLane)
 	return true
 }
 
-// GetFilteredTasksForLane returns tasks filtered and sorted for a specific lane.
-func (pc *PluginController) GetFilteredTasksForLane(lane int) []*task.Task {
+// GetFilteredTikisForLane returns tikis filtered and sorted for a specific lane.
+func (pc *PluginController) GetFilteredTikisForLane(lane int) []*tikipkg.Tiki {
 	if pc.pluginDef == nil {
 		return nil
 	}
@@ -475,34 +591,45 @@ func (pc *PluginController) GetFilteredTasksForLane(lane int) []*task.Task {
 	}
 
 	filterStmt := pc.pluginDef.Lanes[lane].Filter
-	allTasks := pc.taskStore.GetAllTasks()
+	allTikis := pc.tikiStore.GetAllTikis()
 
-	var filtered []*task.Task
+	var filtered []*tikipkg.Tiki
+	needsSort := false
 	if filterStmt == nil {
-		filtered = allTasks
+		// no filter: use all tikis — order is nondeterministic from the map
+		filtered = make([]*tikipkg.Tiki, 0, len(allTikis))
+		filtered = append(filtered, allTikis...)
+		needsSort = true
 	} else {
 		executor := pc.newExecutor()
-		result, err := executor.Execute(filterStmt, allTasks)
+		result, err := executor.Execute(filterStmt, tikipkg.WrapDocs(allTikis))
 		if err != nil {
 			slog.Error("failed to execute lane filter", "lane", lane, "error", err)
 			return nil
 		}
-		filtered = result.Select.Tasks
+		filtered = tikipkg.UnwrapDocs(result.Select.Tikis)
+		// only skip secondary sort when the filter statement carries its own order by
+		needsSort = !filterStmt.HasOrderBy()
 	}
 
 	// narrow by search results if active
 	if searchResults := pc.pluginConfig.GetSearchResults(); searchResults != nil {
-		searchTaskMap := make(map[string]bool, len(searchResults))
-		for _, result := range searchResults {
-			searchTaskMap[result.Task.ID] = true
+		searchTikiMap := make(map[string]bool, len(searchResults))
+		for _, tk := range searchResults {
+			searchTikiMap[tk.ID()] = true
 		}
-		filtered = filterTasksBySearch(filtered, searchTaskMap)
+		filtered = filterTikisBySearch(filtered, searchTikiMap)
+		// search narrowing disrupts order; re-sort
+		needsSort = true
 	}
 
+	if needsSort {
+		sortTikisByPriorityTitle(filtered)
+	}
 	return filtered
 }
 
-func (pc *PluginController) ensureSearchResultIncludesTask(updated *task.Task) {
+func (pc *PluginController) ensureSearchResultIncludesTiki(updated *tikipkg.Tiki) {
 	if updated == nil {
 		return
 	}
@@ -510,15 +637,12 @@ func (pc *PluginController) ensureSearchResultIncludesTask(updated *task.Task) {
 	if searchResults == nil {
 		return
 	}
-	for _, result := range searchResults {
-		if result.Task != nil && result.Task.ID == updated.ID {
+	for _, tk := range searchResults {
+		if tk != nil && tk.ID() == updated.ID() {
 			return
 		}
 	}
 
-	searchResults = append(searchResults, task.SearchResult{
-		Task:  updated,
-		Score: 1.0,
-	})
+	searchResults = append(searchResults, updated)
 	pc.pluginConfig.SetSearchResults(searchResults, pc.pluginConfig.GetSearchQuery())
 }

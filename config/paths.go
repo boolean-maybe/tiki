@@ -147,33 +147,16 @@ func (pm *PathManager) ConfigFile() string {
 	return filepath.Join(pm.configDir, "config.yaml")
 }
 
-// TaskDir returns the project-local task directory
-func (pm *PathManager) TaskDir() string {
-	return filepath.Join(pm.projectRoot, ".doc", "tiki")
+// DocDir returns the document scan/write root, which is the current working
+// directory itself. All `.md` files under it are candidate documents.
+func (pm *PathManager) DocDir() string {
+	return pm.projectRoot
 }
 
-// DokiDir returns the project-local documentation directory
-func (pm *PathManager) DokiDir() string {
-	return filepath.Join(pm.projectRoot, ".doc", "doki")
-}
-
-// ProjectConfigDir returns the project-level config directory (.doc/)
+// ProjectConfigDir returns the project-level config directory — the project
+// root, where a cwd workflow.yaml/config.yaml live.
 func (pm *PathManager) ProjectConfigDir() string {
-	return filepath.Join(pm.projectRoot, ".doc")
-}
-
-// ProjectConfigFile returns the path to the project-local config file
-func (pm *PathManager) ProjectConfigFile() string {
-	return filepath.Join(pm.ProjectConfigDir(), "config.yaml")
-}
-
-// PluginSearchPaths returns directories to search for plugin files
-// Search order: project config dir → user config dir
-func (pm *PathManager) PluginSearchPaths() []string {
-	return []string{
-		pm.ProjectConfigDir(), // Project config directory (for project-specific plugins)
-		pm.configDir,          // User config directory
-	}
+	return pm.projectRoot
 }
 
 // UserConfigWorkflowFile returns the path to workflow.yaml in the user config directory
@@ -181,7 +164,9 @@ func (pm *PathManager) UserConfigWorkflowFile() string {
 	return filepath.Join(pm.configDir, defaultWorkflowFilename)
 }
 
-// EnsureDirs creates all necessary directories with appropriate permissions
+// EnsureDirs creates the user config and cache directories. The document scan
+// root is the current working directory, which already exists, so nothing is
+// created for it.
 func (pm *PathManager) EnsureDirs() error {
 	// Create user config directory
 	//nolint:gosec // G301: 0755 is appropriate for config directory
@@ -192,17 +177,6 @@ func (pm *PathManager) EnsureDirs() error {
 	// Create user cache directory (non-fatal if it fails)
 	//nolint:gosec // G301: 0755 is appropriate for cache directory
 	_ = os.MkdirAll(pm.cacheDir, 0755)
-
-	// Create project directories
-	//nolint:gosec // G301: 0755 is appropriate for task directory
-	if err := os.MkdirAll(pm.TaskDir(), 0755); err != nil {
-		return fmt.Errorf("create task directory %s: %w", pm.TaskDir(), err)
-	}
-
-	//nolint:gosec // G301: 0755 is appropriate for doki directory
-	if err := os.MkdirAll(pm.DokiDir(), 0755); err != nil {
-		return fmt.Errorf("create doki directory %s: %w", pm.DokiDir(), err)
-	}
 
 	return nil
 }
@@ -282,34 +256,13 @@ func GetCacheDir() string {
 	return mustGetPathManager().CacheDir()
 }
 
-// GetConfigFile returns the path to the user config file
-func GetConfigFile() string {
-	return mustGetPathManager().ConfigFile()
-}
-
-// GetTaskDir returns the project-local task directory
-func GetTaskDir() string {
-	return mustGetPathManager().TaskDir()
-}
-
-// GetDokiDir returns the project-local documentation directory
-func GetDokiDir() string {
-	return mustGetPathManager().DokiDir()
-}
-
-// GetProjectConfigDir returns the project-level config directory (.doc/)
-func GetProjectConfigDir() string {
-	return mustGetPathManager().ProjectConfigDir()
-}
-
-// GetProjectConfigFile returns the path to the project-local config file
-func GetProjectConfigFile() string {
-	return mustGetPathManager().ProjectConfigFile()
-}
-
-// GetPluginSearchPaths returns directories to search for plugin files
-func GetPluginSearchPaths() []string {
-	return mustGetPathManager().PluginSearchPaths()
+// GetDocDir returns the document scan/write root — the current working
+// directory. This is the single scan root for the document store; brand-new
+// documents are written at <cwd>/<ID>.md, while loading is filename-agnostic —
+// every `.md` under the root is loaded and the id comes from the frontmatter
+// `id:` field.
+func GetDocDir() string {
+	return mustGetPathManager().DocDir()
 }
 
 // GetUserConfigWorkflowFile returns the path to workflow.yaml in the user config directory
@@ -348,14 +301,18 @@ func findHighestPriorityFile(candidates []string) string {
 	return best
 }
 
-// workflowCandidates returns the standard workflow.yaml search paths
-// in priority order: user config (lowest) → project config → cwd (highest).
+// workflowCandidates returns the standard workflow.yaml search paths in
+// priority order: user config (lowest) → cwd (highest). The scan root is the
+// current working directory, so a project-level workflow.yaml lives at the cwd
+// root — there is no separate ".doc" project tier. When neither file exists the
+// embedded default is seeded into the user config at launch
+// (config.InstallDefaultWorkflow), so the chain still resolves to the embedded
+// default in practice.
 func workflowCandidates() []string {
 	pm := mustGetPathManager()
 	return []string{
 		pm.UserConfigWorkflowFile(),
-		filepath.Join(pm.ProjectConfigDir(), defaultWorkflowFilename),
-		defaultWorkflowFilename, // relative to cwd
+		filepath.Join(pm.ProjectConfigDir(), defaultWorkflowFilename), // cwd root
 	}
 }
 
@@ -363,7 +320,7 @@ func workflowCandidates() []string {
 // and returns both the winning path and its classified scope. This is the
 // single source of truth — FindWorkflowFile and FindWorkflowFiles delegate here.
 func findWorkflowFileWithScope() (string, Scope) {
-	scopes := []Scope{ScopeGlobal, ScopeLocal, ScopeCurrent}
+	scopes := []Scope{ScopeGlobal, ScopeCurrent}
 	candidates := workflowCandidates()
 
 	var bestPath string
@@ -418,8 +375,6 @@ func WorkflowScopeLabel(scope Scope) string {
 	switch scope {
 	case ScopeGlobal:
 		return "global"
-	case ScopeLocal:
-		return "project"
 	case ScopeCurrent:
 		return "local"
 	default:

@@ -6,11 +6,18 @@ import (
 	"io"
 	"strings"
 
-	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/tiki"
 )
+
+// allDocsAsTikis returns every loaded tiki for ruki execution, including plain
+// docs. Prefers rs.GetAllTikis() directly to avoid roundtrips through
+// intermediate types that drop tiki-native fields (e.g. CreatedBy, Body).
+func allDocsAsTikis(rs store.ReadStore) []*tiki.Tiki {
+	return rs.GetAllTikis()
+}
 
 // OutputFormat selects the renderer for CLI query output. OutputTable is the
 // default text/table form; OutputJSON emits compact machine-readable JSON.
@@ -36,13 +43,13 @@ type RunQueryOptions struct {
 
 // RunQuery parses and executes a ruki statement against the given gate,
 // writing formatted results to out in the default table/text form.
-func RunQuery(gate *service.TaskMutationGate, query string, out io.Writer) error {
+func RunQuery(gate *service.TikiMutationGate, query string, out io.Writer) error {
 	return RunQueryWithOptions(gate, query, out, RunQueryOptions{OutputFormat: OutputTable})
 }
 
 // RunQueryWithOptions is the options-aware entry point used by `tiki exec`.
 // Callers that want the default text/table output should use RunQuery.
-func RunQueryWithOptions(gate *service.TaskMutationGate, query string, out io.Writer, opts RunQueryOptions) error {
+func RunQueryWithOptions(gate *service.TikiMutationGate, query string, out io.Writer, opts RunQueryOptions) error {
 	query = strings.TrimSuffix(strings.TrimSpace(query), ";")
 	if query == "" {
 		return fmt.Errorf("empty query")
@@ -57,7 +64,8 @@ func RunQueryWithOptions(gate *service.TaskMutationGate, query string, out io.Wr
 	if err != nil {
 		return fmt.Errorf("resolve current user: %w", err)
 	}
-	executor := ruki.NewExecutor(schema, userFunc, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
+	factory := ruki.DocumentFactory(tiki.NewDoc)
+	executor := ruki.NewExecutor(schema, factory, userFunc, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
 
 	stmt, err := parser.ParseAndValidateStatement(query, ruki.ExecutorRuntimeCLI)
 	if err != nil {
@@ -68,19 +76,18 @@ func RunQueryWithOptions(gate *service.TaskMutationGate, query string, out io.Wr
 	// (e.g. tags=tags+["new"]) resolve from template defaults
 	var input ruki.ExecutionInput
 	if stmt.RequiresCreateTemplate() {
-		var template *task.Task
-		template, err = readStore.NewTaskTemplate()
-		if err != nil {
-			return fmt.Errorf("create template: %w", err)
+		tmpl, tmplErr := readStore.NewTikiTemplate()
+		if tmplErr != nil {
+			return fmt.Errorf("create template: %w", tmplErr)
 		}
-		if template == nil {
+		if tmpl == nil {
 			return fmt.Errorf("create template: store returned nil template")
 		}
-		input.CreateTemplate = template
+		input.CreateTemplate = tiki.WrapDoc(tmpl)
 	}
 
-	tasks := readStore.GetAllTasks()
-	result, err := executor.Execute(stmt, tasks, input)
+	tikis := allDocsAsTikis(readStore)
+	result, err := executor.Execute(stmt, tiki.WrapDocs(tikis), input)
 	if err != nil {
 		return fmt.Errorf("execute: %w", err)
 	}
@@ -182,10 +189,11 @@ func RunSelectQuery(readStore store.ReadStore, query string, out io.Writer) erro
 	if err != nil {
 		return fmt.Errorf("resolve current user: %w", err)
 	}
-	executor := ruki.NewExecutor(schema, userFunc, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
+	factory := ruki.DocumentFactory(tiki.NewDoc)
+	executor := ruki.NewExecutor(schema, factory, userFunc, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
 
-	tasks := readStore.GetAllTasks()
-	result, err := executor.Execute(validated, tasks, ruki.ExecutionInput{})
+	tikis := allDocsAsTikis(readStore)
+	result, err := executor.Execute(validated, tiki.WrapDocs(tikis), ruki.ExecutionInput{})
 	if err != nil {
 		return fmt.Errorf("execute: %w", err)
 	}
@@ -194,12 +202,12 @@ func RunSelectQuery(readStore store.ReadStore, query string, out io.Writer) erro
 	return formatter.Format(out, result.Select)
 }
 
-func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur *ruki.UpdateResult, out io.Writer, json bool) error {
+func persistAndSummarize(ctx context.Context, gate *service.TikiMutationGate, ur *ruki.UpdateResult, out io.Writer, json bool) error {
 	var succeeded, failed int
 	var firstErr error
 
-	for _, t := range ur.Updated {
-		if err := gate.UpdateTask(ctx, t); err != nil {
+	for _, doc := range ur.Updated {
+		if err := gate.UpdateTiki(ctx, tiki.UnwrapDoc(doc)); err != nil {
 			failed++
 			if firstErr == nil {
 				firstErr = err
@@ -214,28 +222,27 @@ func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur
 	}
 
 	if failed > 0 {
-		return fmt.Errorf("update partially failed: %d of %d tasks failed: %w", failed, succeeded+failed, firstErr)
+		return fmt.Errorf("update partially failed: %d of %d tikis failed: %w", failed, succeeded+failed, firstErr)
 	}
 	return nil
 }
 
-func persistCreate(ctx context.Context, gate *service.TaskMutationGate, cr *ruki.CreateResult, out io.Writer, json bool) error {
-	t := cr.Task
-
-	if err := gate.CreateTask(ctx, t); err != nil {
-		return fmt.Errorf("create task: %w", err)
+func persistCreate(ctx context.Context, gate *service.TikiMutationGate, cr *ruki.CreateResult, out io.Writer, json bool) error {
+	created := tiki.UnwrapDoc(cr.Tiki)
+	if err := gate.CreateTiki(ctx, created); err != nil {
+		return fmt.Errorf("create tiki: %w", err)
 	}
-
-	return formatCreateSummary(out, t.ID, json)
+	return formatCreateSummary(out, created.ID(), json)
 }
 
-func persistDelete(ctx context.Context, gate *service.TaskMutationGate, dr *ruki.DeleteResult, out io.Writer, json bool) error {
+func persistDelete(ctx context.Context, gate *service.TikiMutationGate, dr *ruki.DeleteResult, out io.Writer, json bool) error {
 	readStore := gate.ReadStore()
 	var succeeded, failed int
-	for _, t := range dr.Deleted {
-		if err := gate.DeleteTask(ctx, t); err != nil {
+	for _, doc := range dr.Deleted {
+		tk := tiki.UnwrapDoc(doc)
+		if err := gate.DeleteTiki(ctx, tk); err != nil {
 			failed++
-		} else if readStore.GetTask(t.ID) != nil {
+		} else if readStore.GetTiki(tk.ID()) != nil {
 			// store silently failed to delete
 			failed++
 		} else {
@@ -248,7 +255,7 @@ func persistDelete(ctx context.Context, gate *service.TaskMutationGate, dr *ruki
 	}
 
 	if failed > 0 {
-		return fmt.Errorf("delete partially failed: %d of %d tasks failed", failed, succeeded+failed)
+		return fmt.Errorf("delete partially failed: %d of %d tikis failed", failed, succeeded+failed)
 	}
 	return nil
 }

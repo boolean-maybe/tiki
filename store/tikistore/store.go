@@ -1,6 +1,6 @@
 package tikistore
 
-// TikiStore is a file-based Store implementation that persists tasks as markdown files.
+// TikiStore is a file-based Store implementation that persists tikis as markdown files.
 
 import (
 	"errors"
@@ -9,88 +9,77 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/internal/git"
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/tiki"
 )
 
-// ErrConflict indicates a task was modified externally since it was loaded
-var ErrConflict = errors.New("task was modified externally")
+// ErrConflict indicates a tiki was modified externally since it was loaded
+var ErrConflict = errors.New("tiki was modified externally")
 
-func normalizeTaskID(id string) string {
+func normalizeTikiID(id string) string {
 	return strings.ToUpper(strings.TrimSpace(id))
 }
 
-// TikiStore stores tasks as markdown files with YAML frontmatter.
-// Each task is a separate .md file in the configured directory.
+// TikiStore stores tikis as markdown files with YAML frontmatter.
+// Each tiki is a separate .md file in the configured directory.
 // Commit dates are retrieved from git (not stored in file); the current
 // Tiki identity comes from configured identity → git → OS user.
 type TikiStore struct {
 	mu             sync.RWMutex
-	dir            string // directory containing task files
-	tasks          map[string]*taskpkg.Task
+	dir            string // directory containing tiki files
+	tikis          map[string]*tiki.Tiki
 	listeners      map[int]store.ChangeListener
 	nextListenerID int
-	gitUtil        git.GitOps         // git utility for auto-staging modified files
-	taskHistory    *store.TaskHistory // history for burndown computation
-	upgrader       *LegacyUpgrader    // normalizes legacy field values on load
-	identity       *identityResolver  // resolves current Tiki identity (config→git→OS)
-}
-
-// taskFrontmatter represents the YAML frontmatter in task files
-type taskFrontmatter struct {
-	Title      string                  `yaml:"title"`
-	Type       string                  `yaml:"type"`
-	Status     string                  `yaml:"status"`
-	Tags       taskpkg.TagsValue       `yaml:"tags,omitempty"`
-	DependsOn  taskpkg.DependsOnValue  `yaml:"dependsOn,omitempty"`
-	Due        taskpkg.DueValue        `yaml:"due,omitempty"`
-	Recurrence taskpkg.RecurrenceValue `yaml:"recurrence,omitempty"`
-	Assignee   string                  `yaml:"assignee,omitempty"`
-	Priority   taskpkg.PriorityValue   `yaml:"priority,omitempty"`
-	Points     int                     `yaml:"points,omitempty"`
+	gitUtil        git.GitOps        // git utility for auto-staging modified files
+	upgrader       *LegacyUpgrader   // normalizes legacy field values on load
+	identity       *identityResolver // resolves current Tiki identity (config→git→OS)
+	diagnostics    *LoadDiagnostics  // rejections from the most recent load/reload cycle
 }
 
 // NewTikiStore creates a new TikiStore.
-// dir: directory containing task markdown files
+// dir: directory containing tiki markdown files
 func NewTikiStore(dir string) (*TikiStore, error) {
 	slog.Debug("creating new TikiStore", "dir", dir)
 	s := &TikiStore{
 		dir:            dir,
-		tasks:          make(map[string]*taskpkg.Task),
+		tikis:          make(map[string]*tiki.Tiki),
 		listeners:      make(map[int]store.ChangeListener),
 		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
 		upgrader:       &LegacyUpgrader{},
+		diagnostics:    newLoadDiagnostics(),
 	}
 
-	if config.GetStoreGit() {
-		gitUtil, err := git.NewGitOps("")
-		if err == nil {
-			s.gitUtil = gitUtil
-		} else {
-			slog.Debug("git utility not initialized", "error", err)
-		}
+	// git integration is automatic and read-only: when cwd is a repo the store
+	// reads history/authors; when it is not, the git methods fail gracefully and
+	// the store falls back to mtime/config identity. There is no enable flag.
+	gitUtil, err := git.NewGitOps("")
+	if err == nil {
+		s.gitUtil = gitUtil
+	} else {
+		slog.Debug("git utility not initialized (not a repo or unavailable)", "error", err)
 	}
 	s.identity = newIdentityResolver(s.gitUtil)
 
 	s.mu.Lock()
 	if err := s.loadLocked(); err != nil {
 		s.mu.Unlock()
-		slog.Error("failed to load tasks during store initialization", "dir", dir, "error", err)
-		return nil, fmt.Errorf("loading tasks: %w", err)
+		slog.Error("failed to load tikis during store initialization", "dir", dir, "error", err)
+		return nil, fmt.Errorf("loading tikis: %w", err)
 	}
 	s.mu.Unlock()
 
-	slog.Info("tikiStore initialized", "dir", dir, "num_tasks", len(s.tasks))
+	slog.Info("tikiStore initialized", "dir", dir, "num_tikis", len(s.tikis))
 	return s, nil
 }
 
-// SetTaskHistory sets the task history instance (called after background build completes)
-func (s *TikiStore) SetTaskHistory(history *store.TaskHistory) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.taskHistory = history
+// LoadDiagnostics returns the rejections accumulated during the most recent
+// load/reload cycle. Nil-safe: callers can use HasIssues() / Summary() /
+// Rejections() directly on the returned value.
+func (s *TikiStore) LoadDiagnostics() *LoadDiagnostics {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.diagnostics
 }
 
 // IsGitRepo checks if the given path is a git repository (for pre-flight checks)
@@ -137,22 +126,10 @@ func (s *TikiStore) GetStats() []store.Stat {
 	return stats
 }
 
-// GetGitOps returns the git operations instance (needed for history construction)
+// GetGitOps returns the git operations instance.
 func (s *TikiStore) GetGitOps() git.GitOps {
 	// No lock needed - gitUtil is immutable after initialization
 	return s.gitUtil
-}
-
-// GetBurndown returns the burndown chart data
-func (s *TikiStore) GetBurndown() []store.BurndownPoint {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.taskHistory == nil {
-		return nil
-	}
-
-	return s.taskHistory.Burndown()
 }
 
 // GetAllUsers returns candidate identities for assignee selection.

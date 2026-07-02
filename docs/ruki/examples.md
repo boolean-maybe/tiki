@@ -1,0 +1,337 @@
+# Examples
+
+## Table of contents
+
+- [Overview](#overview)
+- [Simple statements](#simple-statements)
+- [Conditions and lists](#conditions-and-lists)
+- [Functions and dates](#functions-and-dates)
+- [Before triggers](#before-triggers)
+- [After triggers](#after-triggers)
+- [Invalid examples](#invalid-examples)
+
+## Overview
+
+The examples show common patterns, useful combinations, and a few edge cases.
+
+## Simple statements
+
+Select all tikis:
+
+```sql
+select
+```
+
+Select with a basic filter:
+
+```sql
+select where status = "done" and priority <= "medium-high"
+```
+
+Select specific fields:
+
+```sql
+select title, status
+select id, title where status = "done"
+select * where priority <= "medium-high"
+select title, status where "bug" in tags order by priority
+```
+
+Select with ordering:
+
+```sql
+select order by priority
+select where status = "done" order by updatedAt desc
+select where "bug" in tags order by priority asc, createdAt desc
+```
+
+Select with limit:
+
+```sql
+select order by priority limit 3
+select where "bug" in tags order by priority limit 5
+select id, title order by priority limit 2 | clipboard()
+```
+
+Create a tiki:
+
+```sql
+create title="Fix login" priority="medium-high" status="ready" tags=["bug"]
+```
+
+Update matching tikis:
+
+```sql
+update where status = "ready" and "sprint-3" in tags set status="cancelled"
+```
+
+Delete matching tikis:
+
+```sql
+delete where status = "cancelled" and "old" in tags
+```
+
+## Conditions and lists
+
+Check whether a tag is present:
+
+```sql
+select where "bug" in tags
+```
+
+Check whether one tiki depends on another:
+
+```sql
+select where id in dependsOn
+```
+
+Check whether status is one of several values:
+
+```sql
+select where status in ["done", "cancelled"]
+```
+
+Check whether dependencies match a condition:
+
+```sql
+select where dependsOn any status != "done"
+select where dependsOn all status = "done"
+```
+
+Boolean grouping:
+
+```sql
+select where not (status = "done" or priority = "high")
+```
+
+## Functions and dates
+
+Find tikis that nothing else depends on:
+
+```sql
+select where not exists(select where outer.id in dependsOn)
+```
+
+Find work owned by assignees who already have too much in progress:
+
+```sql
+select where count(select where assignee = outer.assignee and status = "inProgress") >= 3
+```
+
+Block a project from completing when any dependency is unfinished:
+
+```sql
+before update where new.type = "project" and new.status = "done"
+and exists(select where id in new.dependsOn and status != "done")
+deny "project has unfinished dependencies"
+```
+
+Current user:
+
+```sql
+select where assignee = user()
+update where id = id() set assignee = user()
+```
+
+Compare timestamps:
+
+```sql
+select where updatedAt < now()
+select where updatedAt - createdAt > 1day
+```
+
+Calculate a date from recurrence:
+
+```sql
+create title="x" due=next_date(recurrence)
+```
+
+Construct a recurrence value with the `daily()` / `weekly()` / `monthly()` builtins:
+
+```sql
+create title="standup" recurrence=daily()
+update where id="ABC123" set recurrence=weekly("monday")
+select where recurrence = monthly(15)
+update where id="ABC123" set recurrence=empty   -- clear recurrence
+```
+
+Add to or remove from a list:
+
+```sql
+create title="x" tags=tags + ["needs-triage"]
+create title="x" dependsOn=dependsOn - ["ABC123"]
+```
+
+Use `call(...)` in a value:
+
+```sql
+create title=call("echo hi")
+```
+
+Pipe select results to a shell command or clipboard:
+
+```sql
+select id, title where status = "done" | run("myscript $1 $2")
+select id where id = id() | clipboard()
+select description where id = id() | clipboard()
+select filepath | run("some-app $1")
+```
+
+Inside a plugin action, the `filepath()` / `filepaths()` builtins resolve to the
+selected tikis' on-disk paths without an extra subquery:
+
+```sql
+-- open the selected tiki in $EDITOR
+select id where id = id() | run("$EDITOR " + filepath())
+
+-- pipe every selected tiki's path into a script
+select id where id in ids() | run("my-bulk-tool " + filepaths())
+```
+
+Pick a task interactively:
+
+```sql
+update where id = choose(select where type = "project") set dependsOn = dependsOn + id()
+update where id = id() set dependsOn = dependsOn + choose(select where type != "project")
+update where id = id() set dependsOn = dependsOn + choose(select where id != outer.id)
+```
+
+## Before triggers
+
+Block completion when dependencies remain open:
+
+```sql
+before update where new.status = "done" and dependsOn any status != "done"
+deny "cannot complete tiki with open dependencies"
+```
+
+Require a description for high-priority work:
+
+```sql
+before update where new.priority <= "medium-high" and new.description is empty deny "high priority tikis need a description"
+```
+
+Limit how many in-progress tikis someone can have:
+
+```sql
+before update where new.status = "inProgress"
+and count(select where assignee = new.assignee and status = "inProgress") >= 3
+deny "WIP limit reached for this assignee"
+```
+
+## After triggers
+
+Auto-assign urgent new work:
+
+```sql
+after create where new.priority <= "medium-high" and new.assignee is empty update where id = new.id set assignee="booleanmaybe"
+```
+
+Create the next recurring tiki:
+
+```sql
+after update where new.status = "done" and old.recurrence is not empty
+create title=old.title priority=old.priority tags=old.tags recurrence=old.recurrence due=next_date(old.recurrence)
+status="ready"
+```
+
+Clear recurrence on the completed source tiki:
+
+```sql
+after update where new.status = "done" and old.recurrence is not empty update where id = old.id set recurrence=empty
+```
+
+Clean up reverse dependencies on delete:
+
+```sql
+after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
+```
+
+Run a command after an update:
+
+```sql
+after update where new.status = "inProgress" and "claude" in new.tags run("claude -p 'implement tiki " + old.id + "'")
+```
+
+## Time triggers
+
+Move stale in-progress tasks back to inbox:
+
+```sql
+every 1hour update where status = "inProgress" and updatedAt < now() - 7day set status="inbox"
+```
+
+Delete expired done tasks:
+
+```sql
+every 1day delete where status = "done" and updatedAt < now() - 30day
+```
+
+Create a weekly review task:
+
+```sql
+every 1week create title="weekly review" status="ready" priority="medium"
+```
+
+## Invalid examples
+
+Unknown field:
+
+```sql
+select where foo = "bar"
+```
+
+Wrong field value type:
+
+```sql
+create title="x" priority="high"
+```
+
+Using the wrong operator with status:
+
+```sql
+select where status < "done"
+```
+
+Using `any` on the wrong kind of field:
+
+```sql
+select where tags any status = "done"
+```
+
+Using `old.` where it is not allowed:
+
+```sql
+select where old.status = "done"
+```
+
+A list with mixed value types:
+
+```sql
+select where status in ["done", 1]
+```
+
+Trigger is missing the right action:
+
+```sql
+after update where new.status = "done" deny "no"
+```
+
+Non-string `run(...)` command:
+
+```sql
+after update run(1 + 2)
+```
+
+Ordering by a non-orderable field:
+
+```sql
+select order by tags
+select order by dependsOn
+```
+
+Order by inside a subquery:
+
+```sql
+select where count(select where status = "done" order by priority) >= 1
+```

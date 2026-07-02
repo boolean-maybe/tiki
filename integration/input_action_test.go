@@ -7,36 +7,38 @@ import (
 
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
 )
 
 var inputActionWorkflow = testWorkflowPreamble + `views:
-  plugins:
-    - name: InputTest
-      key: "F4"
-      lanes:
-        - name: All
-          columns: 1
-          filter: select where status = "backlog" order by id
-      actions:
-        - key: "A"
-          label: "Assign to..."
-          action: update where id = id() set assignee=input()
-          input: string
-        - key: "t"
-          label: "Add tag"
-          action: update where id = id() set tags=tags+[input()]
-          input: string
-        - key: "p"
-          label: "Set points"
-          action: update where id = id() set points=input()
-          input: int
-        - key: "b"
-          label: "Add to board"
-          action: update where id = id() set status="ready"
+  - name: InputTest
+    kind: board
+    key: "F4"
+    layout: |
+      id
+    lanes:
+      - name: All
+        columns: 1
+        filter: select where status = "backlog" order by id
+    actions:
+      - key: "A"
+        label: "Assign to..."
+        action: update where id = id() set assignee=input()
+        input: string
+      - key: "t"
+        label: "Add tag"
+        action: update where id = id() set tags=tags+[input()]
+        input: string
+      - key: "p"
+        label: "Set escalations"
+        action: update where id = id() set escalations=input()
+        input: int
+      - key: "b"
+        label: "Add to board"
+        action: update where id = id() set status="ready"
 `
 
 func setupInputActionTest(t *testing.T) *testutil.TestApp {
@@ -59,10 +61,10 @@ func setupInputActionTest(t *testing.T) *testutil.TestApp {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Test Task", task.StatusBacklog, task.TypeStory); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Test Tiki", "backlog", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -113,15 +115,16 @@ func TestInputAction_EnterAppliesMutation(t *testing.T) {
 		t.Fatal("input box should be hidden after valid submit")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
-	if updated.Assignee != "alice" {
-		t.Fatalf("expected assignee=alice, got %q", updated.Assignee)
+	assignee, _, _ := updated.StringField("assignee")
+	if assignee != "alice" {
+		t.Fatalf("expected assignee=alice, got %q", assignee)
 	}
 }
 
@@ -138,15 +141,16 @@ func TestInputAction_EscCancelsWithoutMutation(t *testing.T) {
 		t.Fatal("input box should be hidden after Esc")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
-	if updated.Assignee != "" {
-		t.Fatalf("expected empty assignee after cancel, got %q", updated.Assignee)
+	assignee, _, _ := updated.StringField("assignee")
+	if assignee != "" {
+		t.Fatalf("expected empty assignee after cancel, got %q", assignee)
 	}
 }
 
@@ -162,15 +166,16 @@ func TestInputAction_NonInputActionStillWorks(t *testing.T) {
 		t.Fatal("non-input action should not open input box")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
-	if updated.Status != task.StatusReady {
-		t.Fatalf("expected status ready, got %v", updated.Status)
+	status, _, _ := updated.StringField("status")
+	if status != "ready" {
+		t.Fatalf("expected status ready, got %v", status)
 	}
 }
 
@@ -188,12 +193,15 @@ func TestInputAction_ModalBlocksOtherActions(t *testing.T) {
 	// while modal, 'b' should NOT execute the non-input action
 	ta.SendKey(tcell.KeyRune, 'b', tcell.ModNone)
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
-	if updated.Status != task.StatusBacklog {
-		t.Fatalf("expected status backlog (action should be blocked while modal), got %v", updated.Status)
+	updated := ta.TikiStore.GetTiki("000001")
+	if updated != nil {
+		status, _, _ := updated.StringField("status")
+		if status != "backlog" {
+			t.Fatalf("expected status backlog (action should be blocked while modal), got %v", status)
+		}
 	}
 
 	// cancel and verify box closes
@@ -279,15 +287,16 @@ func TestInputAction_PassiveSearchReplacedByActionInput(t *testing.T) {
 	}
 
 	// verify the mutation happened
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
-	if updated.Assignee != "carol" {
-		t.Fatalf("expected assignee=carol, got %q", updated.Assignee)
+	assignee, _, _ := updated.StringField("assignee")
+	if assignee != "carol" {
+		t.Fatalf("expected assignee=carol, got %q", assignee)
 	}
 }
 
@@ -314,12 +323,15 @@ func TestInputAction_ActionInputEscRestoresPassiveSearch(t *testing.T) {
 	}
 
 	// verify no mutation
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
-	if updated.Assignee != "" {
-		t.Fatalf("expected empty assignee after cancel, got %q", updated.Assignee)
+	updated := ta.TikiStore.GetTiki("000001")
+	if updated != nil {
+		assignee, _, _ := updated.StringField("assignee")
+		if assignee != "" {
+			t.Fatalf("expected empty assignee after cancel, got %q", assignee)
+		}
 	}
 }
 
@@ -338,12 +350,15 @@ func TestInputAction_SearchEditingBlocksPluginActions(t *testing.T) {
 	// while search editing is active, 'b' (non-input action) should be blocked
 	ta.SendKey(tcell.KeyRune, 'b', tcell.ModNone)
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
-	if updated.Status != task.StatusBacklog {
-		t.Fatalf("expected status backlog (action blocked during search editing), got %v", updated.Status)
+	updated := ta.TikiStore.GetTiki("000001")
+	if updated != nil {
+		status, _, _ := updated.StringField("status")
+		if status != "backlog" {
+			t.Fatalf("expected status backlog (action blocked during search editing), got %v", status)
+		}
 	}
 
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
@@ -419,12 +434,16 @@ func TestInputAction_PaletteDispatchOpensPrompt(t *testing.T) {
 		t.Fatal("prompt should close after valid submit")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
-	if updated.Assignee != "eve" {
-		t.Fatalf("expected assignee=eve via palette dispatch, got %q", updated.Assignee)
+	updated := ta.TikiStore.GetTiki("000001")
+	if updated == nil {
+		t.Fatal("tiki not found")
+	}
+	assignee, _, _ := updated.StringField("assignee")
+	if assignee != "eve" {
+		t.Fatalf("expected assignee=eve via palette dispatch, got %q", assignee)
 	}
 }
 
@@ -434,8 +453,8 @@ func TestInputAction_InvalidInputKeepsPromptOpen(t *testing.T) {
 
 	iv := getActiveInputableView(ta)
 
-	originalTask := ta.TaskStore.GetTask("TIKI-1")
-	originalPoints := originalTask.Points
+	originalTiki := ta.TikiStore.GetTiki("000001")
+	originalEscalations, _, _ := originalTiki.IntField("escalations")
 
 	// open int input (points)
 	ta.SendKey(tcell.KeyRune, 'p', tcell.ModNone)
@@ -456,34 +475,39 @@ func TestInputAction_InvalidInputKeepsPromptOpen(t *testing.T) {
 	}
 
 	// verify no mutation
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
-	if updated.Points != originalPoints {
-		t.Fatalf("expected points=%d (unchanged), got %d", originalPoints, updated.Points)
+	updated := ta.TikiStore.GetTiki("000001")
+	if updated != nil {
+		escalations, _, _ := updated.IntField("escalations")
+		if escalations != originalEscalations {
+			t.Fatalf("expected escalations=%d (unchanged), got %d", originalEscalations, escalations)
+		}
 	}
 
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 }
 
-func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
+func TestInputAction_PreflightNoTikiSelected_NoPrompt(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// workflow with a lane that will match no tasks (review lane, but test task is backlog)
+	// workflow with a lane that will match no tikis (review lane, but test tiki is backlog)
 	workflow := testWorkflowPreamble + `views:
-  plugins:
-    - name: EmptyTest
-      key: "F4"
-      lanes:
-        - name: Empty
-          columns: 1
-          filter: select where status = "review" order by id
-      actions:
-        - key: "A"
-          label: "Assign to..."
-          action: update where id = id() set assignee=input()
-          input: string
+  - name: EmptyTest
+    kind: board
+    key: "F4"
+    layout: |
+      id
+    lanes:
+      - name: Empty
+        columns: 1
+        filter: select where status = "review" order by id
+    actions:
+      - key: "A"
+        label: "Assign to..."
+        action: update where id = id() set assignee=input()
+        input: string
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflow), 0644); err != nil {
 		t.Fatalf("failed to write workflow.yaml: %v", err)
@@ -498,11 +522,11 @@ func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
 	}
 	defer ta.Cleanup()
 
-	// create a task, but it won't match the filter
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Test", task.StatusBacklog, task.TypeStory); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	// create a tiki, but it won't match the filter
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Test", "backlog", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -511,10 +535,10 @@ func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
 
 	iv := getActiveInputableView(ta)
 
-	// press 'A' — no task selected, preflight should fail, no prompt
+	// press 'A' — no tiki selected, preflight should fail, no prompt
 	ta.SendKey(tcell.KeyRune, 'A', tcell.ModNone)
 	if iv != nil && iv.IsInputBoxVisible() {
-		t.Fatal("input prompt should not open when no task is selected")
+		t.Fatal("input prompt should not open when no tiki is selected")
 	}
 }
 
@@ -533,7 +557,7 @@ func TestInputAction_DraftSearchSurvivesRefresh(t *testing.T) {
 	}
 
 	// simulate a store refresh (which triggers view rebuild)
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 	ta.Draw()
@@ -554,37 +578,40 @@ func TestInputAction_AddTagMutation(t *testing.T) {
 	ta.SendText("urgent")
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
+	tags, _, _ := updated.StringSliceField(tikipkg.FieldTags)
 	found := false
-	for _, tag := range updated.Tags {
+	for _, tag := range tags {
 		if tag == "urgent" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Fatalf("expected 'urgent' tag, got %v", updated.Tags)
+		t.Fatalf("expected 'urgent' tag, got %v", tags)
 	}
 }
 
 var compositeKeyWorkflow = testWorkflowPreamble + `views:
-  plugins:
-    - name: CompositeTest
-      key: "F4"
-      lanes:
-        - name: All
-          columns: 1
-          filter: select where status = "backlog" order by id
-      actions:
-        - key: "Ctrl-U"
-          label: "Unblock"
-          action: update where id = id() set status="ready"
+  - name: CompositeTest
+    kind: board
+    key: "F4"
+    layout: |
+      id
+    lanes:
+      - name: All
+        columns: 1
+        filter: select where status = "backlog" order by id
+    actions:
+      - key: "Ctrl-U"
+        label: "Unblock"
+        action: update where id = id() set status="ready"
 `
 
 func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
@@ -606,10 +633,10 @@ func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Blocked Task", task.StatusBacklog, task.TypeStory); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Blocked Tiki", "backlog", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -619,11 +646,14 @@ func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
 	// send Ctrl-U keypress through the real EventKey → Match → HandleAction path
 	ta.SendKey(tcell.KeyCtrlU, 0, tcell.ModCtrl)
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
-	if updated.Status != task.StatusReady {
-		t.Fatalf("expected status 'ready' after Ctrl-U action, got %q", updated.Status)
+	updated := ta.TikiStore.GetTiki("000001")
+	if updated != nil {
+		status, _, _ := updated.StringField("status")
+		if status != "ready" {
+			t.Fatalf("expected status 'ready' after Ctrl-U action, got %q", status)
+		}
 	}
 }

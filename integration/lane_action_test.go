@@ -6,18 +6,21 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
 )
 
-func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
+func TestPluginView_MoveTikiAppliesLaneAction(t *testing.T) {
 	// create a temp workflow.yaml with the test plugin
 	tmpDir := t.TempDir()
 	workflowContent := testWorkflowPreamble + `views:
   - name: ActionTest
+    kind: board
     key: "F4"
+    layout: |
+      id
     lanes:
       - name: Backlog
         columns: 1
@@ -50,14 +53,14 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	}
 	defer ta.Cleanup()
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Backlog Task", task.StatusBacklog, task.TypeStory); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Backlog Tiki", "backlog", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Done Task", task.StatusDone, task.TypeStory); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Done Tiki", "done", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+	if err := ta.TikiStore.Reload(); err != nil {
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
 	ta.NavController.PushView(model.MakePluginViewID("ActionTest"), nil)
@@ -65,36 +68,40 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModShift)
 
-	if err := ta.TaskStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+	if err := ta.TikiStore.Reload(); err != nil {
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatalf("expected task TIKI-1 to exist")
+		t.Fatalf("expected tiki TIKI-1 to exist")
 		return
 	}
-	if updated.Status != task.StatusDone {
-		t.Fatalf("expected status done, got %v", updated.Status)
+	status, _, _ := updated.StringField("status")
+	tags, _, _ := updated.StringSliceField(tikipkg.FieldTags)
+	if status != "done" {
+		t.Fatalf("expected status done, got %v", status)
 	}
-	if !containsTag(updated.Tags, "moved") {
-		t.Fatalf("expected moved tag, got %v", updated.Tags)
+	if !containsTag(tags, "moved") {
+		t.Fatalf("expected moved tag, got %v", tags)
 	}
 
 	ta.SendKey(tcell.KeyLeft, 0, tcell.ModShift)
 
-	if err := ta.TaskStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+	if err := ta.TikiStore.Reload(); err != nil {
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
-	updated = ta.TaskStore.GetTask("TIKI-1")
+	updated = ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatalf("expected task TIKI-1 to exist")
+		t.Fatalf("expected tiki TIKI-1 to exist")
 		return
 	}
-	if updated.Status != task.StatusBacklog {
-		t.Fatalf("expected status backlog, got %v", updated.Status)
+	status2, _, _ := updated.StringField("status")
+	tags2, _, _ := updated.StringSliceField(tikipkg.FieldTags)
+	if status2 != "backlog" {
+		t.Fatalf("expected status backlog, got %v", status2)
 	}
-	if containsTag(updated.Tags, "moved") {
-		t.Fatalf("expected moved tag removed, got %v", updated.Tags)
+	if containsTag(tags2, "moved") {
+		t.Fatalf("expected moved tag removed, got %v", tags2)
 	}
 }
 

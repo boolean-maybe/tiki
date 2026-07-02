@@ -5,7 +5,6 @@ import (
 
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 
 	"github.com/gdamore/tcell/v2"
@@ -108,33 +107,6 @@ func TestActionPalette_AsteriskDoesNotOpenPalette(t *testing.T) {
 	if ta.GetPaletteConfig().IsVisible() {
 		t.Fatal("palette should NOT open when '*' is pressed — only Ctrl+A should open it")
 	}
-}
-
-func TestActionPalette_OpensInTaskEdit(t *testing.T) {
-	ta := testutil.NewTestApp(t)
-	defer ta.Cleanup()
-
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Test", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
-		t.Fatalf("create task: %v", err)
-	}
-	if err := ta.TaskStore.Reload(); err != nil {
-		t.Fatalf("reload: %v", err)
-	}
-
-	ta.NavController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
-		TaskID: "TIKI-1",
-		Focus:  model.EditFieldTitle,
-	}))
-	ta.Draw()
-
-	// Ctrl+A should open the palette even in task edit
-	ta.SendKey(tcell.KeyCtrlA, 0, tcell.ModCtrl)
-
-	if !ta.GetPaletteConfig().IsVisible() {
-		t.Fatal("palette should open when Ctrl+A is pressed in task edit view")
-	}
-
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 }
 
 func TestActionPalette_OpensWithInputBoxFocused(t *testing.T) {

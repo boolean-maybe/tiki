@@ -9,7 +9,6 @@ import (
 
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 
 	"github.com/gdamore/tcell/v2"
@@ -17,7 +16,7 @@ import (
 
 // initGitRepo initializes a minimal git repo so the runtime can resolve user().
 // rukiRuntime.RunQuery calls readStore.GetCurrentUser(), which returns an error
-// when the task directory isn't a git repo.
+// when the tiki directory isn't a git repo.
 func initGitRepo(t *testing.T, dir string) {
 	t.Helper()
 	cmds := [][]string{
@@ -34,13 +33,15 @@ func initGitRepo(t *testing.T, dir string) {
 }
 
 var executeActionWorkflow = testWorkflowPreamble + `views:
-  plugins:
-    - name: ExecuteTest
-      key: "F4"
-      lanes:
-        - name: All
-          columns: 1
-          filter: select where status = "backlog" order by id
+  - name: ExecuteTest
+    kind: board
+    key: "F4"
+    layout: |
+      id
+    lanes:
+      - name: All
+        columns: 1
+        filter: select where status = "backlog" order by id
 `
 
 func setupExecuteActionTest(t *testing.T) *testutil.TestApp {
@@ -64,10 +65,10 @@ func setupExecuteActionTest(t *testing.T) *testutil.TestApp {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Test Task", task.StatusBacklog, task.TypeStory); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Test Tiki", "backlog", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -104,7 +105,7 @@ func TestExecuteAction_EnterRunsRukiAndCloses(t *testing.T) {
 	defer ta.Cleanup()
 
 	ta.SendKey(tcell.KeyRune, '!', tcell.ModNone)
-	ta.SendText(`update where id = "TIKI-1" set assignee="alice"`)
+	ta.SendText(`update where id = "000001" set assignee="alice"`)
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	iv := getActiveInputableView(ta)
@@ -112,15 +113,16 @@ func TestExecuteAction_EnterRunsRukiAndCloses(t *testing.T) {
 		t.Fatal("input box should be hidden after successful execute")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
-	if updated.Assignee != "alice" {
-		t.Fatalf("expected assignee=alice after execute, got %q", updated.Assignee)
+	assignee, _, _ := updated.StringField("assignee")
+	if assignee != "alice" {
+		t.Fatalf("expected assignee=alice after execute, got %q", assignee)
 	}
 }
 
@@ -129,7 +131,7 @@ func TestExecuteAction_EscCancelsWithoutMutation(t *testing.T) {
 	defer ta.Cleanup()
 
 	ta.SendKey(tcell.KeyRune, '!', tcell.ModNone)
-	ta.SendText(`update where id = "TIKI-1" set assignee="bob"`)
+	ta.SendText(`update where id = "000001" set assignee="bob"`)
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
 	iv := getActiveInputableView(ta)
@@ -137,15 +139,16 @@ func TestExecuteAction_EscCancelsWithoutMutation(t *testing.T) {
 		t.Fatal("input box should be hidden after Esc")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
-	if updated.Assignee != "" {
-		t.Fatalf("expected empty assignee after Esc, got %q", updated.Assignee)
+	assignee, _, _ := updated.StringField("assignee")
+	if assignee != "" {
+		t.Fatalf("expected empty assignee after Esc, got %q", assignee)
 	}
 }
 
@@ -200,19 +203,23 @@ func TestExecuteAction_PaletteDispatchOpensPrompt(t *testing.T) {
 		t.Fatal("prompt should be focused after palette dispatch")
 	}
 
-	ta.SendText(`update where id = "TIKI-1" set assignee="eve"`)
+	ta.SendText(`update where id = "000001" set assignee="eve"`)
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	if iv.IsInputBoxVisible() {
 		t.Fatal("prompt should close after valid execute")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
-	if updated.Assignee != "eve" {
-		t.Fatalf("expected assignee=eve via palette dispatch, got %q", updated.Assignee)
+	updated := ta.TikiStore.GetTiki("000001")
+	if updated == nil {
+		t.Fatal("tiki not found")
+	}
+	assignee, _, _ := updated.StringField("assignee")
+	if assignee != "eve" {
+		t.Fatalf("expected assignee=eve via palette dispatch, got %q", assignee)
 	}
 }
 
@@ -264,7 +271,7 @@ func TestExecuteAction_ClipboardPipeSuccessMessage(t *testing.T) {
 	if !strings.Contains(msg, "copied 1 rows to clipboard") {
 		t.Fatalf("expected clipboard success summary, got %q", msg)
 	}
-	if len(captured) != 1 || len(captured[0]) != 1 || captured[0][0] != "TIKI-1" {
+	if len(captured) != 1 || len(captured[0]) != 1 || captured[0][0] != "000001" {
 		t.Fatalf("expected clipboard to receive [[TIKI-1]], got %v", captured)
 	}
 }

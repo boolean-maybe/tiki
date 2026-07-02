@@ -7,14 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// Formatter renders a TaskProjection to an io.Writer.
+// Formatter renders a TikiProjection to an io.Writer.
 type Formatter interface {
-	Format(w io.Writer, proj *ruki.TaskProjection) error
+	Format(w io.Writer, proj *ruki.TikiProjection) error
 }
 
 // TableFormatter renders results as an ASCII table.
@@ -25,18 +24,18 @@ func NewTableFormatter() Formatter {
 	return &TableFormatter{}
 }
 
-func (f *TableFormatter) Format(w io.Writer, proj *ruki.TaskProjection) error {
+func (f *TableFormatter) Format(w io.Writer, proj *ruki.TikiProjection) error {
 	fields := resolveFields(proj.Fields)
 
 	// build cell grid
-	rows := make([][]string, len(proj.Tasks))
+	rows := make([][]string, len(proj.Tikis))
 	widths := make([]int, len(fields))
 	for i, fd := range fields {
 		if len(fd.Name) > widths[i] {
 			widths[i] = len(fd.Name)
 		}
 	}
-	for r, t := range proj.Tasks {
+	for r, t := range proj.Tikis {
 		row := make([]string, len(fields))
 		for c, fd := range fields {
 			row[c] = formatCell(t, fd)
@@ -94,61 +93,40 @@ func fieldNames(fields []workflow.FieldDef) []string {
 	return names
 }
 
-// formatCell extracts and formats a single cell value from a task.
-func formatCell(t *task.Task, fd workflow.FieldDef) string {
+// formatCell extracts and formats a single cell value from a tiki.
+func formatCell(t ruki.Document, fd workflow.FieldDef) string {
 	val := extractFieldValue(t, fd.Name)
 	return renderValue(val, fd.Type)
 }
 
-// extractFieldValue pulls a raw value from a task by field name.
-func extractFieldValue(t *task.Task, name string) interface{} {
-	switch name {
-	case "id":
-		return t.ID
-	case "title":
-		return t.Title
-	case "description":
-		return t.Description
-	case "status":
-		return string(t.Status)
-	case "type":
-		return string(t.Type)
-	case "tags":
-		return t.Tags
-	case "dependsOn":
-		return t.DependsOn
-	case "due":
-		return t.Due
-	case "recurrence":
-		return string(t.Recurrence)
-	case "assignee":
-		return t.Assignee
-	case "priority":
-		return t.Priority
-	case "points":
-		return t.Points
-	case "createdBy":
-		return t.CreatedBy
-	case "createdAt":
-		return t.CreatedAt
-	case "updatedAt":
-		return t.UpdatedAt
-	case "filepath":
-		return t.FilePath
-	default:
-		fd, ok := workflow.Field(name)
-		if !ok || !fd.Custom {
-			return nil
-		}
-		if t.CustomFields != nil {
-			if v, exists := t.CustomFields[name]; exists {
-				return v
-			}
-		}
-		// unset custom field — return nil to match executor semantics;
-		// renderValue converts nil to "" so unset fields display as blank
+// extractFieldValue pulls a raw value from a tiki by field name. Absent
+// fields return nil so renderers can emit blanks (table) or null (JSON).
+// This mirrors the executor's hard-error policy at the presentation seam by
+// degrading gracefully: absence is a renderable state, not a query failure.
+func extractFieldValue(t ruki.Document, name string) interface{} {
+	if t == nil {
 		return nil
 	}
+	switch name {
+	case "id":
+		return t.ID()
+	case "title":
+		return t.Title()
+	case "description", "body":
+		return t.Body()
+	case "createdAt":
+		return t.CreatedAt()
+	case "updatedAt":
+		return t.UpdatedAt()
+	case "filepath", "path":
+		return t.Path()
+	}
+
+	v, ok := t.Get(name)
+	if !ok {
+		return nil
+	}
+	return v
 }
 
 // FormatScalar renders a single scalar result as one line followed by a
@@ -257,16 +235,34 @@ func renderTimestamp(val interface{}) string {
 }
 
 func renderList(val interface{}) string {
-	ss, ok := val.([]string)
-	if !ok || ss == nil {
+	switch v := val.(type) {
+	case nil:
+		return ""
+	case []string:
+		if v == nil {
+			return ""
+		}
+		b, err := json.Marshal(v)
+		if err != nil {
+			return "[]"
+		}
+		return string(b)
+	case []interface{}:
+		if v == nil {
+			return ""
+		}
+		ss := make([]string, 0, len(v))
+		for _, e := range v {
+			ss = append(ss, fmt.Sprint(e))
+		}
+		b, err := json.Marshal(ss)
+		if err != nil {
+			return "[]"
+		}
+		return string(b)
+	default:
 		return ""
 	}
-	// JSON array encoding — this is the final cell text, not passed through escapeScalar
-	b, err := json.Marshal(ss)
-	if err != nil {
-		return "[]"
-	}
-	return string(b)
 }
 
 func renderInt(val interface{}) string {
@@ -293,11 +289,11 @@ func NewJSONFormatter() Formatter {
 	return &JSONFormatter{}
 }
 
-func (f *JSONFormatter) Format(w io.Writer, proj *ruki.TaskProjection) error {
+func (f *JSONFormatter) Format(w io.Writer, proj *ruki.TikiProjection) error {
 	fields := resolveFields(proj.Fields)
 
-	rows := make([]map[string]interface{}, len(proj.Tasks))
-	for i, t := range proj.Tasks {
+	rows := make([]map[string]interface{}, len(proj.Tikis))
+	for i, t := range proj.Tikis {
 		row := make(map[string]interface{}, len(fields))
 		for _, fd := range fields {
 			row[fd.Name] = jsonCellValue(t, fd)
@@ -316,10 +312,10 @@ func (f *JSONFormatter) Format(w io.Writer, proj *ruki.TaskProjection) error {
 	return err
 }
 
-// jsonCellValue extracts a task field as a native JSON-marshalable value,
+// jsonCellValue extracts a tiki field as a native JSON-marshalable value,
 // using `null` for unset/zero date-like values and empty-string for unset
 // scalar fields (matching how the executor/plugin treats "empty" elsewhere).
-func jsonCellValue(t *task.Task, fd workflow.FieldDef) interface{} {
+func jsonCellValue(t ruki.Document, fd workflow.FieldDef) interface{} {
 	val := extractFieldValue(t, fd.Name)
 	return toJSONValue(val, fd.Type)
 }
@@ -371,7 +367,7 @@ func jsonTimestamp(val interface{}) interface{} {
 
 // jsonList returns a non-nil []string so the JSON encoding always produces
 // `[]` for list-typed fields, regardless of whether the backing slice is nil,
-// empty, or populated. Downstream scripts can iterate without a null check.
+// empty, or populated.
 func jsonList(val interface{}) interface{} {
 	switch v := val.(type) {
 	case nil:
@@ -456,23 +452,19 @@ func scalarListJSON(val interface{}) interface{} {
 // --- mutation / pipe / clipboard summaries ---
 
 // formatUpdateSummary writes the summary for an UPDATE statement.
-// Text form: "updated N tasks" or "updated N tasks (M failed)".
-// JSON form: {"updated":N,"failed":M}.
 func formatUpdateSummary(w io.Writer, succeeded, failed int, jsonOut bool) error {
 	if jsonOut {
 		return writeJSONLine(w, map[string]int{"updated": succeeded, "failed": failed})
 	}
 	if failed > 0 {
-		_, err := fmt.Fprintf(w, "updated %d tasks (%d failed)\n", succeeded, failed)
+		_, err := fmt.Fprintf(w, "updated %d tikis (%d failed)\n", succeeded, failed)
 		return err
 	}
-	_, err := fmt.Fprintf(w, "updated %d tasks\n", succeeded)
+	_, err := fmt.Fprintf(w, "updated %d tikis\n", succeeded)
 	return err
 }
 
 // formatCreateSummary writes the summary for a CREATE statement.
-// Text form: "created TIKI-XXXXXX".
-// JSON form: {"created":"TIKI-XXXXXX"}.
 func formatCreateSummary(w io.Writer, id string, jsonOut bool) error {
 	if jsonOut {
 		return writeJSONLine(w, map[string]string{"created": id})
@@ -487,10 +479,10 @@ func formatDeleteSummary(w io.Writer, succeeded, failed int, jsonOut bool) error
 		return writeJSONLine(w, map[string]int{"deleted": succeeded, "failed": failed})
 	}
 	if failed > 0 {
-		_, err := fmt.Fprintf(w, "deleted %d tasks (%d failed)\n", succeeded, failed)
+		_, err := fmt.Fprintf(w, "deleted %d tikis (%d failed)\n", succeeded, failed)
 		return err
 	}
-	_, err := fmt.Fprintf(w, "deleted %d tasks\n", succeeded)
+	_, err := fmt.Fprintf(w, "deleted %d tikis\n", succeeded)
 	return err
 }
 

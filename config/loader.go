@@ -37,13 +37,12 @@ type Config struct {
 
 	// Tiki configuration
 	Tiki struct {
-		MaxPoints    int `mapstructure:"maxPoints"`
 		MaxImageRows int `mapstructure:"maxImageRows"`
 	} `mapstructure:"tiki"`
 
 	// Appearance configuration
 	Appearance struct {
-		Theme             string `mapstructure:"theme"`             // "auto", "dark", "light", or a named theme (see ThemeNames())
+		Theme             string `mapstructure:"theme"`             // "auto", "dark", "light", or a named theme (see themeRegistry in themes.go)
 		GradientThreshold int    `mapstructure:"gradientThreshold"` // Minimum color count for gradients (16, 256, 16777216)
 		CodeBlock         struct {
 			Theme      string `mapstructure:"theme"`      // chroma syntax theme (e.g. "dracula", "monokai")
@@ -60,7 +59,6 @@ type Config struct {
 	// Store backend configuration
 	Store struct {
 		Name string `mapstructure:"name"` // backend name — only "tiki" supported
-		Git  bool   `mapstructure:"git"`  // false disables all git operations at runtime
 	} `mapstructure:"store"`
 
 	// Identity configuration — preferred source for `user()` and UI attribution
@@ -134,7 +132,6 @@ func setDefaults() {
 	viper.SetDefault("header.visible", true)
 
 	// Tiki defaults
-	viper.SetDefault("tiki.maxPoints", 10)
 	viper.SetDefault("tiki.maxImageRows", 40)
 
 	// Appearance defaults
@@ -144,7 +141,6 @@ func setDefaults() {
 
 	// Store defaults
 	viper.SetDefault("store.name", "tiki")
-	viper.SetDefault("store.git", true)
 
 	// Identity defaults — empty so env overrides (TIKI_IDENTITY_*) bind correctly
 	viper.SetDefault("identity.name", "")
@@ -183,44 +179,28 @@ func GetConfig() *Config {
 	return appConfig
 }
 
-// viewsFileData represents the views section of workflow.yaml for read-modify-write.
-type viewsFileData struct {
-	Actions []map[string]interface{} `yaml:"actions,omitempty"`
-	Plugins []map[string]interface{} `yaml:"plugins"`
-}
-
-// workflowFileData represents the YAML structure of workflow.yaml for read-modify-write.
-// kept in config package to avoid import cycle with plugin package.
-// all top-level sections must be listed here to survive round-trip serialization.
+// workflowFileData represents the YAML structure of workflow.yaml for
+// read-modify-write. Kept in config package to avoid import cycles with the
+// plugin package. All top-level sections must be listed to survive
+// round-trip serialization.
 type workflowFileData struct {
 	Version     string                   `yaml:"version,omitempty"`
 	Description string                   `yaml:"description,omitempty"`
 	Statuses    []map[string]interface{} `yaml:"statuses,omitempty"`
 	Types       []map[string]interface{} `yaml:"types,omitempty"`
-	Views       viewsFileData            `yaml:"views,omitempty"`
+	Views       []map[string]interface{} `yaml:"views,omitempty"`
+	Actions     []map[string]interface{} `yaml:"actions,omitempty"`
 	Triggers    []map[string]interface{} `yaml:"triggers,omitempty"`
 	Fields      []map[string]interface{} `yaml:"fields,omitempty"`
 }
 
 // readWorkflowFile reads and unmarshals workflow.yaml from the given path.
-// Handles both old list format (views: [...]) and new map format (views: {plugins: [...]}).
+// No legacy shape conversion — callers must use the Phase-6 schema.
 func readWorkflowFile(path string) (*workflowFileData, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading workflow.yaml: %w", err)
 	}
-
-	// convert legacy views list format to map format before unmarshaling
-	var raw map[string]interface{}
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("parsing workflow.yaml: %w", err)
-	}
-	ConvertViewsListToMap(raw)
-	data, err = yaml.Marshal(raw)
-	if err != nil {
-		return nil, fmt.Errorf("re-marshaling workflow.yaml: %w", err)
-	}
-
 	var wf workflowFileData
 	if err := yaml.Unmarshal(data, &wf); err != nil {
 		return nil, fmt.Errorf("parsing workflow.yaml: %w", err)
@@ -228,66 +208,9 @@ func readWorkflowFile(path string) (*workflowFileData, error) {
 	return &wf, nil
 }
 
-// ConvertViewsListToMap converts old views list format to new map format in-place.
-// Old: views: [{name: Kanban, ...}]  →  New: views: {plugins: [{name: Kanban, ...}]}
-func ConvertViewsListToMap(raw map[string]interface{}) {
-	views, ok := raw["views"]
-	if !ok {
-		return
-	}
-	if _, isMap := views.(map[string]interface{}); isMap {
-		return
-	}
-	if list, isList := views.([]interface{}); isList {
-		raw["views"] = map[string]interface{}{
-			"plugins": list,
-		}
-	}
-}
-
-// GetPluginViewMode reads a plugin's view mode from workflow.yaml by name.
-// Returns empty string if not found.
-func GetPluginViewMode(pluginName string) string {
-	return getPluginViewModeFromWorkflow(pluginName, "")
-}
-
-// getPluginViewModeFromWorkflow reads a plugin's view mode from workflow.yaml by name.
-func getPluginViewModeFromWorkflow(pluginName string, defaultValue string) string {
-	path := FindWorkflowFile()
-	if path == "" {
-		return defaultValue
-	}
-
-	wf, err := readWorkflowFile(path)
-	if err != nil {
-		slog.Debug("failed to read workflow.yaml for view mode", "error", err)
-		return defaultValue
-	}
-
-	for _, p := range wf.Views.Plugins {
-		if name, ok := p["name"].(string); ok && name == pluginName {
-			if view, ok := p["view"].(string); ok && view != "" {
-				return view
-			}
-		}
-	}
-
-	return defaultValue
-}
-
 // GetHeaderVisible returns the header visibility setting
 func GetHeaderVisible() bool {
 	return viper.GetBool("header.visible")
-}
-
-// GetMaxPoints returns the maximum points value for tasks
-func GetMaxPoints() int {
-	maxPoints := viper.GetInt("tiki.maxPoints")
-	// Ensure minimum of 1
-	if maxPoints < 1 {
-		return 10 // fallback to default
-	}
-	return maxPoints
 }
 
 // GetMaxImageRows returns the maximum rows for inline image rendering
@@ -373,16 +296,6 @@ func GetStoreName() string {
 		return appConfig.Store.Name
 	}
 	return "tiki"
-}
-
-// GetStoreGit returns whether git integration is enabled.
-// Returns true when config hasn't been loaded yet (safe default for test helpers
-// that call NewTikiStore directly without LoadConfig).
-func GetStoreGit() bool {
-	if appConfig != nil {
-		return appConfig.Store.Git
-	}
-	return true
 }
 
 // GetIdentityName returns the configured Tiki identity name, or empty string if unset.

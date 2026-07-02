@@ -1,12 +1,11 @@
 package model
 
 import (
-	"os"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 func TestNewPluginConfig(t *testing.T) {
@@ -27,10 +26,6 @@ func TestNewPluginConfig(t *testing.T) {
 
 	if pc.GetColumnsForLane(0) != 4 {
 		t.Errorf("GetColumnsForLane(0) = %d, want 4", pc.GetColumnsForLane(0))
-	}
-
-	if pc.GetViewMode() != ViewModeCompact {
-		t.Errorf("initial GetViewMode() = %v, want ViewModeCompact", pc.GetViewMode())
 	}
 
 	if pc.IsSearchActive() {
@@ -58,7 +53,7 @@ func TestPluginConfig_SelectionIndexing(t *testing.T) {
 
 func TestPluginConfig_MoveSelection_RightLeft(t *testing.T) {
 	pc := NewPluginConfig("test")
-	// Grid: 4 columns, 12 tasks (3 rows)
+	// Grid: 4 columns, 12 tikis (3 rows)
 	// [ 0  1  2  3]
 	// [ 4  5  6  7]
 	// [ 8  9 10 11]
@@ -87,7 +82,7 @@ func TestPluginConfig_MoveSelection_RightLeft(t *testing.T) {
 
 func TestPluginConfig_MoveSelection_UpDown(t *testing.T) {
 	pc := NewPluginConfig("test")
-	// Grid: 4 columns, 12 tasks (3 rows)
+	// Grid: 4 columns, 12 tikis (3 rows)
 	// [ 0  1  2  3]
 	// [ 4  5  6  7]
 	// [ 8  9 10 11]
@@ -116,7 +111,7 @@ func TestPluginConfig_MoveSelection_UpDown(t *testing.T) {
 
 func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 	pc := NewPluginConfig("test")
-	// Grid: 4 columns, 6 tasks
+	// Grid: 4 columns, 6 tikis
 	// [ 0  1  2  3]
 	// [ 4  5]
 
@@ -124,7 +119,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 		name      string
 		start     int
 		direction string
-		taskCount int
+		tikiCount int
 		wantIndex int
 		wantMoved bool
 	}{
@@ -132,7 +127,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 			name:      "left at left edge",
 			start:     4,
 			direction: "left",
-			taskCount: 6,
+			tikiCount: 6,
 			wantIndex: 4,
 			wantMoved: false,
 		},
@@ -140,7 +135,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 			name:      "right at right edge",
 			start:     3,
 			direction: "right",
-			taskCount: 6,
+			tikiCount: 6,
 			wantIndex: 3,
 			wantMoved: false,
 		},
@@ -148,7 +143,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 			name:      "up at top",
 			start:     1,
 			direction: "up",
-			taskCount: 6,
+			tikiCount: 6,
 			wantIndex: 1,
 			wantMoved: false,
 		},
@@ -156,7 +151,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 			name:      "down at bottom",
 			start:     5,
 			direction: "down",
-			taskCount: 6,
+			tikiCount: 6,
 			wantIndex: 5,
 			wantMoved: false,
 		},
@@ -164,7 +159,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 			name:      "right at partial row end",
 			start:     5,
 			direction: "right",
-			taskCount: 6,
+			tikiCount: 6,
 			wantIndex: 5, // Can't move right from last item
 			wantMoved: false,
 		},
@@ -172,7 +167,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 			name:      "down from partial row",
 			start:     1,
 			direction: "down",
-			taskCount: 6,
+			tikiCount: 6,
 			wantIndex: 5, // 1 + 4 = 5
 			wantMoved: true,
 		},
@@ -181,7 +176,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pc.SetSelectedIndex(tt.start)
-			moved := pc.MoveSelection(tt.direction, tt.taskCount)
+			moved := pc.MoveSelection(tt.direction, tt.tikiCount)
 
 			if moved != tt.wantMoved {
 				t.Errorf("MoveSelection() moved = %v, want %v", moved, tt.wantMoved)
@@ -197,10 +192,10 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 func TestPluginConfig_MoveSelection_EmptyGrid(t *testing.T) {
 	pc := NewPluginConfig("test")
 
-	// Moving with 0 tasks should not move
+	// Moving with 0 tikis should not move
 	moved := pc.MoveSelection("right", 0)
 	if moved {
-		t.Error("MoveSelection with 0 tasks should return false")
+		t.Error("MoveSelection with 0 tikis should return false")
 	}
 
 	if pc.GetSelectedIndex() != 0 {
@@ -219,7 +214,7 @@ func TestPluginConfig_MoveSelection_SingleItem(t *testing.T) {
 			pc.SetSelectedIndex(0) // Reset
 			moved := pc.MoveSelection(dir, 1)
 			if moved {
-				t.Errorf("MoveSelection(%q) with 1 task should return false", dir)
+				t.Errorf("MoveSelection(%q) with 1 tiki should return false", dir)
 			}
 			if pc.GetSelectedIndex() != 0 {
 				t.Error("GetSelectedIndex() should remain 0")
@@ -236,7 +231,7 @@ func TestPluginConfig_ClampSelection(t *testing.T) {
 	pc.ClampSelection(5)
 
 	if pc.GetSelectedIndex() != 4 {
-		t.Errorf("GetSelectedIndex() after clamp = %d, want 4 (max index for 5 tasks)", pc.GetSelectedIndex())
+		t.Errorf("GetSelectedIndex() after clamp = %d, want 4 (max index for 5 tikis)", pc.GetSelectedIndex())
 	}
 
 	// Set negative (though SetSelectedIndex wouldn't normally do this)
@@ -256,94 +251,6 @@ func TestPluginConfig_ClampSelection(t *testing.T) {
 	}
 }
 
-func TestPluginConfig_ViewMode(t *testing.T) {
-	pc := NewPluginConfig("test")
-
-	// Initial mode should be compact
-	if pc.GetViewMode() != ViewModeCompact {
-		t.Errorf("initial GetViewMode() = %v, want ViewModeCompact", pc.GetViewMode())
-	}
-
-	// Set expanded
-	pc.SetViewMode("expanded")
-	if pc.GetViewMode() != ViewModeExpanded {
-		t.Errorf("GetViewMode() after SetViewMode(expanded) = %v, want ViewModeExpanded", pc.GetViewMode())
-	}
-
-	// Set compact
-	pc.SetViewMode("compact")
-	if pc.GetViewMode() != ViewModeCompact {
-		t.Errorf("GetViewMode() after SetViewMode(compact) = %v, want ViewModeCompact", pc.GetViewMode())
-	}
-
-	// Invalid mode should default to compact
-	pc.SetViewMode("invalid")
-	if pc.GetViewMode() != ViewModeCompact {
-		t.Errorf("GetViewMode() after SetViewMode(invalid) = %v, want ViewModeCompact", pc.GetViewMode())
-	}
-}
-
-func TestPluginConfig_ToggleViewMode(t *testing.T) {
-	pc := NewPluginConfig("test")
-
-	initial := pc.GetViewMode()
-
-	// Toggle
-	pc.ToggleViewMode()
-
-	// Should be opposite
-	after := pc.GetViewMode()
-	if initial == ViewModeCompact && after != ViewModeExpanded {
-		t.Error("ToggleViewMode() from compact should go to expanded")
-	}
-	if initial == ViewModeExpanded && after != ViewModeCompact {
-		t.Error("ToggleViewMode() from expanded should go to compact")
-	}
-
-	// Toggle back
-	pc.ToggleViewMode()
-
-	// Should return to initial
-	if pc.GetViewMode() != initial {
-		t.Error("ToggleViewMode() twice should return to initial state")
-	}
-}
-
-func TestPluginConfig_ToggleViewMode_SessionOnly(t *testing.T) {
-	tmpDir := t.TempDir()
-	workflowContent := `views:
-  plugins:
-    - name: TestPlugin
-      view: compact
-`
-	workflowPath := tmpDir + "/workflow.yaml"
-	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	info, err := os.Stat(workflowPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	modBefore := info.ModTime()
-	sizeBefore := info.Size()
-
-	pc := NewPluginConfig("TestPlugin")
-	pc.ToggleViewMode()
-
-	if pc.GetViewMode() != ViewModeExpanded {
-		t.Fatal("expected expanded after toggle")
-	}
-
-	info, err = os.Stat(workflowPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.ModTime() != modBefore || info.Size() != sizeBefore {
-		t.Error("ToggleViewMode must not write to workflow.yaml")
-	}
-}
-
 func TestPluginConfig_SearchState(t *testing.T) {
 	pc := NewPluginConfig("test")
 
@@ -357,9 +264,9 @@ func TestPluginConfig_SearchState(t *testing.T) {
 	pc.SavePreSearchState()
 
 	// Set search results
-	results := []task.SearchResult{
-		{Task: &task.Task{ID: "TIKI-1", Title: "Match"}, Score: 1.0},
-		{Task: &task.Task{ID: "TIKI-2", Title: "Match 2"}, Score: 0.8},
+	results := []*tikipkg.Tiki{
+		func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC001"); t.SetTitle("Match"); return t }(),
+		func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC002"); t.SetTitle("Match 2"); return t }(),
 	}
 	pc.SetSearchResults(results, "match")
 
@@ -540,19 +447,11 @@ func TestPluginConfig_ConcurrentAccess(t *testing.T) {
 		done <- true
 	}()
 
-	// View mode writer
-	go func() {
-		for range 50 {
-			pc.ToggleViewMode()
-		}
-		done <- true
-	}()
-
 	// Search writer
 	go func() {
 		for i := range 25 {
 			pc.SavePreSearchState()
-			pc.SetSearchResults([]task.SearchResult{{Task: &task.Task{ID: "T-1"}, Score: 1.0}}, "query")
+			pc.SetSearchResults([]*tikipkg.Tiki{func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC001"); return t }()}, "query")
 			if i%2 == 0 {
 				pc.ClearSearchResults()
 			}
@@ -564,7 +463,6 @@ func TestPluginConfig_ConcurrentAccess(t *testing.T) {
 	go func() {
 		for range 100 {
 			_ = pc.GetSelectedIndex()
-			_ = pc.GetViewMode()
 			_ = pc.IsSearchActive()
 			_ = pc.GetSearchResults()
 		}
@@ -572,7 +470,7 @@ func TestPluginConfig_ConcurrentAccess(t *testing.T) {
 	}()
 
 	// Wait for all
-	for range 4 {
+	for range 3 {
 		<-done
 	}
 
@@ -582,7 +480,7 @@ func TestPluginConfig_ConcurrentAccess(t *testing.T) {
 func TestPluginConfig_GridNavigation_PartialLastRow(t *testing.T) {
 	pc := NewPluginConfig("test")
 
-	// Grid with 10 tasks:
+	// Grid with 10 tikis:
 	// [ 0  1  2  3]
 	// [ 4  5  6  7]
 	// [ 8  9]
@@ -609,7 +507,7 @@ func TestPluginConfig_GridNavigation_PartialLastRow(t *testing.T) {
 func TestPluginConfig_GridNavigation_AllCorners(t *testing.T) {
 	pc := NewPluginConfig("test")
 
-	// Grid: 4x3 = 12 tasks
+	// Grid: 4x3 = 12 tikis
 	// [ 0  1  2  3]
 	// [ 4  5  6  7]
 	// [ 8  9 10 11]

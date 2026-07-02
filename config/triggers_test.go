@@ -101,9 +101,10 @@ func TestReadTriggersFromFile_InvalidYAML(t *testing.T) {
 
 // --- LoadTriggerDefs precedence tests ---
 
-// setupTriggerPrecedenceTest creates temp dirs for user, project, and cwd,
-// resets the PathManager, and returns a cleanup function.
-func setupTriggerPrecedenceTest(t *testing.T) (userTikiDir, projectDocDir, cwdDir string) {
+// setupTriggerPrecedenceTest creates temp dirs for the two config tiers — user
+// and cwd root (projectRoot == cwd) — resets the PathManager, and chdirs into
+// the cwd dir. There is no separate project (".doc") tier.
+func setupTriggerPrecedenceTest(t *testing.T) (userTikiDir, cwdDir string) {
 	t.Helper()
 
 	userDir := t.TempDir()
@@ -113,23 +114,18 @@ func setupTriggerPrecedenceTest(t *testing.T) (userTikiDir, projectDocDir, cwdDi
 		t.Fatal(err)
 	}
 
-	projectDir := t.TempDir()
-	projectDocDir = filepath.Join(projectDir, ".doc")
-	if err := os.MkdirAll(projectDocDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-
 	cwdDir = t.TempDir()
 
 	originalDir, _ := os.Getwd()
 	t.Cleanup(func() { _ = os.Chdir(originalDir) })
 	_ = os.Chdir(cwdDir)
 
+	// projectRoot mirrors the runtime invariant projectRoot == cwd.
 	ResetPathManager()
 	pm := mustGetPathManager()
-	pm.projectRoot = projectDir
+	pm.projectRoot = cwdDir
 
-	return userTikiDir, projectDocDir, cwdDir
+	return userTikiDir, cwdDir
 }
 
 func writeTriggerFile(t *testing.T, dir, content string) {
@@ -139,16 +135,12 @@ func writeTriggerFile(t *testing.T, dir, content string) {
 	}
 }
 
-func TestLoadTriggerDefs_CwdOverridesProjectAndUser(t *testing.T) {
-	userDir, projectDir, cwdDir := setupTriggerPrecedenceTest(t)
+func TestLoadTriggerDefs_CwdOverridesUser(t *testing.T) {
+	userDir, cwdDir := setupTriggerPrecedenceTest(t)
 
 	writeTriggerFile(t, userDir, `triggers:
   - description: "user trigger"
     ruki: 'before update deny "user"'
-`)
-	writeTriggerFile(t, projectDir, `triggers:
-  - description: "project trigger"
-    ruki: 'before update deny "project"'
 `)
 	writeTriggerFile(t, cwdDir, `triggers:
   - description: "cwd trigger"
@@ -167,39 +159,14 @@ func TestLoadTriggerDefs_CwdOverridesProjectAndUser(t *testing.T) {
 	}
 }
 
-func TestLoadTriggerDefs_ProjectOverridesUser(t *testing.T) {
-	userDir, projectDir, _ := setupTriggerPrecedenceTest(t)
+func TestLoadTriggerDefs_UserFallback(t *testing.T) {
+	userDir, _ := setupTriggerPrecedenceTest(t)
 
 	writeTriggerFile(t, userDir, `triggers:
   - description: "user trigger"
     ruki: 'before update deny "user"'
-`)
-	writeTriggerFile(t, projectDir, `triggers:
-  - description: "project trigger"
-    ruki: 'before update deny "project"'
 `)
 	// no cwd workflow.yaml
-
-	defs, err := LoadTriggerDefs()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(defs) != 1 {
-		t.Fatalf("expected 1 def (project wins), got %d", len(defs))
-	}
-	if defs[0].Description != "project trigger" {
-		t.Errorf("expected project trigger, got %q", defs[0].Description)
-	}
-}
-
-func TestLoadTriggerDefs_UserFallback(t *testing.T) {
-	userDir, _, _ := setupTriggerPrecedenceTest(t)
-
-	writeTriggerFile(t, userDir, `triggers:
-  - description: "user trigger"
-    ruki: 'before update deny "user"'
-`)
-	// no project or cwd workflow.yaml
 
 	defs, err := LoadTriggerDefs()
 	if err != nil {
@@ -214,7 +181,7 @@ func TestLoadTriggerDefs_UserFallback(t *testing.T) {
 }
 
 func TestLoadTriggerDefs_EmptyListIsAuthoritative(t *testing.T) {
-	_, _, cwdDir := setupTriggerPrecedenceTest(t)
+	_, cwdDir := setupTriggerPrecedenceTest(t)
 
 	// winning file explicitly has empty triggers
 	writeTriggerFile(t, cwdDir, "triggers: []\n")
@@ -229,7 +196,7 @@ func TestLoadTriggerDefs_EmptyListIsAuthoritative(t *testing.T) {
 }
 
 func TestLoadTriggerDefs_MissingTriggersKeyMeansNone(t *testing.T) {
-	_, _, cwdDir := setupTriggerPrecedenceTest(t)
+	_, cwdDir := setupTriggerPrecedenceTest(t)
 
 	// winning file has no triggers: key at all
 	writeTriggerFile(t, cwdDir, "views:\n  plugins:\n    - name: board\n")
@@ -244,7 +211,7 @@ func TestLoadTriggerDefs_MissingTriggersKeyMeansNone(t *testing.T) {
 }
 
 func TestLoadTriggerDefs_NoWorkflowFiles(t *testing.T) {
-	_, _, _ = setupTriggerPrecedenceTest(t)
+	_, _ = setupTriggerPrecedenceTest(t)
 	// no workflow.yaml files anywhere
 
 	defs, err := LoadTriggerDefs()
@@ -253,44 +220,6 @@ func TestLoadTriggerDefs_NoWorkflowFiles(t *testing.T) {
 	}
 	if len(defs) != 0 {
 		t.Fatalf("expected 0 defs, got %d", len(defs))
-	}
-}
-
-func TestLoadTriggerDefs_DeduplicatesAbsPath(t *testing.T) {
-	// when project root == cwd, the project and cwd candidates resolve to the same file
-	userDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", userDir)
-	if err := os.MkdirAll(filepath.Join(userDir, "tiki"), 0750); err != nil {
-		t.Fatal(err)
-	}
-
-	sharedDir := t.TempDir()
-	docDir := filepath.Join(sharedDir, ".doc")
-	if err := os.MkdirAll(docDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-
-	originalDir, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(originalDir) })
-	_ = os.Chdir(sharedDir)
-
-	ResetPathManager()
-	pm := mustGetPathManager()
-	pm.projectRoot = sharedDir
-
-	// write workflow.yaml in cwd (== project root's parent of .doc — but workflow.yaml is at cwd level)
-	writeTriggerFile(t, sharedDir, `triggers:
-  - description: "shared trigger"
-    ruki: 'before update deny "shared"'
-`)
-
-	defs, err := LoadTriggerDefs()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// should find it once, not duplicated
-	if len(defs) != 1 {
-		t.Fatalf("expected 1 def (deduped), got %d", len(defs))
 	}
 }
 
@@ -332,7 +261,7 @@ func TestReadTriggersFromFile_PermissionError(t *testing.T) {
 }
 
 func TestLoadTriggerDefs_FileReadError(t *testing.T) {
-	userDir, projectDir, _ := setupTriggerPrecedenceTest(t)
+	userDir, cwdDir := setupTriggerPrecedenceTest(t)
 
 	// user dir has a valid file
 	writeTriggerFile(t, userDir, `triggers:
@@ -340,8 +269,8 @@ func TestLoadTriggerDefs_FileReadError(t *testing.T) {
     ruki: 'before update deny "user"'
 `)
 
-	// project dir has an unreadable file (not invalid YAML, but unreadable)
-	f := filepath.Join(projectDir, "workflow.yaml")
+	// cwd-root has an unreadable file (not invalid YAML, but unreadable)
+	f := filepath.Join(cwdDir, "workflow.yaml")
 	if err := os.WriteFile(f, []byte("triggers: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -361,8 +290,9 @@ func TestLoadTriggerDefs_FileReadError(t *testing.T) {
 }
 
 func TestLoadTriggerDefs_CwdEqualsProjectConfigDir(t *testing.T) {
-	// when cwd == ProjectConfigDir(), candidates 2 and 3 resolve to the same
-	// absolute path, exercising the seen[abs] dedup branch.
+	// at runtime projectRoot == cwd, so the user-config candidate and the
+	// cwd-root candidate (ProjectConfigDir == projectRoot) are the only two.
+	// A workflow.yaml at the cwd root must be read exactly once.
 	userDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", userDir)
 	if err := os.MkdirAll(filepath.Join(userDir, "tiki"), 0750); err != nil {
@@ -376,23 +306,17 @@ func TestLoadTriggerDefs_CwdEqualsProjectConfigDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	docDir := filepath.Join(projectDir, ".doc")
-	if err := os.MkdirAll(docDir, 0750); err != nil {
-		t.Fatal(err)
-	}
 
-	// set cwd to the project config dir (.doc/) so that:
-	//   candidate 2 = projectRoot/.doc/workflow.yaml
-	//   candidate 3 = cwd/workflow.yaml = projectRoot/.doc/workflow.yaml  (same abs path)
+	// set cwd to the project root so projectRoot == cwd, the runtime invariant.
 	originalDir, _ := os.Getwd()
 	t.Cleanup(func() { _ = os.Chdir(originalDir) })
-	_ = os.Chdir(docDir)
+	_ = os.Chdir(projectDir)
 
 	ResetPathManager()
 	pm := mustGetPathManager()
 	pm.projectRoot = projectDir
 
-	writeTriggerFile(t, docDir, `triggers:
+	writeTriggerFile(t, projectDir, `triggers:
   - description: "doc trigger"
     ruki: 'before update deny "doc"'
 `)
@@ -401,9 +325,9 @@ func TestLoadTriggerDefs_CwdEqualsProjectConfigDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// the file should be read exactly once despite two candidates resolving to it
+	// the cwd-root file should be read exactly once
 	if len(defs) != 1 {
-		t.Fatalf("expected 1 def (deduped), got %d", len(defs))
+		t.Fatalf("expected 1 def, got %d", len(defs))
 	}
 	if defs[0].Description != "doc trigger" {
 		t.Errorf("expected 'doc trigger', got %q", defs[0].Description)

@@ -3,8 +3,6 @@ package model
 import (
 	"sync"
 
-	"github.com/boolean-maybe/tiki/store"
-
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -26,13 +24,11 @@ type StatValue struct {
 	Priority int
 }
 
-// HeaderConfig manages header visibility and burndown state.
+// HeaderConfig manages header visibility state.
 // View identity and actions are now in ViewContext.
 // Thread-safe model that notifies listeners when state changes.
 type HeaderConfig struct {
 	mu sync.RWMutex
-
-	burndown []store.BurndownPoint
 
 	// Visibility state
 	visible        bool // current header visibility (may be overridden by fullscreen view)
@@ -51,21 +47,6 @@ func NewHeaderConfig() *HeaderConfig {
 		listeners:      make(map[int]func()),
 		nextListener:   1,
 	}
-}
-
-// SetBurndown updates the burndown chart data
-func (hc *HeaderConfig) SetBurndown(points []store.BurndownPoint) {
-	hc.mu.Lock()
-	hc.burndown = points
-	hc.mu.Unlock()
-	hc.notifyListeners()
-}
-
-// GetBurndown returns the current burndown chart data
-func (hc *HeaderConfig) GetBurndown() []store.BurndownPoint {
-	hc.mu.RLock()
-	defer hc.mu.RUnlock()
-	return hc.burndown
 }
 
 // SetVisible sets the current header visibility

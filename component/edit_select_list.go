@@ -1,7 +1,7 @@
 package component
 
 import (
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -28,10 +28,10 @@ type EditSelectList struct {
 func NewEditSelectList(values []string, allowTyping bool) *EditSelectList {
 	inputField := tview.NewInputField()
 
-	// Configure the input field
-	colors := config.GetColors()
-	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
-	inputField.SetFieldTextColor(colors.ContentTextColor.TCell())
+	// configure the input field
+	roles := theme.Roles()
+	inputField.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
+	inputField.SetFieldTextColor(roles.TextPrimary().TCell())
 
 	esl := &EditSelectList{
 		InputField:   inputField,
@@ -153,8 +153,19 @@ func (esl *EditSelectList) InputHandler() func(event *tcell.EventKey, setFocus f
 			return
 
 		default:
-			// If typing is disabled, silently ignore all other keys
+			// If typing is disabled, swallow text-editing keys (printable
+			// runes, Backspace, Delete) so the value cannot be mutated, but
+			// forward navigation/control keys (Tab, Enter, Escape, any
+			// Ctrl-modified key) to the enclosing form so it can save or
+			// move focus.
 			if !esl.allowTyping {
+				switch key {
+				case tcell.KeyRune, tcell.KeyBackspace, tcell.KeyBackspace2, tcell.KeyDelete:
+					return
+				}
+				if baseHandler != nil {
+					baseHandler(event, setFocus)
+				}
 				return
 			}
 

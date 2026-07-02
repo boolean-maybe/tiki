@@ -7,17 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func TestTableFormatterProjectedFields(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"id", "title", "status"},
-		Tasks: []*task.Task{
-			{ID: "TIKI-AAA001", Title: "First", Status: "ready"},
-			{ID: "TIKI-BBB002", Title: "Second", Status: "done"},
+		Tikis: []ruki.Document{
+			tikiFromLegacy(legacyFields{ID: "TIKI-AAA001", Title: "First", Status: "ready"}),
+			tikiFromLegacy(legacyFields{ID: "TIKI-BBB002", Title: "Second", Status: "done"}),
 		},
 	}
 
@@ -42,9 +41,9 @@ func TestTableFormatterProjectedFields(t *testing.T) {
 }
 
 func TestTableFormatterFieldOrder(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"status", "id"},
-		Tasks:  []*task.Task{{ID: "TIKI-A00001", Status: "ready"}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-A00001", Status: "ready"})},
 	}
 
 	var buf bytes.Buffer
@@ -66,9 +65,9 @@ func TestTableFormatterFieldOrder(t *testing.T) {
 }
 
 func TestTableFormatterEmptyResult(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"id", "title"},
-		Tasks:  nil,
+		Tikis:  nil,
 	}
 
 	var buf bytes.Buffer
@@ -90,9 +89,9 @@ func TestTableFormatterEmptyResult(t *testing.T) {
 
 func TestTableFormatterDateFormatting(t *testing.T) {
 	due := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"due"},
-		Tasks:  []*task.Task{{Due: due}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Due: due})},
 	}
 
 	var buf bytes.Buffer
@@ -107,9 +106,9 @@ func TestTableFormatterDateFormatting(t *testing.T) {
 
 func TestTableFormatterTimestampFormatting(t *testing.T) {
 	ts := time.Date(2025, 6, 1, 14, 30, 0, 0, time.FixedZone("EST", -5*3600))
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"createdAt"},
-		Tasks:  []*task.Task{{CreatedAt: ts}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{CreatedAt: ts})},
 	}
 
 	var buf bytes.Buffer
@@ -124,9 +123,9 @@ func TestTableFormatterTimestampFormatting(t *testing.T) {
 }
 
 func TestTableFormatterZeroDate(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"due"},
-		Tasks:  []*task.Task{{Due: time.Time{}}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Due: time.Time{}})},
 	}
 
 	var buf bytes.Buffer
@@ -149,9 +148,9 @@ func TestTableFormatterZeroDate(t *testing.T) {
 }
 
 func TestTableFormatterZeroTimestamp(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"createdAt"},
-		Tasks:  []*task.Task{{CreatedAt: time.Time{}}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{CreatedAt: time.Time{}})},
 	}
 
 	var buf bytes.Buffer
@@ -169,12 +168,12 @@ func TestTableFormatterZeroTimestamp(t *testing.T) {
 }
 
 func TestTableFormatterListJSON(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"tags"},
-		Tasks: []*task.Task{
-			{Tags: []string{"backend", "urgent"}},
-			{Tags: []string{}},
-			{Tags: nil},
+		Tikis: []ruki.Document{
+			tikiFromLegacy(legacyFields{Tags: []string{"backend", "urgent"}}),
+			tikiFromLegacy(legacyFields{Tags: []string{}}),
+			tikiFromLegacy(legacyFields{Tags: nil}),
 		},
 	}
 
@@ -193,9 +192,9 @@ func TestTableFormatterListJSON(t *testing.T) {
 
 func TestTableFormatterListEscaping(t *testing.T) {
 	// list cells with special characters should use standard JSON escaping
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"tags"},
-		Tasks:  []*task.Task{{Tags: []string{`back\slash`, "new\nline", `"quoted"`}}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Tags: []string{`back\slash`, "new\nline", `"quoted"`}})},
 	}
 
 	var buf bytes.Buffer
@@ -217,9 +216,9 @@ func TestTableFormatterListEscaping(t *testing.T) {
 }
 
 func TestTableFormatterScalarEscaping(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"title"},
-		Tasks:  []*task.Task{{Title: "line1\nline2\ttab\\slash"}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Title: "line1\nline2\ttab\\slash"})},
 	}
 
 	var buf bytes.Buffer
@@ -234,9 +233,9 @@ func TestTableFormatterScalarEscaping(t *testing.T) {
 }
 
 func TestTableFormatterNoRowFooter(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tasks:  []*task.Task{{ID: "TIKI-A00001"}, {ID: "TIKI-B00002"}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-A00001"}), tikiFromLegacy(legacyFields{ID: "TIKI-B00002"})},
 	}
 
 	var buf bytes.Buffer
@@ -253,9 +252,9 @@ func TestTableFormatterNoRowFooter(t *testing.T) {
 }
 
 func TestTableFormatterBorders(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tasks:  []*task.Task{{ID: "TIKI-A00001"}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-A00001"})},
 	}
 
 	var buf bytes.Buffer
@@ -281,9 +280,9 @@ func TestTableFormatterBorders(t *testing.T) {
 }
 
 func TestTableFormatterEmptyString(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"assignee"},
-		Tasks:  []*task.Task{{Assignee: ""}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Assignee: ""})},
 	}
 
 	var buf bytes.Buffer
@@ -302,9 +301,9 @@ func TestTableFormatterEmptyString(t *testing.T) {
 
 func TestTableFormatterAllFieldsDefault(t *testing.T) {
 	// bare select with nil fields resolves to all canonical fields
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: nil,
-		Tasks:  []*task.Task{{ID: "TIKI-A00001", Title: "Test", Status: "ready", Priority: 3}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-A00001", Title: "Test", Status: "ready", Priority: "medium"})},
 	}
 
 	var buf bytes.Buffer
@@ -369,16 +368,17 @@ func TestRenderListEdgeCases(t *testing.T) {
 }
 
 func TestExtractFieldValueUnknown(t *testing.T) {
-	tk := &task.Task{ID: "TIKI-A00001"}
+	tk := tikiFromLegacy(legacyFields{ID: "TIKI-A00001"})
 	if got := extractFieldValue(tk, "nonexistent"); got != nil {
 		t.Errorf("extractFieldValue(unknown) = %v, want nil", got)
 	}
 }
 
 func TestTableFormatterIntField(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	initTestRegistries()
+	proj := &ruki.TikiProjection{
 		Fields: []string{"priority", "points"},
-		Tasks:  []*task.Task{{Priority: 3, Points: 8}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Priority: "medium", Points: "7"})},
 	}
 
 	var buf bytes.Buffer
@@ -387,18 +387,18 @@ func TestTableFormatterIntField(t *testing.T) {
 	}
 	out := buf.String()
 
-	if !strings.Contains(out, "3") {
+	if !strings.Contains(out, "medium") {
 		t.Errorf("missing priority value:\n%s", out)
 	}
-	if !strings.Contains(out, "8") {
+	if !strings.Contains(out, "7") {
 		t.Errorf("missing points value:\n%s", out)
 	}
 }
 
 func TestTableFormatterRecurrenceField(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"recurrence"},
-		Tasks:  []*task.Task{{Recurrence: "0 0 * * MON"}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Recurrence: "0 0 * * MON"})},
 	}
 
 	var buf bytes.Buffer
@@ -423,9 +423,9 @@ func nonEmptyLines(s string) []string {
 }
 
 func TestTableFormatterWriteError(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tasks:  []*task.Task{{ID: "TIKI-ABC123"}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
 	}
 
 	ew := &errorWriter{failAfter: 0}
@@ -486,9 +486,9 @@ func TestRenderTimestampNonTime(t *testing.T) {
 // --- write-error tests at each stage of Format ---
 
 func TestTableFormatterWriteErrorAtHeader(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tasks:  []*task.Task{{ID: "TIKI-ABC123"}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
 	}
 
 	// fail on second write (header row)
@@ -500,9 +500,9 @@ func TestTableFormatterWriteErrorAtHeader(t *testing.T) {
 }
 
 func TestTableFormatterWriteErrorAtSecondSep(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tasks:  []*task.Task{{ID: "TIKI-ABC123"}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
 	}
 
 	// fail on third write (second separator after header)
@@ -514,9 +514,9 @@ func TestTableFormatterWriteErrorAtSecondSep(t *testing.T) {
 }
 
 func TestTableFormatterWriteErrorAtDataRow(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tasks:  []*task.Task{{ID: "TIKI-ABC123"}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
 	}
 
 	// fail on fourth write (data row)
@@ -528,9 +528,9 @@ func TestTableFormatterWriteErrorAtDataRow(t *testing.T) {
 }
 
 func TestTableFormatterWriteErrorAtClosingSep(t *testing.T) {
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tasks:  []*task.Task{{ID: "TIKI-ABC123"}},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
 	}
 
 	// fail on fifth write (closing separator)
@@ -561,20 +561,20 @@ func TestEscapeScalar(t *testing.T) {
 func TestFormatCustomFields(t *testing.T) {
 	// register custom fields so extractFieldValue and resolveFields find them
 	initTestRegistries()
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium"}, {Value: "high"}}},
 		{Name: "score", Type: workflow.TypeInt},
 		{Name: "active", Type: workflow.TypeBool},
 		{Name: "notes", Type: workflow.TypeString},
 	}); err != nil {
 		t.Fatalf("register custom fields: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(func() { workflow.ClearWorkflowFields() })
 
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"severity", "score", "active", "notes"},
-		Tasks: []*task.Task{
-			{
+		Tikis: []ruki.Document{
+			tikiFromLegacy(legacyFields{
 				ID: "TIKI-CF0001", Title: "Custom", Status: "ready",
 				CustomFields: map[string]interface{}{
 					"severity": "high",
@@ -582,7 +582,7 @@ func TestFormatCustomFields(t *testing.T) {
 					"active":   true,
 					"notes":    "important",
 				},
-			},
+			}),
 		},
 	}
 
@@ -608,21 +608,21 @@ func TestFormatCustomFields(t *testing.T) {
 
 func TestFormatMissingCustomFields(t *testing.T) {
 	initTestRegistries()
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium"}, {Value: "high"}}},
 		{Name: "score", Type: workflow.TypeInt},
 		{Name: "active", Type: workflow.TypeBool},
 		{Name: "notes", Type: workflow.TypeString},
 	}); err != nil {
 		t.Fatalf("register custom fields: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(func() { workflow.ClearWorkflowFields() })
 
-	// task with no custom fields set — should render as empty (nil → "")
-	proj := &ruki.TaskProjection{
+	// tiki with no custom fields set — should render as empty (nil → "")
+	proj := &ruki.TikiProjection{
 		Fields: []string{"score", "active"},
-		Tasks: []*task.Task{
-			{ID: "TIKI-CF0002", Title: "Empty", Status: "ready"},
+		Tikis: []ruki.Document{
+			tikiFromLegacy(legacyFields{ID: "TIKI-CF0002", Title: "Empty", Status: "ready"}),
 		},
 	}
 
@@ -651,20 +651,20 @@ func TestFormatMissingCustomFields(t *testing.T) {
 
 func TestFormatSetToZeroVsUnset(t *testing.T) {
 	initTestRegistries()
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
 		{Name: "score", Type: workflow.TypeInt},
 		{Name: "active", Type: workflow.TypeBool},
 	}); err != nil {
 		t.Fatalf("register custom fields: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(func() { workflow.ClearWorkflowFields() })
 
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"score", "active"},
-		Tasks: []*task.Task{
-			{ID: "TIKI-Z00001", Title: "Explicit zero", Status: "ready",
-				CustomFields: map[string]interface{}{"score": 0, "active": false}},
-			{ID: "TIKI-Z00002", Title: "Unset", Status: "ready"},
+		Tikis: []ruki.Document{
+			tikiFromLegacy(legacyFields{ID: "TIKI-Z00001", Title: "Explicit zero", Status: "ready",
+				CustomFields: map[string]interface{}{"score": 0, "active": false}}),
+			tikiFromLegacy(legacyFields{ID: "TIKI-Z00002", Title: "Unset", Status: "ready"}),
 		},
 	}
 
@@ -697,11 +697,11 @@ func TestFormatSetToZeroVsUnset(t *testing.T) {
 func TestFormatFilepath(t *testing.T) {
 	initTestRegistries()
 
-	proj := &ruki.TaskProjection{
+	proj := &ruki.TikiProjection{
 		Fields: []string{"id", "filepath"},
-		Tasks: []*task.Task{
-			{ID: "TIKI-FP0001", Title: "x", Status: "ready", FilePath: "/abs/path/tiki-fp0001.md"},
-			{ID: "TIKI-FP0002", Title: "y", Status: "ready"},
+		Tikis: []ruki.Document{
+			tikiFromLegacy(legacyFields{ID: "TIKI-FP0001", Title: "x", Status: "ready", FilePath: "/abs/path/tiki-fp0001.md"}),
+			tikiFromLegacy(legacyFields{ID: "TIKI-FP0002", Title: "y", Status: "ready"}),
 		},
 	}
 

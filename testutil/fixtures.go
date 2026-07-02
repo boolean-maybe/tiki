@@ -5,37 +5,92 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/boolean-maybe/tiki/task"
 )
 
-// CreateTestTask creates a markdown task file with YAML frontmatter
-func CreateTestTask(dir, id, title string, status task.Status, taskType task.Type) error {
-	return CreateTestTaskWithDeps(dir, id, title, status, taskType, nil)
+// CreateTestTiki creates a markdown tiki file with YAML frontmatter
+func CreateTestTiki(dir, id, title, status, tikiType string) error {
+	return CreateTestTikiWithDeps(dir, id, title, status, tikiType, nil)
 }
 
-// CreateTestTaskWithDeps creates a markdown task file with optional dependsOn IDs in the frontmatter.
-func CreateTestTaskWithDeps(dir, id, title string, status task.Status, taskType task.Type, dependsOn []string) error {
-	filename := strings.ToLower(id) + ".md"
+// CreateTestTikiWithDeps creates a markdown tiki file with optional dependsOn
+// IDs in the frontmatter. Accepts either bare ("ABC123") or legacy-looking
+// ("TIKI-ABC123") ids; the legacy prefix is stripped so the written file
+// conforms to the Phase 1 strict-load contract (bare id in frontmatter,
+// filename is <id>.md).
+func CreateTestTikiWithDeps(dir, id, title, status, tikiType string, dependsOn []string) error {
+	bareID := normalizeBareID(id)
+	filename := bareID + ".md"
 	filePath := filepath.Join(dir, filename)
 
-	depsYAML := ""
+	// Phase 4: workflow-declaring docs must carry explicit presence for list
+	// fields so ruki actions that do `tags + [...]` or `dependsOn + [...]`
+	// don't hard-error on absent fields. Real save paths emit `tags: []`
+	// and `dependsOn: []` for workflow docs whose lists are empty; mirror
+	// that here so fixtures match the on-disk shape users see.
+	depsYAML := "dependsOn:"
 	if len(dependsOn) > 0 {
-		depsYAML = "dependsOn:\n"
+		depsYAML += "\n"
 		for _, dep := range dependsOn {
-			depsYAML += fmt.Sprintf("  - %s\n", dep)
+			// Quote so yaml.v3 keeps all-numeric ids as strings (leading
+			// zeros preserved). Production saves emit quoted/string lists;
+			// tests must mirror that for the generic loader.
+			depsYAML += fmt.Sprintf("  - %q\n", normalizeBareID(dep))
 		}
+	} else {
+		depsYAML += " []\n"
 	}
 
+	// Quote the id so YAML preserves leading zeros in all-numeric ids like
+	// "000001". Without quotes, yaml.v3 decodes them as integers and loses
+	// the padding — which then fails the strict-format validator at load.
 	content := fmt.Sprintf(`---
+id: %q
 title: %s
 type: %s
 status: %s
-priority: 3
-points: 1
+priority: medium
+points: "3"
+tags: []
 %s---
 %s
-`, title, taskType, status, depsYAML, title)
+`, bareID, title, tikiType, status, depsYAML, title)
 
-	return os.WriteFile(filePath, []byte(content), 0644)
+	return os.WriteFile(filePath, []byte(content), 0o644)
+}
+
+// ID returns the bare 6-character document id corresponding to a test-friendly
+// shorthand like "TIKI-1" or "ABC". Accepts TIKI- prefix, any case, and any
+// length ≤ 6, padding with leading zeros. Use this in both CreateTestTiki
+// calls and in GetTiki/test assertions so keys match end-to-end.
+func ID(raw string) string {
+	return normalizeBareID(raw)
+}
+
+// normalizeBareID accepts a variety of test-friendly shorthand — bare ids,
+// the pre-unification "TIKI-ABC123" form, hyphenated labels like "DELETE-1"
+// — and returns a canonical bare 6-character id. The helpers are forgiving
+// so we don't have to update every test call site in lockstep; production
+// code remains strict.
+//
+// Rules, applied in order:
+//  1. trim whitespace
+//  2. strip leading "TIKI-" (case-insensitive)
+//  3. strip any remaining hyphens ("DELETE-1" → "DELETE1")
+//  4. upper-case
+//  5. right-pad with 0 to 6 characters; truncate if longer
+func normalizeBareID(id string) string {
+	id = strings.TrimSpace(id)
+	if strings.HasPrefix(strings.ToUpper(id), "TIKI-") {
+		id = id[len("TIKI-"):]
+	}
+	id = strings.ReplaceAll(id, "-", "")
+	id = strings.ToUpper(id)
+	const wantLen = 6
+	if len(id) < wantLen {
+		id = strings.Repeat("0", wantLen-len(id)) + id
+	}
+	if len(id) > wantLen {
+		id = id[:wantLen]
+	}
+	return id
 }

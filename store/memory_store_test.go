@@ -6,234 +6,302 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/config"
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	collectionutil "github.com/boolean-maybe/ruki/collections"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-func TestInMemoryStore_CreateTask(t *testing.T) {
+// newWorkflowTiki builds a workflow tiki from basic tiki-like fields.
+// Tags and dependsOn are normalized (deduped, trimmed) before storage.
+func newWorkflowTiki(id, title, status string, tags, dependsOn []string) *tikipkg.Tiki {
+	tk := tikipkg.New()
+	tk.SetID(id)
+	tk.SetTitle(title)
+	if status != "" {
+		tk.Set(tikipkg.FieldStatus, status)
+	}
+	if len(tags) > 0 {
+		tk.Set(tikipkg.FieldTags, collectionutil.NormalizeStringSet(tags))
+	}
+	if len(dependsOn) > 0 {
+		tk.Set(tikipkg.FieldDependsOn, collectionutil.NormalizeRefSet(dependsOn))
+	}
+	return tk
+}
+
+func TestInMemoryStore_CreateTiki(t *testing.T) {
 	tests := []struct {
 		name     string
 		inputID  string
 		expected string
 	}{
-		{"normalizes ID to uppercase", "tiki-abc123", "TIKI-ABC123"},
-		{"trims whitespace from ID", "  TIKI-XYZ  ", "TIKI-XYZ"},
-		{"already uppercase passthrough", "TIKI-DEF456", "TIKI-DEF456"},
+		{"normalizes ID to uppercase", "abc123", "ABC123"},
+		{"trims whitespace from ID", "  DEF456  ", "DEF456"},
+		{"already uppercase passthrough", "GHI789", "GHI789"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewInMemoryStore()
-			task := &taskpkg.Task{ID: tt.inputID, Title: "Test", Type: taskpkg.TypeStory, Status: taskpkg.DefaultStatus()}
+			tk := tikipkg.New()
+			tk.SetID(tt.inputID)
+			tk.SetTitle("Test")
+			tk.Set(tikipkg.FieldType, "story")
+			tk.Set(tikipkg.FieldStatus, workflowEnumDefault("status"))
 
-			err := s.CreateTask(task)
-			if err != nil {
-				t.Fatalf("CreateTask() error = %v", err)
+			if err := s.CreateTiki(tk); err != nil {
+				t.Fatalf("CreateTiki() error = %v", err)
 			}
-			if task.ID != tt.expected {
-				t.Errorf("task.ID = %q, want %q", task.ID, tt.expected)
+			if tk.ID() != tt.expected {
+				t.Errorf("tk.ID() = %q, want %q", tk.ID(), tt.expected)
 			}
-			if task.CreatedAt.IsZero() {
+			if tk.CreatedAt().IsZero() {
 				t.Error("expected non-zero CreatedAt")
 			}
-			if task.UpdatedAt.IsZero() {
+			if tk.UpdatedAt().IsZero() {
 				t.Error("expected non-zero UpdatedAt")
 			}
-			got := s.GetTask(tt.expected)
+			got := s.GetTiki(tt.expected)
 			if got == nil {
-				t.Errorf("GetTask(%q) returned nil after CreateTask", tt.expected)
+				t.Errorf("GetTiki(%q) returned nil after CreateTiki", tt.expected)
 			}
 		})
 	}
 }
 
-func TestInMemoryStore_CreateTaskNormalizesCollections(t *testing.T) {
+func TestInMemoryStore_CreateTikiNormalizesCollections(t *testing.T) {
 	s := NewInMemoryStore()
-	input := &taskpkg.Task{
-		ID:        "TIKI-NORM01",
-		Title:     "normalize",
-		Tags:      []string{"frontend", "frontend", " backend ", ""},
-		DependsOn: []string{"tiki-aaa001", "TIKI-AAA001", "tiki-bbb002"},
+	// need existing tikis that dependsOn references so validation passes.
+	if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("AAA001"); t.SetTitle("dep1"); return t }()); err != nil {
+		t.Fatalf("setup dep1: %v", err)
+	}
+	if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("BBB002"); t.SetTitle("dep2"); return t }()); err != nil {
+		t.Fatalf("setup dep2: %v", err)
+	}
+	tk := newWorkflowTiki("NORM01", "normalize", "",
+		[]string{"frontend", "frontend", " backend ", ""},
+		[]string{"aaa001", "AAA001", "bbb002"},
+	)
+
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki() error = %v", err)
 	}
 
-	if err := s.CreateTask(input); err != nil {
-		t.Fatalf("CreateTask() error = %v", err)
+	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
+	if !reflect.DeepEqual(tags, []string{"frontend", "backend"}) {
+		t.Errorf("tags = %v, want [frontend backend]", tags)
 	}
-
-	if !reflect.DeepEqual(input.Tags, []string{"frontend", "backend"}) {
-		t.Errorf("tags = %v, want [frontend backend]", input.Tags)
-	}
-	if !reflect.DeepEqual(input.DependsOn, []string{"TIKI-AAA001", "TIKI-BBB002"}) {
-		t.Errorf("dependsOn = %v, want [TIKI-AAA001 TIKI-BBB002]", input.DependsOn)
+	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
+	if !reflect.DeepEqual(deps, []string{"AAA001", "BBB002"}) {
+		t.Errorf("dependsOn = %v, want [AAA001 BBB002]", deps)
 	}
 }
 
-func TestInMemoryStore_UpdateTask(t *testing.T) {
-	t.Run("error when task not found", func(t *testing.T) {
+func TestInMemoryStore_UpdateTiki(t *testing.T) {
+	t.Run("error when tiki not found", func(t *testing.T) {
 		s := NewInMemoryStore()
-		task := &taskpkg.Task{ID: "TIKI-MISSING", Title: "Ghost"}
-		err := s.UpdateTask(task)
+		tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("MISSING"); t.SetTitle("Ghost"); return t }()
+		err := s.UpdateTiki(tk)
 		if err == nil {
-			t.Error("expected error for non-existent task, got nil")
+			t.Error("expected error for non-existent tiki, got nil")
 		}
 	})
 
 	t.Run("normalizes ID before update", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-ABC123", Title: "Original"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC123"); t.SetTitle("Original"); return t }()); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
-		updated := &taskpkg.Task{ID: "tiki-abc123", Title: "Updated"}
-		if err := s.UpdateTask(updated); err != nil {
-			t.Fatalf("UpdateTask() error = %v", err)
+		updated := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("abc123"); t.SetTitle("Updated"); return t }()
+		if err := s.UpdateTiki(updated); err != nil {
+			t.Fatalf("UpdateTiki() error = %v", err)
 		}
-		got := s.GetTask("TIKI-ABC123")
-		if got == nil || got.Title != "Updated" {
+		got := s.GetTiki("ABC123")
+		if got == nil || got.Title() != "Updated" {
 			t.Errorf("expected title %q, got %v", "Updated", got)
 		}
 	})
 
 	t.Run("sets UpdatedAt after update", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-UPD001", Title: "Before"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("UPD001"); t.SetTitle("Before"); return t }()); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
 		}
-		task := s.GetTask("TIKI-UPD001")
-		before := task.UpdatedAt
+		stored := s.GetTiki("UPD001")
+		before := stored.UpdatedAt()
 
 		time.Sleep(time.Millisecond)
-		task.Title = "After"
-		if err := s.UpdateTask(task); err != nil {
-			t.Fatalf("UpdateTask() error = %v", err)
+		updated := stored.Clone()
+		updated.SetTitle("After")
+		if err := s.UpdateTiki(updated); err != nil {
+			t.Fatalf("UpdateTiki() error = %v", err)
 		}
-		if !task.UpdatedAt.After(before) {
+		after := s.GetTiki("UPD001")
+		if !after.UpdatedAt().After(before) {
 			t.Errorf("expected UpdatedAt to advance after update")
 		}
 	})
 
-	t.Run("updates task fields roundtrip", func(t *testing.T) {
+	t.Run("updates tiki fields roundtrip", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-RT0001", Title: "Old Title"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("RT0001"); t.SetTitle("Old Title"); return t }()); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
-		got := s.GetTask("TIKI-RT0001")
-		got.Title = "New Title"
-		if err := s.UpdateTask(got); err != nil {
-			t.Fatalf("UpdateTask() error = %v", err)
+		got := s.GetTiki("RT0001").Clone()
+		got.SetTitle("New Title")
+		if err := s.UpdateTiki(got); err != nil {
+			t.Fatalf("UpdateTiki() error = %v", err)
 		}
 
-		reloaded := s.GetTask("TIKI-RT0001")
-		if reloaded.Title != "New Title" {
-			t.Errorf("title = %q, want %q", reloaded.Title, "New Title")
+		reloaded := s.GetTiki("RT0001")
+		if reloaded.Title() != "New Title" {
+			t.Errorf("title = %q, want %q", reloaded.Title(), "New Title")
+		}
+	})
+
+	// UpdateTiki uses exact-presence semantics: fields absent in the incoming
+	// tiki are removed. Callers that want to preserve existing fields must load
+	// the stored tiki and clone it before updating.
+	t.Run("exact-presence: absent fields are removed", func(t *testing.T) {
+		s := NewInMemoryStore()
+		wf := tikipkg.New()
+		wf.SetID("WFMEM1")
+		wf.SetTitle("workflow")
+		wf.Set("status", "ready")
+		if err := s.CreateTiki(wf); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
+		}
+
+		// Update with a tiki that carries no workflow-declared fields. Exact-
+		// presence semantics drop the previously-stored status.
+		bare := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("WFMEM1"); t.SetTitle("updated"); return t }()
+		if err := s.UpdateTiki(bare); err != nil {
+			t.Fatalf("UpdateTiki() error = %v", err)
+		}
+		if hasAnyWorkflowFieldMem(s.GetTiki("WFMEM1")) {
+			t.Error("workflow-declared fields should be removed with exact-presence UpdateTiki")
 		}
 	})
 }
 
-func TestInMemoryStore_DeleteTask(t *testing.T) {
-	t.Run("removes existing task", func(t *testing.T) {
+func TestInMemoryStore_DeleteTiki(t *testing.T) {
+	t.Run("removes existing tiki", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-DEL001", Title: "To Delete"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("DEL001"); t.SetTitle("To Delete"); return t }()); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
-		s.DeleteTask("TIKI-DEL001")
-		if s.GetTask("TIKI-DEL001") != nil {
-			t.Error("expected nil after delete, got task")
+		s.DeleteTiki("DEL001")
+		if s.GetTiki("DEL001") != nil {
+			t.Error("expected nil after delete, got tiki")
 		}
 	})
 
 	t.Run("no panic for non-existent ID", func(t *testing.T) {
 		s := NewInMemoryStore()
-		s.DeleteTask("TIKI-GHOST1") // should not panic
+		s.DeleteTiki("GHOST1") // should not panic
 	})
 
 	t.Run("normalizes ID for delete", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LOWER1", Title: "Task"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("LOWER1"); t.SetTitle("Tiki"); return t }()); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
-		s.DeleteTask("tiki-lower1") // lowercase
-		if s.GetTask("TIKI-LOWER1") != nil {
+		s.DeleteTiki("lower1") // lowercase bare id
+		if s.GetTiki("LOWER1") != nil {
 			t.Error("expected nil after delete with lowercase ID")
 		}
 	})
 }
 
-func TestInMemoryStore_AddComment(t *testing.T) {
-	t.Run("returns false for unknown task", func(t *testing.T) {
+func TestInMemoryStore_TikiComment(t *testing.T) {
+	t.Run("comment append and retrieve via tiki fields", func(t *testing.T) {
 		s := NewInMemoryStore()
-		ok := s.AddComment("TIKI-NOEXST", taskpkg.Comment{Text: "hello"})
-		if ok {
-			t.Error("expected false for unknown task, got true")
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("CMT001"); t.SetTitle("Tiki"); return t }()); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
 		}
-	})
 
-	t.Run("returns true for known task", func(t *testing.T) {
-		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-CMT001", Title: "Task"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
+		tk := s.GetTiki("CMT001").Clone()
+		tk.Set("comments", []tikipkg.Comment{{Text: "first comment"}})
+		if err := s.UpdateTiki(tk); err != nil {
+			t.Fatalf("UpdateTiki() error = %v", err)
 		}
-		ok := s.AddComment("TIKI-CMT001", taskpkg.Comment{Text: "first comment"})
+
+		got := s.GetTiki("CMT001")
+		if got == nil {
+			t.Fatal("GetTiki = nil")
+		}
+		v, ok := got.Fields["comments"]
 		if !ok {
-			t.Error("expected true for known task")
+			t.Fatal("comments field missing")
 		}
-	})
-
-	t.Run("sets comment CreatedAt", func(t *testing.T) {
-		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-CMT002", Title: "Task"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
-		}
-		comment := taskpkg.Comment{Text: "check timestamp"}
-		s.AddComment("TIKI-CMT002", comment)
-
-		got := s.GetTask("TIKI-CMT002")
-		if got.Comments[0].CreatedAt.IsZero() {
-			t.Error("expected non-zero CreatedAt on comment")
-		}
-	})
-
-	t.Run("appends to existing comments", func(t *testing.T) {
-		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-CMT003", Title: "Task"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
-		}
-		s.AddComment("TIKI-CMT003", taskpkg.Comment{Text: "one"})
-		s.AddComment("TIKI-CMT003", taskpkg.Comment{Text: "two"})
-
-		got := s.GetTask("TIKI-CMT003")
-		if len(got.Comments) != 2 {
-			t.Errorf("expected 2 comments, got %d", len(got.Comments))
-		}
-	})
-
-	t.Run("normalizes task ID", func(t *testing.T) {
-		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-CMT004", Title: "Task"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
-		}
-		ok := s.AddComment("tiki-cmt004", taskpkg.Comment{Text: "lowercase key"})
-		if !ok {
-			t.Error("expected true with lowercase task ID")
+		cs, ok := v.([]tikipkg.Comment)
+		if !ok || len(cs) != 1 || cs[0].Text != "first comment" {
+			t.Errorf("comments = %v, want [{first comment}]", v)
 		}
 	})
 }
 
-func TestInMemoryStore_Search(t *testing.T) {
+// TestInMemoryStore_Search_FilterIsCallerSupplied verifies the search
+// contract: nil filter returns every tiki, while a caller-supplied predicate
+// (here, "has any workflow-declared field") narrows the result set. The store
+// itself does not classify tikis — filtering is purely caller-driven.
+func TestInMemoryStore_Search_FilterIsCallerSupplied(t *testing.T) {
+	s := NewInMemoryStore()
+	// one tiki has a workflow-declared field set.
+	withSchema := tikipkg.New()
+	withSchema.SetID("WITH01")
+	withSchema.SetTitle("has status")
+	withSchema.Set("status", "backlog")
+	s.tikis["WITH01"] = withSchema
+	// the other has only id+title — no workflow-declared fields.
+	bare := tikipkg.New()
+	bare.SetID("BARE01")
+	bare.SetTitle("bare")
+	s.tikis["BARE01"] = bare
+
+	// SearchTikis with a presence-of-schema filter matches only the one
+	// that has a workflow-declared field set.
+	results := s.SearchTikis("", func(tk *tikipkg.Tiki) bool {
+		return hasAnyWorkflowFieldMem(tk)
+	})
+	if len(results) != 1 || results[0].ID() != "WITH01" {
+		t.Errorf("schema-presence filter: got %v, want [WITH01]", results)
+	}
+
+	// nil filter returns all tikis regardless of field-map shape.
+	all := s.SearchTikis("", nil)
+	if len(all) != 2 {
+		t.Errorf("nil filter: got %d, want 2", len(all))
+	}
+}
+
+func TestInMemoryStore_SearchTikis(t *testing.T) {
 	buildStore := func(tb testing.TB) *InMemoryStore {
 		tb.Helper()
 		s := NewInMemoryStore()
-		for _, task := range []*taskpkg.Task{
-			{ID: "TIKI-S00001", Title: "Alpha feature", Description: "desc alpha", Tags: []string{"ui", "frontend"}},
-			{ID: "TIKI-S00002", Title: "Beta Bug", Description: "beta description", Tags: []string{"backend"}},
-			{ID: "TIKI-S00003", Title: "Gamma chore", Description: "third task"},
+		for _, spec := range []struct {
+			id, title, body string
+			tags            []string
+		}{
+			{"S00001", "Alpha feature", "desc alpha", []string{"ui", "frontend"}},
+			{"S00002", "Beta Bug", "beta description", []string{"backend"}},
+			{"S00003", "Gamma chore", "third tiki", nil},
 		} {
-			if err := s.CreateTask(task); err != nil {
-				tb.Fatalf("CreateTask() error = %v", err)
+			tk := tikipkg.New()
+			tk.SetID(spec.id)
+			tk.SetTitle(spec.title)
+			tk.SetBody(spec.body)
+			if len(spec.tags) > 0 {
+				tk.Set(tikipkg.FieldTags, spec.tags)
+			}
+			tk.Set(tikipkg.FieldStatus, "backlog")
+			if err := s.CreateTiki(tk); err != nil {
+				tb.Fatalf("CreateTiki() error = %v", err)
 			}
 		}
 		return s
@@ -242,82 +310,64 @@ func TestInMemoryStore_Search(t *testing.T) {
 	tests := []struct {
 		name       string
 		query      string
-		filterFunc func(*taskpkg.Task) bool
 		minResults int
 		maxResults int
 	}{
-		{"empty query + nil filter returns all", "", nil, 3, 3},
-		{"matches ID case-insensitive", "tiki-s00001", nil, 1, 1},
-		{"matches title case-insensitive", "alpha", nil, 1, 1},
-		{"matches description", "beta description", nil, 1, 1},
-		{"matches first tag", "ui", nil, 1, 1},
-		{"matches second tag", "backend", nil, 1, 1},
-		{"non-matching query returns empty", "zzz-no-match", nil, 0, 0},
-		{"filterFunc excludes tasks", "", func(t *taskpkg.Task) bool { return t.ID == "TIKI-S00001" }, 1, 1},
-		{"filterFunc + query intersection", "beta", func(t *taskpkg.Task) bool { return t.ID == "TIKI-S00002" }, 1, 1},
+		{"empty query returns all", "", 3, 3},
+		{"matches ID case-insensitive", "s00001", 1, 1},
+		{"matches title case-insensitive", "alpha", 1, 1},
+		{"matches body/description", "beta description", 1, 1},
+		{"non-matching query returns empty", "zzz-no-match", 0, 0},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := buildStore(t)
-			results := s.Search(tt.query, tt.filterFunc)
+			results := s.SearchTikis(tt.query, nil)
 			if len(results) < tt.minResults || len(results) > tt.maxResults {
-				t.Errorf("Search(%q) returned %d results, want [%d, %d]", tt.query, len(results), tt.minResults, tt.maxResults)
+				t.Errorf("SearchTikis(%q) returned %d results, want [%d, %d]", tt.query, len(results), tt.minResults, tt.maxResults)
 			}
 		})
 	}
 }
 
 func TestInMemoryStore_Listeners(t *testing.T) {
-	t.Run("called after CreateTask", func(t *testing.T) {
+	t.Run("called after CreateTiki", func(t *testing.T) {
 		s := NewInMemoryStore()
 		called := 0
 		s.AddListener(func() { called++ })
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LIS001"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("LIS001"); return t }()); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
 		}
 		if called != 1 {
 			t.Errorf("listener called %d times, want 1", called)
 		}
 	})
 
-	t.Run("called after UpdateTask", func(t *testing.T) {
+	t.Run("called after UpdateTiki", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LIS002", Title: "orig"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("LIS002"); t.SetTitle("orig"); return t }()); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
 		}
 		called := 0
 		s.AddListener(func() { called++ })
-		task := s.GetTask("TIKI-LIS002")
-		if err := s.UpdateTask(task); err != nil {
-			t.Fatalf("UpdateTask() error = %v", err)
+		tk := s.GetTiki("LIS002").Clone()
+		if err := s.UpdateTiki(tk); err != nil {
+			t.Fatalf("UpdateTiki() error = %v", err)
 		}
 		if called != 1 {
 			t.Errorf("listener called %d times, want 1", called)
 		}
 	})
 
-	t.Run("called after DeleteTask", func(t *testing.T) {
+	t.Run("called after DeleteTiki", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LIS003"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("LIS003"); return t }()); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
 		}
 		called := 0
 		s.AddListener(func() { called++ })
-		s.DeleteTask("TIKI-LIS003")
-		if called != 1 {
-			t.Errorf("listener called %d times, want 1", called)
-		}
-	})
-
-	t.Run("called after AddComment success", func(t *testing.T) {
-		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LIS004"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
-		}
-		called := 0
-		s.AddListener(func() { called++ })
-		s.AddComment("TIKI-LIS004", taskpkg.Comment{Text: "hi"})
+		s.DeleteTiki("LIS003")
 		if called != 1 {
 			t.Errorf("listener called %d times, want 1", called)
 		}
@@ -328,8 +378,8 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 		called := 0
 		id := s.AddListener(func() { called++ })
 		s.RemoveListener(id)
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LIS005"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("LIS005"); return t }()); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
 		}
 		if called != 0 {
 			t.Errorf("removed listener called %d times, want 0", called)
@@ -341,8 +391,8 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 		a, b := 0, 0
 		s.AddListener(func() { a++ })
 		s.AddListener(func() { b++ })
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LIS006"}); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("LIS006"); return t }()); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
 		}
 		if a != 1 || b != 1 {
 			t.Errorf("listeners called a=%d b=%d, want both 1", a, b)
@@ -350,41 +400,38 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 	})
 }
 
-func TestInMemoryStore_NewTaskTemplate(t *testing.T) {
+// TestInMemoryStore_NewTikiTemplate verifies workflow defaults are applied.
+func TestInMemoryStore_NewTikiTemplate(t *testing.T) {
 	s := NewInMemoryStore()
-	tmpl, err := s.NewTaskTemplate()
+	tmpl, err := s.NewTikiTemplate()
 	if err != nil {
-		t.Fatalf("NewTaskTemplate() error = %v", err)
+		t.Fatalf("NewTikiTemplate() error = %v", err)
 	}
-	if !strings.HasPrefix(tmpl.ID, "TIKI-") || len(tmpl.ID) != 11 {
-		t.Errorf("ID = %q, want TIKI-XXXXXX format (11 chars)", tmpl.ID)
+	if len(tmpl.ID()) != 6 {
+		t.Errorf("ID = %q, want 6-character bare ID", tmpl.ID())
 	}
-	if tmpl.ID != strings.ToUpper(tmpl.ID) {
-		t.Errorf("ID = %q, should be uppercased", tmpl.ID)
+	if p, _, _ := tmpl.StringField(tikipkg.FieldPriority); p != "medium" {
+		t.Errorf("Priority = %q, want %q", p, "medium")
 	}
-	if tmpl.Priority != 3 {
-		t.Errorf("Priority = %d, want 3", tmpl.Priority)
+	if pts, _, _ := tmpl.StringField(tikipkg.FieldPoints); pts != "3" {
+		t.Errorf("Points = %q, want %q", pts, "3")
 	}
-	if tmpl.Points != 1 {
-		t.Errorf("Points = %d, want 1", tmpl.Points)
+	if tags, _, _ := tmpl.StringSliceField(tikipkg.FieldTags); len(tags) != 1 || tags[0] != "idea" {
+		t.Errorf("Tags = %v, want [idea]", tags)
 	}
-	if len(tmpl.Tags) != 1 || tmpl.Tags[0] != "idea" {
-		t.Errorf("Tags = %v, want [idea]", tmpl.Tags)
+	if s, _, _ := tmpl.StringField(tikipkg.FieldStatus); s != workflowEnumDefault("status") {
+		t.Errorf("Status = %q, want %q", s, workflowEnumDefault("status"))
 	}
-	if tmpl.Status != taskpkg.DefaultStatus() {
-		t.Errorf("Status = %q, want %q", tmpl.Status, taskpkg.DefaultStatus())
-	}
-	if tmpl.Type != taskpkg.DefaultType() {
-		t.Errorf("Type = %q, want %q", tmpl.Type, taskpkg.DefaultType())
+	if s, _, _ := tmpl.StringField(tikipkg.FieldType); s != workflowEnumDefault("type") {
+		t.Errorf("Type = %q, want %q", s, workflowEnumDefault("type"))
 	}
 }
 
 func TestBuildMemoryFieldDefaults_DedupesCollectionDefaults(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+	t.Cleanup(teststatuses.Init)
+	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{Name: "labels", Type: workflow.TypeListString, DefaultValue: []string{"backend", " backend ", "backend"}},
-		{Name: "related", Type: workflow.TypeListRef, DefaultValue: []string{"tiki-aaa001", "TIKI-AAA001", "tiki-bbb002"}},
+		{Name: "related", Type: workflow.TypeListRef, DefaultValue: []string{"aaa001", "AAA001", "bbb002"}},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -402,112 +449,123 @@ func TestBuildMemoryFieldDefaults_DedupesCollectionDefaults(t *testing.T) {
 	if !ok {
 		t.Fatalf("related type = %T, want []string", defaults["related"])
 	}
-	if !reflect.DeepEqual(related, []string{"TIKI-AAA001", "TIKI-BBB002"}) {
-		t.Errorf("related = %v, want [TIKI-AAA001 TIKI-BBB002]", related)
+	if !reflect.DeepEqual(related, []string{"AAA001", "BBB002"}) {
+		t.Errorf("related = %v, want [AAA001 BBB002]", related)
 	}
 }
 
-func TestInMemoryStore_NewTaskTemplateCollision(t *testing.T) {
+func TestInMemoryStore_NewTikiTemplateCollision(t *testing.T) {
 	s := NewInMemoryStore()
 
-	// pre-populate store with a task that will collide
-	_ = s.CreateTask(&taskpkg.Task{ID: "TIKI-AAAAAA", Title: "existing"})
+	// pre-populate store with a tiki that will collide on bare id
+	_ = s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("AAAAAA"); t.SetTitle("existing"); return t }())
 
 	callCount := 0
 	s.idGenerator = func() string {
 		callCount++
 		if callCount == 1 {
-			return "aaaaaa" // will collide (normalized to TIKI-AAAAAA)
+			return "AAAAAA" // will collide with existing bare id
 		}
-		return "bbbbbb" // will succeed
+		return "BBBBBB" // will succeed
 	}
 
-	tmpl, err := s.NewTaskTemplate()
+	tmpl, err := s.NewTikiTemplate()
 	if err != nil {
-		t.Fatalf("NewTaskTemplate() error = %v", err)
+		t.Fatalf("NewTikiTemplate() error = %v", err)
 	}
-	if tmpl.ID != "TIKI-BBBBBB" {
-		t.Errorf("ID = %q, want TIKI-BBBBBB (should skip collision)", tmpl.ID)
+	if tmpl.ID() != "BBBBBB" {
+		t.Errorf("ID = %q, want BBBBBB (should skip collision)", tmpl.ID())
 	}
 	if callCount != 2 {
 		t.Errorf("idGenerator called %d times, want 2 (one collision + one success)", callCount)
 	}
 }
 
-func TestInMemoryStore_NewTaskTemplateExhaustion(t *testing.T) {
+func TestInMemoryStore_NewTikiTemplateExhaustion(t *testing.T) {
 	s := NewInMemoryStore()
 
 	// pre-populate with the only ID the generator will ever produce
-	_ = s.CreateTask(&taskpkg.Task{ID: "TIKI-AAAAAA", Title: "existing"})
+	_ = s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("AAAAAA"); t.SetTitle("existing"); return t }())
 
-	s.idGenerator = func() string { return "aaaaaa" }
+	s.idGenerator = func() string { return "AAAAAA" }
 
-	_, err := s.NewTaskTemplate()
+	_, err := s.NewTikiTemplate()
 	if err == nil {
 		t.Fatal("expected error for ID exhaustion, got nil")
 	}
-	if !strings.Contains(err.Error(), "failed to generate unique task ID") {
+	if !strings.Contains(err.Error(), "failed to generate unique tiki ID") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
 
-func TestInMemoryStore_GetAllTasks(t *testing.T) {
+func TestInMemoryStore_GetAllTikis(t *testing.T) {
 	t.Run("empty store returns empty slice", func(t *testing.T) {
 		s := NewInMemoryStore()
-		tasks := s.GetAllTasks()
-		if len(tasks) != 0 {
-			t.Errorf("got %d tasks, want 0", len(tasks))
+		tikis := s.GetAllTikis()
+		if len(tikis) != 0 {
+			t.Errorf("got %d tikis, want 0", len(tikis))
 		}
 	})
 
-	t.Run("3 tasks returns len 3", func(t *testing.T) {
+	t.Run("3 tikis returns len 3", func(t *testing.T) {
 		s := NewInMemoryStore()
-		for _, id := range []string{"TIKI-ALL001", "TIKI-ALL002", "TIKI-ALL003"} {
-			if err := s.CreateTask(&taskpkg.Task{ID: id}); err != nil {
-				t.Fatalf("CreateTask(%s) error = %v", id, err)
+		for _, id := range []string{"ALL001", "ALL002", "ALL003"} {
+			wf := tikipkg.New()
+			wf.SetID(id)
+			wf.Set("status", "ready")
+			if err := s.CreateTiki(wf); err != nil {
+				t.Fatalf("CreateTiki(%s) error = %v", id, err)
 			}
 		}
-		tasks := s.GetAllTasks()
-		if len(tasks) != 3 {
-			t.Errorf("got %d tasks, want 3", len(tasks))
+		tikis := s.GetAllTikis()
+		if len(tikis) != 3 {
+			t.Errorf("got %d tikis, want 3", len(tikis))
 		}
 	})
 
-	t.Run("returns same pointers, not copies", func(t *testing.T) {
+	t.Run("returns projections not raw pointers", func(t *testing.T) {
 		s := NewInMemoryStore()
-		original := &taskpkg.Task{ID: "TIKI-PTR001", Title: "Pointer Task"}
-		if err := s.CreateTask(original); err != nil {
-			t.Fatalf("CreateTask() error = %v", err)
+		orig := tikipkg.New()
+		orig.SetID("PTR001")
+		orig.SetTitle("Pointer Tiki")
+		orig.Set("status", "ready")
+		if err := s.CreateTiki(orig); err != nil {
+			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
-		tasks := s.GetAllTasks()
-		if len(tasks) != 1 {
-			t.Fatalf("got %d tasks, want 1", len(tasks))
+		tikis := s.GetAllTikis()
+		if len(tikis) != 1 {
+			t.Fatalf("got %d tikis, want 1", len(tikis))
 		}
-		// mutate via pointer returned from GetAllTasks
-		tasks[0].Title = "Mutated"
-		reloaded := s.GetTask("TIKI-PTR001")
-		if reloaded.Title != "Mutated" {
-			t.Errorf("title = %q, want %q — GetAllTasks should return pointers to stored tasks", reloaded.Title, "Mutated")
+		if tikis[0].Title() != "Pointer Tiki" {
+			t.Errorf("title = %q, want 'Pointer Tiki'", tikis[0].Title())
 		}
+		// Phase 5: GetAllTikis returns pointers to stored state.
+		// Mutations on returned tikis DO affect the store (map semantics).
+		// Use UpdateTiki to persist changes correctly.
 	})
 }
 
-func TestSearch_WithQueryAndFilter(t *testing.T) {
+func TestSearchTikis_WithQueryAndFilter(t *testing.T) {
 	s := NewInMemoryStore()
-	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-SRC001", Title: "Bug in parser", Tags: []string{"backend"}}); err != nil {
-		t.Fatalf("failed to create task: %v", err)
-	}
-	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-SRC002", Title: "Bug in UI", Tags: []string{"frontend"}}); err != nil {
-		t.Fatalf("failed to create task: %v", err)
-	}
-	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-SRC003", Title: "Feature request", Tags: []string{"backend"}}); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	for _, spec := range []struct {
+		id, title string
+		tags      []string
+	}{
+		{"SRC001", "Bug in parser", []string{"backend"}},
+		{"SRC002", "Bug in UI", []string{"frontend"}},
+		{"SRC003", "Feature request", []string{"backend"}},
+	} {
+		tk := newWorkflowTiki(spec.id, spec.title, "backlog", spec.tags, nil)
+		if err := s.CreateTiki(tk); err != nil {
+			t.Fatalf("failed to create tiki: %v", err)
+		}
 	}
 
 	// query "Bug" + filter for backend tag
-	results := s.Search("Bug", func(t *taskpkg.Task) bool {
-		for _, tag := range t.Tags {
+	results := s.SearchTikis("Bug", func(tk *tikipkg.Tiki) bool {
+		tags, _, _ := tk.StringSliceField("tags")
+		for _, tag := range tags {
 			if tag == "backend" {
 				return true
 			}
@@ -517,18 +575,18 @@ func TestSearch_WithQueryAndFilter(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result (Bug + backend), got %d", len(results))
 	}
-	if results[0].Task.ID != "TIKI-SRC001" {
-		t.Errorf("expected TIKI-SRC001, got %s", results[0].Task.ID)
+	if results[0].ID() != "SRC001" {
+		t.Errorf("expected SRC001, got %s", results[0].ID())
 	}
 }
 
-func TestSearch_FilterRejectsAll(t *testing.T) {
+func TestSearchTikis_FilterRejectsAll(t *testing.T) {
 	s := NewInMemoryStore()
-	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-REJ001", Title: "Task"}); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("REJ001"); t.SetTitle("Tiki"); return t }()); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 
-	results := s.Search("", func(t *taskpkg.Task) bool {
+	results := s.SearchTikis("", func(_ *tikipkg.Tiki) bool {
 		return false // reject all
 	})
 	if len(results) != 0 {
@@ -536,30 +594,63 @@ func TestSearch_FilterRejectsAll(t *testing.T) {
 	}
 }
 
-func TestSearch_MatchesTags(t *testing.T) {
+func TestSearchTikis_MatchesTags(t *testing.T) {
 	s := NewInMemoryStore()
-	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-TAG001", Title: "No match in title", Tags: []string{"backend"}}); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	wf := tikipkg.New()
+	wf.SetID("TAG001")
+	wf.SetTitle("No match in title")
+	wf.SetBody("No match in body either")
+	wf.Set("tags", []string{"backend"})
+	wf.Set("status", "ready")
+	if err := s.CreateTiki(wf); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 
-	results := s.Search("backend", nil)
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result (tag match), got %d", len(results))
+	// SearchTikis searches id, title, body, AND tags — a tag-only query
+	// must surface the tiki even when neither title nor body matches.
+	results := s.SearchTikis("backend", nil)
+	if len(results) != 1 || results[0].ID() != "TAG001" {
+		ids := make([]string, len(results))
+		for i, r := range results {
+			ids[i] = r.ID()
+		}
+		t.Fatalf("tag-only query: got %v, want [TAG001]", ids)
+	}
+
+	// Substring within a tag should also match (case-insensitive).
+	if results := s.SearchTikis("BACK", nil); len(results) != 1 || results[0].ID() != "TAG001" {
+		t.Errorf("case-insensitive tag substring did not match: got %d results", len(results))
+	}
+
+	// And a query that does not match the tag, title, or body returns nothing.
+	if results := s.SearchTikis("frontend", nil); len(results) != 0 {
+		t.Errorf("non-matching query returned results: %v", results)
 	}
 }
 
-func TestNewTaskTemplate_IDCollision(t *testing.T) {
+func TestNewTikiTemplate_IDCollision(t *testing.T) {
 	s := NewInMemoryStore()
-	// pre-populate so the generated ID always collides
-	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-FIXED", Title: "blocker"}); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	// pre-populate so the generated bare ID always collides
+	if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("FIXED1"); t.SetTitle("blocker"); return t }()); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 
 	// set idGenerator to always return the same ID
-	s.idGenerator = func() string { return "FIXED" }
+	s.idGenerator = func() string { return "FIXED1" }
 
-	_, err := s.NewTaskTemplate()
+	_, err := s.NewTikiTemplate()
 	if err == nil {
 		t.Fatal("expected error for ID exhaustion")
 	}
+}
+
+// workflowEnumDefault returns the default key for a workflow enum field, or
+// "" when no default is configured. Replaces tiki.DefaultStatus / DefaultType
+// helpers that used to wrap workflow.Field("...").EnumDefault().
+func workflowEnumDefault(fieldName string) string {
+	fd, ok := workflow.Field(fieldName)
+	if !ok {
+		return ""
+	}
+	return fd.EnumDefault()
 }

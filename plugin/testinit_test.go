@@ -1,6 +1,8 @@
 package plugin
 
-import "github.com/boolean-maybe/tiki/internal/teststatuses"
+import (
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
+)
 
 func init() {
 	teststatuses.Init()

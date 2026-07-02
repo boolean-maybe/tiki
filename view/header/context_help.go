@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/util"
 	"github.com/boolean-maybe/tiki/view/grid"
 
@@ -229,11 +229,11 @@ func buildGridRow(rowData []cellData, maxKeyLenPerCol, maxLabelLenPerCol []int, 
 		}
 
 		if !cell.enabled {
-			mutedTag := config.GetColors().TaskDetailPlaceholderColor.Tag().String()
+			mutedTag := theme.Roles().TextMuted().Tag()
 			fmt.Fprintf(&line, "%s<%s>%s", mutedTag, cell.key, mutedTag)
 		} else {
 			scheme := getColorScheme(cell.colorType)
-			fmt.Fprintf(&line, "%s<%s>%s", scheme.KeyColor.Tag().String(), cell.key, scheme.LabelColor.Tag().String())
+			fmt.Fprintf(&line, "%s<%s>%s", scheme.KeyColor.Tag(), cell.key, scheme.LabelColor.Tag())
 		}
 
 		// Add key padding

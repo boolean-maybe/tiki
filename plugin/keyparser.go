@@ -79,12 +79,38 @@ func parseKey(s string) (tcell.Key, rune, tcell.ModMask, error) {
 		return key, 0, 0, nil
 	}
 
+	// Named special keys (Enter, Tab, Delete, Backspace). Kept narrow on
+	// purpose; broaden as real workflows need new names so the surface stays
+	// explicit.
+	if key, ok := parseNamedKey(upper); ok {
+		return key, 0, 0, nil
+	}
+
 	// Otherwise require exactly one rune.
 	runes := []rune(s)
 	if len(runes) != 1 {
-		return 0, 0, 0, fmt.Errorf("invalid key: %q (expected single character, F1..F12, Ctrl-X, Alt-X, or Shift-X)", s)
+		return 0, 0, 0, fmt.Errorf("invalid key: %q (expected single character, F1..F12, Ctrl-X, Alt-X, Shift-X, or Enter/Tab/Delete/Backspace)", s)
 	}
 	return tcell.KeyRune, runes[0], 0, nil
+}
+
+// parseNamedKey resolves a small set of special key names. Inputs are
+// upper-cased by the caller. Supports Enter, Tab, Delete, and Backspace;
+// extend as new workflow needs surface. "Backspace" maps to KeyBackspace2
+// (rune 127) because that is what most keyboards — Mac in particular — send
+// for the main top-right delete key; "Delete"/"Del" maps to forward-delete.
+func parseNamedKey(upper string) (tcell.Key, bool) {
+	switch upper {
+	case "ENTER":
+		return tcell.KeyEnter, true
+	case "TAB":
+		return tcell.KeyTab, true
+	case "DELETE", "DEL":
+		return tcell.KeyDelete, true
+	case "BACKSPACE":
+		return tcell.KeyBackspace2, true
+	}
+	return 0, false
 }
 
 // parseFunctionKey parses function key notation (F1, F2, ..., F12)

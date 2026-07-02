@@ -4,15 +4,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/boolean-maybe/tiki/task"
-)
-
-// ViewMode represents the display mode for task boxes
-type ViewMode string
-
-const (
-	ViewModeCompact  ViewMode = "compact"  // 3-line display (5 total height with border)
-	ViewModeExpanded ViewMode = "expanded" // 7-line display (9 total height with border)
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // PluginSelectionListener is called when plugin selection changes
@@ -29,7 +21,6 @@ type PluginConfig struct {
 	scrollOffsets    []int // per-lane viewport position (top visible row)
 	preSearchLane    int
 	preSearchIndices []int
-	viewMode         ViewMode // compact or expanded display
 	listeners        map[int]PluginSelectionListener
 	nextListenerID   int
 	searchState      SearchState // search state (embedded)
@@ -39,7 +30,6 @@ type PluginConfig struct {
 func NewPluginConfig(name string) *PluginConfig {
 	pc := &PluginConfig{
 		pluginName:     name,
-		viewMode:       ViewModeCompact,
 		listeners:      make(map[int]PluginSelectionListener),
 		nextListenerID: 1,
 	}
@@ -91,7 +81,7 @@ func (pc *PluginConfig) SetSelectedLane(lane int) {
 	}
 }
 
-// GetSelectedIndex returns the selected task index for the current lane.
+// GetSelectedIndex returns the selected tiki index for the current lane.
 func (pc *PluginConfig) GetSelectedIndex() int {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
@@ -105,7 +95,7 @@ func (pc *PluginConfig) GetSelectedIndexForLane(lane int) int {
 	return pc.indexForLane(lane)
 }
 
-// SetSelectedIndex sets the selected task index for the current lane.
+// SetSelectedIndex sets the selected tiki index for the current lane.
 func (pc *PluginConfig) SetSelectedIndex(idx int) {
 	pc.mu.Lock()
 	pc.setIndexForLane(pc.selectedLane, idx)
@@ -199,8 +189,8 @@ func (pc *PluginConfig) notifyListeners() {
 }
 
 // MoveSelection moves selection in a direction within the current lane.
-func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
-	if taskCount == 0 {
+func (pc *PluginConfig) MoveSelection(direction string, tikiCount int) bool {
+	if tikiCount == 0 {
 		return false
 	}
 
@@ -210,7 +200,7 @@ func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 	oldIndex := pc.indexForLane(lane)
 	row := oldIndex / columns
 	col := oldIndex % columns
-	numRows := (taskCount + columns - 1) / columns
+	numRows := (tikiCount + columns - 1) / columns
 
 	switch direction {
 	case "up":
@@ -219,7 +209,7 @@ func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 		}
 	case "down":
 		newIdx := oldIndex + columns
-		if row < numRows-1 && newIdx < taskCount {
+		if row < numRows-1 && newIdx < tikiCount {
 			pc.setIndexForLane(lane, newIdx)
 		}
 	case "left":
@@ -227,7 +217,7 @@ func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 			pc.setIndexForLane(lane, oldIndex-1)
 		}
 	case "right":
-		if col < columns-1 && oldIndex+1 < taskCount {
+		if col < columns-1 && oldIndex+1 < tikiCount {
 			pc.setIndexForLane(lane, oldIndex+1)
 		}
 	}
@@ -242,49 +232,17 @@ func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 }
 
 // ClampSelection ensures selection is within bounds for the current lane.
-func (pc *PluginConfig) ClampSelection(taskCount int) {
+func (pc *PluginConfig) ClampSelection(tikiCount int) {
 	pc.mu.Lock()
 	lane := pc.selectedLane
 	index := pc.indexForLane(lane)
-	if index >= taskCount {
-		pc.setIndexForLane(lane, taskCount-1)
+	if index >= tikiCount {
+		pc.setIndexForLane(lane, tikiCount-1)
 	}
 	if pc.indexForLane(lane) < 0 {
 		pc.setIndexForLane(lane, 0)
 	}
 	pc.mu.Unlock()
-}
-
-// GetViewMode returns the current view mode
-func (pc *PluginConfig) GetViewMode() ViewMode {
-	pc.mu.RLock()
-	defer pc.mu.RUnlock()
-	return pc.viewMode
-}
-
-// ToggleViewMode switches between compact and expanded view modes
-func (pc *PluginConfig) ToggleViewMode() {
-	pc.mu.Lock()
-	if pc.viewMode == ViewModeCompact {
-		pc.viewMode = ViewModeExpanded
-	} else {
-		pc.viewMode = ViewModeCompact
-	}
-	pc.mu.Unlock()
-
-	pc.notifyListeners()
-}
-
-// SetViewMode sets the view mode from a string value
-func (pc *PluginConfig) SetViewMode(mode string) {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-
-	if mode == "expanded" {
-		pc.viewMode = ViewModeExpanded
-	} else {
-		pc.viewMode = ViewModeCompact
-	}
 }
 
 // SavePreSearchState saves current selection for later restoration
@@ -299,7 +257,7 @@ func (pc *PluginConfig) SavePreSearchState() {
 }
 
 // SetSearchResults sets filtered search results and query
-func (pc *PluginConfig) SetSearchResults(results []task.SearchResult, query string) {
+func (pc *PluginConfig) SetSearchResults(results []*tikipkg.Tiki, query string) {
 	pc.searchState.SetSearchResults(results, query)
 	pc.notifyListeners()
 }
@@ -321,7 +279,7 @@ func (pc *PluginConfig) ClearSearchResults() {
 }
 
 // GetSearchResults returns current search results (nil if no search active)
-func (pc *PluginConfig) GetSearchResults() []task.SearchResult {
+func (pc *PluginConfig) GetSearchResults() []*tikipkg.Tiki {
 	return pc.searchState.GetSearchResults()
 }
 

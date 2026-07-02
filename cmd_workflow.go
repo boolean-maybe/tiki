@@ -7,10 +7,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/plugin"
-	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // runWorkflow dispatches workflow subcommands. Returns an exit code.
@@ -193,7 +194,13 @@ func parseScopeArgs(args []string) (string, config.Scope, error) {
 			if scopeStr != "" {
 				return "", "", fmt.Errorf("only one scope allowed: already have --%s", scopeStr)
 			}
+			// --local is a deprecated alias for --current: the scan root is the
+			// current working directory, so the former project (".doc") tier and
+			// the cwd tier are the same directory.
 			scopeStr = strings.TrimPrefix(arg, "--")
+			if scopeStr == "local" {
+				scopeStr = "current"
+			}
 		default:
 			if strings.HasPrefix(arg, "--") {
 				return "", "", fmt.Errorf("unknown flag: %s", arg)
@@ -206,7 +213,7 @@ func parseScopeArgs(args []string) (string, config.Scope, error) {
 	}
 
 	if scopeStr == "" {
-		scopeStr = "local"
+		scopeStr = "current"
 	}
 
 	return positional, config.Scope(scopeStr), nil
@@ -236,7 +243,8 @@ func parsePositionalOnly(args []string) (string, error) {
 // workflow. Requires the ValidatedWorkflow (from config.ValidateWorkflowContent)
 // and the raw YAML content (written to a temp file for plugin loading).
 func validateWorkflowViews(vw *config.ValidatedWorkflow, content string) error {
-	schema := runtime.NewSchemaFromRegistries(vw.StatusReg, vw.TypeReg, vw.FieldDefs)
+	fields := append(workflow.SystemFields(), vw.FieldDefs...)
+	schema := runtime.NewSchemaFromFields(fields)
 
 	if len(vw.TriggerDefs) > 0 {
 		parser := ruki.NewParser(schema)
@@ -295,10 +303,9 @@ Targets (omit to reset all):
   config     Reset config.yaml
   workflow   Reset workflow.yaml
 
-Scopes (default: --local):
+Scopes (default: --current):
   --global   User config directory
-  --local    Project config directory (.doc/)
-  --current  Current working directory
+  --current  Current working directory (--local is a deprecated alias)
 `)
 }
 
@@ -314,10 +321,9 @@ Sources:
   File path:       ./my-workflow.yaml, /path/to/workflow.yaml
   URL:             https://example.com/workflow.yaml
 
-Scopes (default: --local):
+Scopes (default: --current):
   --global   User config directory
-  --local    Project config directory (.doc/)
-  --current  Current working directory
+  --current  Current working directory (--local is a deprecated alias)
 
 Examples:
   tiki workflow install kanban --global

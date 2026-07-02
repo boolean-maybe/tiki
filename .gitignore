@@ -16,8 +16,8 @@ out/
 .specstory
 .claude
 
-# Tiki binary
-/tiki
+# Build output
+/bin/
 
 # Go coverage output
 /coverage.out

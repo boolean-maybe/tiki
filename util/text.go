@@ -2,30 +2,25 @@ package util
 
 import "strings"
 
-// TruncateText truncates text to maxWidth and adds "..." if it exceeds.
-// Does not account for color codes - use TruncateTextWithColors for colored text.
+// TruncateText truncates text to maxWidth and appends a single-cell ellipsis
+// "…" if it exceeds. Does not account for color codes - use
+// TruncateTextWithColors for colored text.
 func TruncateText(text string, maxWidth int) string {
-	if maxWidth <= 3 {
-		runes := []rune(text)
-		if len(runes) <= maxWidth {
-			return text
-		}
-		return string(runes[:maxWidth])
-	}
-
 	runes := []rune(text)
 	if len(runes) <= maxWidth {
 		return text
 	}
-
-	return string(runes[:maxWidth-3]) + "..."
+	if maxWidth <= 1 {
+		return string(runes[:maxWidth])
+	}
+	return string(runes[:maxWidth-1]) + "…"
 }
 
 // TruncateTextWithColors truncates text to fit within maxWidth, accounting for tview color codes.
-// If truncation occurs, appends "..." to indicate the text was cut.
+// If truncation occurs, appends a single-cell ellipsis "…" to indicate the text was cut.
 // Color codes like [#ffffff] or [red] are not counted toward the visible width.
 func TruncateTextWithColors(text string, maxWidth int) string {
-	if maxWidth <= 3 {
+	if maxWidth <= 1 {
 		return text
 	}
 
@@ -49,8 +44,8 @@ func TruncateTextWithColors(text string, maxWidth int) string {
 		return text
 	}
 
-	// Need to truncate - rebuild text up to maxWidth-3 visible chars, then add "..."
-	targetLen := maxWidth - 3
+	// Need to truncate - rebuild text up to maxWidth-1 visible chars, then add "…"
+	targetLen := maxWidth - 1
 	if targetLen < 0 {
 		targetLen = 0
 	}
@@ -82,6 +77,6 @@ func TruncateTextWithColors(text string, maxWidth int) string {
 		}
 	}
 
-	result.WriteString("...")
+	result.WriteString("…")
 	return result.String()
 }

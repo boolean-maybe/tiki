@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "embed"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,14 +15,9 @@ import (
 	"github.com/boolean-maybe/tiki/internal/viewer"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/store/tikistore"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 )
-
-//go:embed ai/skills/tiki/SKILL.md
-var tikiSkillMdContent string
-
-//go:embed ai/skills/doki/SKILL.md
-var dokiSkillMdContent string
 
 // main runs the application bootstrap and starts the TUI.
 func main() {
@@ -57,11 +51,6 @@ func main() {
 		}
 	}
 
-	// Handle init command — must run before InitPaths (chdir may change cwd)
-	if len(os.Args) > 1 && os.Args[1] == "init" {
-		os.Exit(runInit(os.Args[2:]))
-	}
-
 	// Initialize paths early - this must succeed for the application to function
 	if err := config.InitPaths(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
@@ -78,14 +67,14 @@ func main() {
 		os.Exit(runExec(os.Args[2:]))
 	}
 
-	// Handle piped stdin: create a task and exit without launching TUI
+	// Handle piped stdin: create a tiki and exit without launching TUI
 	if pipe.IsPipedInput() && !pipe.HasPositionalArgs(os.Args[1:]) {
-		taskID, err := pipe.CreateTaskFromReader(os.Stdin)
+		tikiID, err := pipe.CreateTikiFromReader(os.Stdin)
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}
-		fmt.Println(taskID)
+		fmt.Println(tikiID)
 		return
 	}
 
@@ -107,20 +96,26 @@ func main() {
 		return
 	}
 
-	// Check if project is initialized before launching TUI
-	if !config.IsProjectInitialized() {
-		printUsage()
-		return
-	}
-
 	// Bootstrap application
-	result, err := bootstrap.Bootstrap(tikiSkillMdContent, dokiSkillMdContent)
+	result, err := bootstrap.Bootstrap()
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 	if result == nil {
 		return
+	}
+
+	// Surface any files the store refused to load as a prominent stderr
+	// warning before the TUI takes over. The summary scrolls past on launch
+	// so users can spot which files need manual fixing; we don't block
+	// startup because the TUI itself might be the fastest way to locate them.
+	if ts, ok := result.TikiStore.(*tikistore.TikiStore); ok {
+		if diag := ts.LoadDiagnostics(); diag.HasIssues() {
+			_, _ = fmt.Fprintln(os.Stderr, "\n=== tiki: load warnings ===")
+			_, _ = fmt.Fprint(os.Stderr, diag.Summary())
+			_, _ = fmt.Fprintln(os.Stderr, "===========================")
+		}
 	}
 
 	// Cleanup on exit
@@ -175,8 +170,7 @@ type ExecOpts struct {
 }
 
 // parseExecArgs parses `tiki exec` arguments, accepting a single ruki
-// statement plus an optional `--format table|json` flag. Follows the
-// parseInitArgs style.
+// statement plus an optional `--format table|json` flag.
 //
 // Supports the standard `--` end-of-options marker: every arg after `--` is
 // treated as positional, so ruki statements that legitimately start with `-`
@@ -292,40 +286,28 @@ func runExec(args []string) int {
 		return exitStartupFailure
 	}
 
-	if config.GetStoreGit() {
-		if err := bootstrap.EnsureGitRepo(); err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
-			return exitStartupFailure
-		}
-	}
-
-	if !config.IsProjectInitialized() {
-		_, _ = fmt.Fprintln(os.Stderr, "error: project not initialized: run 'tiki init' first")
-		return exitStartupFailure
-	}
-
 	if err := config.InstallDefaultWorkflow(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "warning: install default workflow: %v\n", err)
 	}
 
-	if err := config.LoadWorkflowRegistries(); err != nil {
+	if err := config.LoadWorkflowFields(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: load workflow registries: %v\n", err)
 		return exitStartupFailure
 	}
 
 	gate := service.BuildGate()
 
-	_, taskStore, err := bootstrap.InitStores()
+	_, tikiStore, err := bootstrap.InitStores()
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: initialize store: %v\n", err)
 		return exitStartupFailure
 	}
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 
 	// load triggers so exec queries fire them — same identity projection as
 	// bootstrap and the runtime executor, so email-only configs resolve user()
 	schema := rukiRuntime.NewSchema()
-	userFunc, err := store.CurrentUserDisplayFunc(taskStore)
+	userFunc, err := store.CurrentUserDisplayFunc(tikiStore)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: resolve current user: %v\n", err)
 		return exitStartupFailure
@@ -367,26 +349,24 @@ count(select where status != "done")'
 `)
 }
 
-// printUsage prints usage information when tiki is run in an uninitialized repo.
+// printUsage prints command-line usage information.
 func printUsage() {
-	fmt.Print(`tiki - Terminal-based task and documentation management
+	fmt.Print(`tiki - Terminal-based document management with workflow support
 
 Usage:
-  tiki                       Launch TUI in initialized repo
-  tiki init [dir] [options]    Initialize project (exits without launching TUI)
+  tiki                       Launch TUI over Markdown in the current directory
   tiki exec [--format table|json] '<statement>'    Execute a ruki query and exit
-  tiki workflow reset [target]  Reset config files (--global, --local, --current)
-  tiki workflow install <source> Install a workflow (--global, --local, --current)
+  tiki workflow reset [target]  Reset config files (--global, --current)
+  tiki workflow install <source> Install a workflow (--global, --current)
   tiki demo                  Launch demo project (extracts embedded files on first run)
   tiki file.md/URL           View markdown file or image
-  echo "Title" | tiki        Create task from piped input
+  echo "Title" | tiki        Create a document from piped input
+                               (workflow document or plain document, depending on workflow)
   tiki sysinfo               Display system information
   tiki --help                Show this help message
   tiki --version             Show version
 
 Options:
   --log-level <level>   Set log level (debug, info, warn, error)
-
-Run 'tiki init' to initialize this repository.
 `)
 }

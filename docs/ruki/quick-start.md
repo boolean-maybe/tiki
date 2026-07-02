@@ -1,0 +1,178 @@
+# Quick Start
+
+## Table of contents
+
+- [Overview](#overview)
+- [Mental model](#mental-model)
+- [CRUD statements](#crud-statements)
+- [Conditions and expressions](#conditions-and-expressions)
+- [Triggers](#triggers)
+- [Where to go next](#where-to-go-next)
+
+## Overview
+
+This page is a practical introduction to the `ruki` language. It covers the main statement forms, the conditions
+they use, and the trigger rules that let you block or react to changes.
+
+## Mental model
+
+`ruki` has two top-level forms:
+
+- Statements: `select`, `create`, `update`, `delete`, or a bare expression
+- Triggers: `before` or `after` rules attached to `create`, `update`, or `delete`
+
+Statements read and change tiki fields such as `status`, `type`, `tags`, `dependsOn`, `priority`, and `due`.
+Triggers use the same fields and conditions, but add `before` or `after` timing around `create`, `update`, or
+`delete`.
+
+The simplest way to read `ruki` is:
+
+- `select` filters tikis
+- `create` assigns fields for a new tiki
+- `update` finds tikis with `where`, then applies `set`
+- `delete` finds tikis with `where`, then removes them
+- `before ... deny "message"` blocks an operation when its guard matches
+- `after ... <action>` reacts to an operation by creating, updating, deleting, or `run(...)`
+
+## CRUD statements
+
+`select` reads:
+
+```sql
+select
+select title, status
+select id, title where status = "done"
+select where "bug" in tags and priority <= "medium-high"
+select where status != "done" order by priority limit 3
+```
+
+`create` writes one or more assignments:
+
+```sql
+create title="Fix login"
+create title="Fix login" priority="medium-high" status="ready" tags=["bug"]
+```
+
+`update` always has a `where` clause and a `set` clause:
+
+```sql
+update where id = "ABC123" set status="done"
+update where status = "ready" and "sprint-3" in tags set status="cancelled"
+```
+
+`delete` always has a `where` clause:
+
+```sql
+delete where id = "ABC123"
+delete where status = "cancelled" and "old" in tags
+```
+
+`select` may pipe results to a shell command or to the clipboard:
+
+```sql
+select id, title where status = "done" | run("myscript $1 $2")
+select id where id = id() | clipboard()
+```
+
+`| run(...)` executes the command for each row with field values as positional arguments (`$1`, `$2`).
+`| clipboard()` copies the selected fields to the system clipboard.
+
+A bare expression runs as a top-level statement that returns a single scalar (or list) value instead of a table:
+
+```sh
+tiki exec 'count(select where status != "done")'
+tiki exec 'exists(select where priority = "high")'
+tiki exec 'now()'
+```
+
+`count(...)` and `exists(...)` take a subquery and collapse it to a scalar, so they are the typical way to turn
+a filter into a number or boolean. Arithmetic works too (`count(...) + count(...)`). Bare field references like
+`title` or `priority` are rejected at the top level because there is no current task, but they remain valid
+inside the subquery arguments to `count(...)`, `exists(...)`, and `choose(...)`.
+
+For scripting, add `--format json`
+```sh
+tiki exec --format json 'select id, title where status = "ready"'
+```
+
+See [Command line options](../command-line.md#exec) for the full list of JSON output shapes.
+
+## Conditions and expressions
+
+Conditions support:
+
+- comparisons such as `status = "done"` or `priority <= "medium-high"`
+- emptiness checks such as `assignee is empty`
+- membership checks such as `"bug" in tags`
+- quantifiers over `list<ref>` values such as `dependsOn any status != "done"`
+- boolean composition with `not`, `and`, and `or`
+
+Examples:
+
+```sql
+select where status = "done" and priority <= "medium-high"
+select where assignee is empty
+select where status not in ["done", "cancelled"]
+select where dependsOn all status = "done"
+select where not (status = "done" or priority = "high")
+```
+
+Expressions include literals, field references, built-in calls, list literals, subqueries for `count(...)`,
+`choose(...)`, and `exists(...)`, and `+` or `-` binary expressions:
+
+```sql
+create title="Fix login"
+create title="x" due=2026-03-25 + 2day
+create title="x" tags=tags + ["needs-triage"]
+create title="x" due=next_date(recurrence)
+select where not exists(select where outer.id in dependsOn)
+```
+
+## Triggers
+
+Triggers add timing and event context around the same condition language.
+
+`before` triggers can only `deny`:
+
+```sql
+before update where new.status = "done" and dependsOn any status != "done"
+deny "cannot complete tiki with open dependencies"
+before delete where old.priority <= "medium-high" deny "cannot delete high priority tikis"
+```
+
+`after` triggers can perform an action:
+
+```sql
+after create where new.priority <= "medium-high" and new.assignee is empty
+update where id = new.id set assignee="booleanmaybe"
+after update where new.status = "done" and old.recurrence is not empty
+create title=old.title priority=old.priority tags=old.tags recurrence=old.recurrence
+due=next_date(old.recurrence) status="ready"
+after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
+```
+
+`after` triggers may also use `run(...)` as a top-level action:
+
+```sql
+after update where new.status = "inProgress" and "claude" in new.tags
+run("claude -p 'implement tiki " + old.id + "'")
+```
+
+Triggers are configured in `workflow.yaml` under the `triggers:` key. See [Triggers](triggers.md) for configuration
+details and runtime behavior.
+
+## Where to go next
+
+### Recipes
+ready-to-use examples for common workflow patterns
+
+- [Plugins](../ideas/plugins.md)
+- [Triggers](../ideas/triggers.md)
+
+### More info
+
+- Use [Triggers](triggers.md) for configuration, execution model, and runtime behavior.
+- Use [Syntax](syntax.md) for the grammar-level reference.
+- Use [Types And Values](types-and-values.md) for the type system and literal rules.
+- Use [Operators And Built-ins](operators-and-builtins.md) for precedence and function signatures.
+- Use [Examples](examples.md) for more complete programs and invalid cases.

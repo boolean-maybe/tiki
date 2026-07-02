@@ -12,6 +12,7 @@ import (
 	nav "github.com/boolean-maybe/navidown/navidown"
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/util"
 	"github.com/boolean-maybe/tiki/view/markdown"
 	"github.com/gdamore/tcell/v2"
@@ -25,6 +26,11 @@ func Run(input InputSpec) error {
 	if _, err := config.LoadConfig(); err != nil {
 		return err
 	}
+
+	// viewer skips bootstrap.Bootstrap, so initialize the role-based theme here.
+	// without this, anything reaching theme.Roles() (e.g. NewNavigableMarkdown)
+	// panics with "Roles() called before SetTheme: bootstrap order bug".
+	theme.SetTheme(theme.LoadByName(config.GetEffectiveTheme()))
 
 	app := tview.NewApplication()
 	provider := &loaders.FileHTTP{SearchRoots: input.SearchRoots}
@@ -201,12 +207,12 @@ func updateStatusBar(statusBar *tview.TextView, v *navtview.TextViewViewer) {
 	canBack := core.CanGoBack()
 	canForward := core.CanGoForward()
 
-	colors := config.GetColors()
-	labelColor := colors.TaskBoxTitleColor.Hex()
-	keyColor := colors.CompletionHintColor.Hex()
-	activeColor := colors.ContentTextColor.Hex()
-	mutedColor := colors.CompletionHintColor.Hex()
-	accentColor := colors.HeaderInfoLabel.Tag().Bold().String()
+	roles := theme.Roles()
+	labelColor := roles.TextSecondary().Hex()
+	keyColor := roles.TextHint().Hex()
+	activeColor := roles.TextPrimary().Hex()
+	mutedColor := roles.TextHint().Hex()
+	accentColor := roles.StatusWarn().BoldTag()
 	status := fmt.Sprintf(" %s%s[-] | [%s]Link:[-][%s]Tab/Shift-Tab[-] | [%s]Back:[-]", accentColor, fileName, labelColor, keyColor, labelColor)
 	if canBack {
 		status += fmt.Sprintf("[%s]◀[-]", activeColor)

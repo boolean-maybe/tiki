@@ -3,104 +3,112 @@ package tikistore
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
+	collectionutil "github.com/boolean-maybe/ruki/collections"
 	"github.com/boolean-maybe/tiki/config"
-	taskpkg "github.com/boolean-maybe/tiki/task"
-	collectionutil "github.com/boolean-maybe/tiki/util/collections"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// setAuthorFromIdentity best-effort populates CreatedBy using the current
-// Tiki identity (configured identity → git → OS user).
-func (s *TikiStore) setAuthorFromIdentity(task *taskpkg.Task) {
-	if task == nil || task.CreatedBy != "" {
-		return
-	}
-
+func (s *TikiStore) setAuthorFromIdentityTiki(tk *tikipkg.Tiki) {
 	name, email, err := s.GetCurrentUser()
-	if err != nil {
+	if err != nil || (name == "" && email == "") {
 		return
 	}
-
 	switch {
 	case name != "" && email != "":
-		task.CreatedBy = fmt.Sprintf("%s <%s>", name, email)
+		tk.Set("createdBy", fmt.Sprintf("%s <%s>", name, email))
 	case name != "":
-		task.CreatedBy = name
-	case email != "":
-		task.CreatedBy = email
+		tk.Set("createdBy", name)
+	default:
+		tk.Set("createdBy", email)
 	}
 }
 
-// NewTaskTemplate returns a new task populated with creation defaults.
-// Built-in defaults: priority=3, points=1, tags=["idea"].
-// Type and status come from their registries (explicit default or first entry).
-// Custom field defaults come from workflow.yaml field definitions.
-func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
+// NewTikiTemplate returns a new tiki populated with creation defaults from
+// the loaded workflow field catalog. Every workflow field declaring a
+// default contributes one Fields entry; enum fields contribute the value
+// marked default: true, non-enum fields contribute their declared
+// DefaultValue. Workflows that declare no defaults produce a bare tiki with
+// only id/createdAt set — callers fill in title/body and any field values.
+func (s *TikiStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.newTikiTemplateLocked()
+}
 
-	if err := config.RequireWorkflowRegistriesLoaded(); err != nil {
+// newTikiTemplateLocked builds a template tiki. Caller must hold s.mu.
+func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
+	if err := config.RequireWorkflowFieldsLoaded(); err != nil {
 		return nil, err
 	}
 
-	var taskID string
-	for {
-		randomID := config.GenerateRandomID()
-		taskID = fmt.Sprintf("TIKI-%s", randomID)
-
-		path := s.taskFilePath(taskID)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
+	// Identity uniqueness is checked against the in-memory index (s.tikis),
+	// not the filesystem — a tiki loaded from a renamed file occupies an id
+	// without occupying <tikidir>/<id>.md, so an os.Stat probe would falsely
+	// report the id free.
+	var tikiID string
+	for i := 0; ; i++ {
+		candidate := normalizeTikiID(config.GenerateRandomID())
+		if _, taken := s.tikis[candidate]; !taken {
+			tikiID = candidate
 			break
 		}
-		slog.Debug("ID collision detected during template creation, regenerating", "id", taskID)
+		if i > maxGenerateRetries {
+			return nil, fmt.Errorf("failed to generate unique tiki id after %d attempts", maxGenerateRetries)
+		}
+		slog.Debug("ID collision detected in index, regenerating", "id", candidate)
 	}
 
-	taskID = normalizeTaskID(taskID)
+	tk := tikipkg.New()
+	tk.SetID(tikiID)
+	tk.SetCreatedAt(time.Now())
 
-	task := &taskpkg.Task{
-		ID:        taskID,
-		Status:    taskpkg.DefaultStatus(),
-		Type:      taskpkg.DefaultType(),
-		Priority:  3,
-		Points:    1,
-		Tags:      []string{"idea"},
-		CreatedAt: time.Now(),
+	for k, v := range buildCustomFieldDefaults() {
+		tk.Set(k, v)
 	}
 
-	task.CustomFields = buildCustomFieldDefaults()
+	s.setAuthorFromIdentityTiki(tk)
 
-	s.setAuthorFromIdentity(task)
-
-	return task, nil
+	return tk, nil
 }
 
-// buildCustomFieldDefaults collects DefaultValue from all custom field
-// definitions into a map suitable for task.CustomFields.
+// buildCustomFieldDefaults collects creation defaults from all loaded
+// workflow field definitions. For enum fields, the default is the value
+// marked default: true. For non-enum fields, it's FieldDef.DefaultValue.
+// Returns nil when no workflow field declares a default.
 func buildCustomFieldDefaults() map[string]interface{} {
 	var defaults map[string]interface{}
-	for _, fd := range workflow.Fields() {
-		if !fd.Custom || fd.DefaultValue == nil {
-			continue
-		}
+	add := func(name string, value interface{}) {
 		if defaults == nil {
 			defaults = make(map[string]interface{})
+		}
+		defaults[name] = value
+	}
+	for _, fd := range workflow.WorkflowFields() {
+		if fd.Type == workflow.TypeEnum {
+			if def := fd.EnumDefault(); def != "" {
+				add(fd.Name, def)
+			}
+			continue
+		}
+		if fd.DefaultValue == nil {
+			continue
 		}
 		if ss, ok := fd.DefaultValue.([]string); ok {
 			switch fd.Type {
 			case workflow.TypeListRef:
-				defaults[fd.Name] = collectionutil.NormalizeRefSet(ss)
+				add(fd.Name, collectionutil.NormalizeRefSet(ss))
 			case workflow.TypeListString:
-				defaults[fd.Name] = collectionutil.NormalizeStringSet(ss)
+				add(fd.Name, collectionutil.NormalizeStringSet(ss))
 			default:
 				cp := make([]string, len(ss))
 				copy(cp, ss)
-				defaults[fd.Name] = cp
+				add(fd.Name, cp)
 			}
 		} else {
-			defaults[fd.Name] = fd.DefaultValue
+			add(fd.Name, fd.DefaultValue)
 		}
 	}
 	return defaults

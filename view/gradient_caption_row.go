@@ -1,36 +1,47 @@
 package view
 
 import (
-	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/util/gradient"
+	gradcore "github.com/boolean-maybe/tiki/internal/gradient"
+	"github.com/boolean-maybe/tiki/theme"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
-// GradientCaptionRow is a tview primitive that renders multiple lane captions
-// with a continuous horizontal background gradient spanning the entire screen width
+// GradientCaptionRow is a tview primitive that renders multiple lane
+// captions with a continuous horizontal background gradient spanning the
+// entire screen width. The per-column color comes from a PositionPaint so
+// the widget itself is unaware of gradient vs. solid — that decision lives
+// inside the PositionPaint implementation.
 type GradientCaptionRow struct {
 	*tview.Box
 	laneNames  []string
-	laneWidths []int           // proportional widths (same values used in tview.Flex)
-	gradient   config.Gradient // computed gradient (for truecolor/256-color terminals)
-	textColor  config.Color
+	laneWidths []int
+	paint      theme.PositionPaint
+	textColor  theme.Color
 }
 
-// NewGradientCaptionRow creates a new gradient caption row widget.
-// laneWidths should match the flex proportions used for lane layout (nil = equal).
-func NewGradientCaptionRow(laneNames []string, laneWidths []int, bgColor config.Color, textColor config.Color) *GradientCaptionRow {
+// NewGradientCaptionRow creates a new gradient caption row. The widget
+// derives its per-column background color from bgRole with the `.lift`
+// modifier: a vibrant gradient on capable terminals, a solid color when
+// gradients are disabled.
+func NewGradientCaptionRow(laneNames []string, laneWidths []int, bgRole theme.Role, textColor theme.Color) *GradientCaptionRow {
+	pp, ok := theme.PaintForRolePosition(bgRole, "lift")
+	if !ok {
+		// defensive fallback — an unknown modifier from a refactor mistake
+		// should not crash the UI. fall back to solid paint with the same role.
+		pp, _ = theme.PaintForRolePosition(bgRole, "")
+	}
 	return &GradientCaptionRow{
 		Box:        tview.NewBox(),
 		laneNames:  laneNames,
 		laneWidths: laneWidths,
-		gradient:   computeCaptionGradient(bgColor),
+		paint:      pp,
 		textColor:  textColor,
 	}
 }
 
-// Draw renders all lane captions with a screen-wide gradient background
+// Draw renders all lane captions with a screen-wide gradient background.
 func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 	gcr.DrawForSubclass(screen, gcr)
 
@@ -40,72 +51,49 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 	}
 
 	numLanes := len(gcr.laneNames)
-
-	// Calculate proportional lane boundaries
 	laneStarts, laneEnds := computeLaneBoundaries(gcr.laneWidths, numLanes, width)
 
-	// Convert all lane names to runes for Unicode handling
 	laneRunes := make([][]rune, numLanes)
 	for i, name := range gcr.laneNames {
 		laneRunes[i] = []rune(name)
 	}
 
-	// Build a column→lane lookup for efficient rendering
 	laneIndex := 0
-
-	// Render each lane position across the screen
 	for col := 0; col < width; col++ {
-		// Advance lane index when we pass the current lane's end
 		for laneIndex < numLanes-1 && col >= laneEnds[laneIndex] {
 			laneIndex++
 		}
 
-		// Calculate gradient color based on screen position (edges to center gradient)
-		// Distance from center: 0.0 at center, 1.0 at edges
-		centerPos := float64(width) / 2.0
-		distanceFromCenter := 0.0
+		// distance from center: 0.0 at center, 1.0 at edges. matches the
+		// previous edge-to-center sweep math byte-for-byte.
+		var t float64
 		if width > 1 {
-			distanceFromCenter = (float64(col) - centerPos) / (centerPos)
-			if distanceFromCenter < 0 {
-				distanceFromCenter = -distanceFromCenter
+			centerPos := float64(width) / 2.0
+			d := (float64(col) - centerPos) / centerPos
+			if d < 0 {
+				d = -d
 			}
+			t = d
 		}
 
-		// Use adaptive gradient based on terminal color capabilities
-		var bgColor tcell.Color
-		if config.UseWideGradients {
-			// Truecolor: full gradient effect (dark center, bright edges)
-			bgColor = gradient.InterpolateColor(gcr.gradient, distanceFromCenter)
-		} else if config.UseGradients {
-			// 256-color: solid color from gradient (use darker start for consistency)
-			bgColor = gradient.InterpolateColor(gcr.gradient, 0.0)
-		} else {
-			// 8/16-color: use brighter fallback from gradient instead of original color
-			// Original plugin colors (like #1e3a5f) map to black on basic terminals
-			bgColor = gradient.InterpolateColor(gcr.gradient, 1.0)
-		}
+		bgColor := gcr.bgColorAt(t)
 
 		currentLaneWidth := laneEnds[laneIndex] - laneStarts[laneIndex]
 		posInLane := col - laneStarts[laneIndex]
 
-		// Get the text for this lane
 		textRunes := laneRunes[laneIndex]
 		textWidth := len(textRunes)
-
-		// Calculate centered text position within lane
 		textStartPos := 0
 		if textWidth < currentLaneWidth {
 			textStartPos = (currentLaneWidth - textWidth) / 2
 		}
 
-		// Determine if we should render a character at this position
 		char := ' '
 		textIndex := posInLane - textStartPos
 		if textIndex >= 0 && textIndex < textWidth {
 			char = textRunes[textIndex]
 		}
 
-		// Render the cell with gradient background
 		style := tcell.StyleDefault.Foreground(gcr.textColor.TCell()).Background(bgColor)
 		for row := 0; row < height; row++ {
 			screen.SetContent(x+col, y+row, char, nil, style)
@@ -113,10 +101,32 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 	}
 }
 
+// bgColorAt picks the per-column background color from the widget's
+// PositionPaint, branching on terminal capability:
+//
+//   - truecolor (UseWideGradients): full edge-to-center gradient — the
+//     paint's natural ColorAt(t).
+//   - 256-color (UseGradients but not wide): flat color from the gradient
+//     start (t=0). Avoids visible banding when adjacent columns quantize
+//     to the same palette index.
+//   - 8/16-color (UseGradients=false): flat color from the gradient end
+//     (t=1) — the base role color. End is preferred over start because
+//     the start of the .lift gradient is the base color itself; on
+//     8/16-color terminals where gradientPaint degrades to solid base,
+//     t=1 also yields the base color, matching pre-migration behavior.
+func (gcr *GradientCaptionRow) bgColorAt(t float64) tcell.Color {
+	switch {
+	case gradcore.UseWideGradients.Load():
+		return gcr.paint.ColorAt(t)
+	case gradcore.UseGradients.Load():
+		return gcr.paint.ColorAt(0.0)
+	default:
+		return gcr.paint.ColorAt(1.0)
+	}
+}
+
 // computeLaneBoundaries calculates pixel start/end positions for each lane
-// based on proportional weights. Weights should be pre-normalized via normalizeLaneWidths;
-// zero/missing entries default to weight 1 as a safety fallback.
-// Returns parallel slices of start and end positions.
+// based on proportional weights. Zero/missing entries default to weight 1.
 func computeLaneBoundaries(weights []int, numLanes, totalWidth int) (starts []int, ends []int) {
 	starts = make([]int, numLanes)
 	ends = make([]int, numLanes)
@@ -126,7 +136,7 @@ func computeLaneBoundaries(weights []int, numLanes, totalWidth int) (starts []in
 		if i < len(weights) && weights[i] > 0 {
 			totalWeight += weights[i]
 		} else {
-			totalWeight += 1
+			totalWeight++
 		}
 	}
 
@@ -138,26 +148,11 @@ func computeLaneBoundaries(weights []int, numLanes, totalWidth int) (starts []in
 		}
 		starts[i] = pos
 		if i == numLanes-1 {
-			ends[i] = totalWidth // last lane absorbs rounding remainder
+			ends[i] = totalWidth
 		} else {
 			ends[i] = pos + (totalWidth*w)/totalWeight
 		}
 		pos = ends[i]
 	}
 	return starts, ends
-}
-
-const (
-	useVibrantPluginGradient = true
-	// increase this to get vibrance boost
-	vibrantBoost = 1.6
-)
-
-// computeCaptionGradient computes the gradient for caption background from a base color.
-func computeCaptionGradient(primary config.Color) config.Gradient {
-	fallback := config.GetColors().CaptionFallbackGradient
-	if useVibrantPluginGradient {
-		return gradient.GradientFromColorVibrant(primary, vibrantBoost, fallback)
-	}
-	return gradient.GradientFromColor(primary, 0.35, fallback)
 }

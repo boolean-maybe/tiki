@@ -12,7 +12,7 @@ func TestIsPluginViewID(t *testing.T) {
 	}{
 		{
 			name:     "plugin view with name",
-			viewID:   "plugin:burndown",
+			viewID:   "plugin:kanban",
 			expected: true,
 		},
 		{
@@ -26,13 +26,8 @@ func TestIsPluginViewID(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "task detail view",
-			viewID:   TaskDetailViewID,
-			expected: false,
-		},
-		{
-			name:     "task edit view",
-			viewID:   TaskEditViewID,
+			name:     "non-plugin literal",
+			viewID:   "tiki_edit",
 			expected: false,
 		},
 		{
@@ -80,8 +75,8 @@ func TestGetPluginName(t *testing.T) {
 	}{
 		{
 			name:         "simple plugin name",
-			viewID:       "plugin:burndown",
-			expectedName: "burndown",
+			viewID:       "plugin:kanban",
+			expectedName: "kanban",
 		},
 		{
 			name:         "hyphenated plugin name",
@@ -102,11 +97,6 @@ func TestGetPluginName(t *testing.T) {
 			name:         "plugin with colon in name",
 			viewID:       "plugin:name:with:colons",
 			expectedName: "name:with:colons",
-		},
-		{
-			name:         "non-plugin view returns full ID",
-			viewID:       TaskDetailViewID,
-			expectedName: "task_detail",
 		},
 		{
 			name:         "empty string",
@@ -143,8 +133,8 @@ func TestMakePluginViewID(t *testing.T) {
 	}{
 		{
 			name:       "simple name",
-			pluginName: "burndown",
-			expected:   "plugin:burndown",
+			pluginName: "kanban",
+			expected:   "plugin:kanban",
 		},
 		{
 			name:       "hyphenated name",
@@ -196,7 +186,7 @@ func TestMakePluginViewID(t *testing.T) {
 func TestViewID_RoundTrip(t *testing.T) {
 	// Test that MakePluginViewID and GetPluginName are inverses
 	testNames := []string{
-		"burndown",
+		"kanban",
 		"my-plugin",
 		"my_plugin",
 		"plugin123",
@@ -223,24 +213,12 @@ func TestViewID_RoundTrip(t *testing.T) {
 }
 
 func TestViewID_BuiltInViews(t *testing.T) {
-	// Verify built-in views are not plugin views
-	builtInViews := []struct {
-		name   string
-		viewID ViewID
-	}{
-		{"task_detail", TaskDetailViewID},
-		{"task_edit", TaskEditViewID},
+	// Verify a non-plugin literal is not classified as a plugin view.
+	// All runtime views are now plugin views; this guards the prefix check
+	// against future regressions.
+	if IsPluginViewID("non-plugin") {
+		t.Error("Non-plugin literal incorrectly identified as plugin view")
 	}
-
-	for _, v := range builtInViews {
-		t.Run(v.name, func(t *testing.T) {
-			if IsPluginViewID(v.viewID) {
-				t.Errorf("Built-in view %q identified as plugin view", v.viewID)
-			}
-		})
-	}
-
-	// Verify plugin prefix constant is identified as plugin view
 	if !IsPluginViewID(PluginViewIDPrefix) {
 		t.Error("PluginViewIDPrefix not identified as plugin view")
 	}
