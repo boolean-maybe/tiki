@@ -13,11 +13,11 @@
 - [Priority triage](#priority-triage--five-lane-plugin)
 - [Sprint board](#sprint-board--custom-enum-lanes)
 - [Severity triage](#severity-triage--custom-enum-filter--action)
-- [Subtasks in epic](#subtasks-in-epic--custom-tikiidlist--quantifier-trigger)
+- [Subtasks in project](#subtasks-in-project--custom-tikiidlist--quantifier-trigger)
 - [By topic](#by-topic--tag-based-lanes)
 - [Bulk cleanup](#bulk-cleanup--delete-without-selection)
 - [AI-gated action](#ai-gated-action--require)
-- [Link to / add tiki to epic](#link-to--add-tiki-to-epic--choose-action)
+- [Link to / add tiki to project](#link-to--add-tiki-to-project--choose-action)
 
 ## Assign to me — global plugin action
 
@@ -46,7 +46,7 @@ actions:
 
 ## Custom status + reject action
 
-Define a custom "rejected" status, then add a plugin action on the Backlog view to reject tasks.
+Define a custom "rejected" status, then add a plugin action on the Inbox view to reject tasks.
 
 ```yaml
 fields:
@@ -55,16 +55,15 @@ fields:
     values:
       - value: rejected
         label: Rejected
-        emoji: "🚫"
-        done: true
+        visual: "🚫"
 ```
 
 ```yaml
-- name: Backlog
+- name: Inbox
   key: "F3"
   lanes:
-    - name: Backlog
-      filter: select where status = "backlog" order by priority
+    - name: Inbox
+      filter: select where status = "inbox" order by priority
   actions:
     - key: "r"
       label: "Reject"
@@ -171,14 +170,14 @@ Two-lane plugin to review recent ideas and trash the ones you don't need. Moving
 
 ## Auto-delete stale tasks — time trigger
 
-Deletes backlog tasks that were created over 3 months ago and haven't been updated in 2 months.
+Deletes inbox tasks that were created over 3 months ago and haven't been updated in 2 months.
 
 ```yaml
 triggers:
-  - description: auto-delete stale backlog tasks
+  - description: auto-delete stale inbox tasks
     ruki: >
       every 1day
-        delete where status = "backlog"
+        delete where status = "inbox"
                      and now() - createdAt > 3month
                      and now() - updatedAt > 2month
 ```
@@ -210,7 +209,7 @@ One lane per priority level. Moving a task between lanes reassigns its priority.
 
 ## Sprint board — custom enum lanes
 
-Uses a custom `sprint` enum field. Lanes per sprint; moving a task between lanes reassigns it. The third lane catches unplanned backlog tasks.
+Uses a custom `sprint` enum field. Lanes per sprint; moving a task between lanes reassigns it. The third lane catches unplanned inbox tasks.
 
 Requires:
 
@@ -232,7 +231,7 @@ fields:
       filter: select where sprint = "sprint-8" order by priority
       action: update where id = id() set sprint="sprint-8"
     - name: Unplanned
-      filter: select where sprint is empty and status = "backlog" order by priority
+      filter: select where sprint is empty and status = "inbox" order by priority
       action: update where id = id() set sprint=empty
 ```
 
@@ -271,7 +270,7 @@ fields:
       action: update where id = id() set severity="trivial"
 ```
 
-## Subtasks in epic — custom tikiIdList + quantifier trigger
+## Subtasks in project — custom tikiIdList + quantifier trigger
 
 A `subtasks` field on parent tasks tracks their children (inverse of `dependsOn`). A trigger auto-completes the parent when every subtask is done. The plugin shows open vs. completed parents.
 
@@ -295,7 +294,7 @@ triggers:
 ```
 
 ```yaml
-- name: Epics
+- name: Projects
   key: "F11"
   lanes:
     - name: In Progress
@@ -350,28 +349,28 @@ actions:
     require: ["ai"]
 ```
 
-## Link to / add tiki to epic — choose() action
+## Link to / add tiki to project — choose() action
 
-From the Backlog view opens a Quick Select picker showing only epics that the current tiki is not already linked to, and adds it to the chosen epic's list.
-From the Roadmap view, pick any non-epic tiki that is not already linked to the selected epic, and add it.
+From the Inbox view opens a Quick Select picker showing only projects that the current tiki is not already linked to, and adds it to the chosen project's list.
+From the Roadmap view, pick any non-project tiki that is not already linked to the selected project, and add it.
 
 ```yaml
-- name: Backlog
+- name: Inbox
   actions:
     - key: "e"
-      label: "Link to epic"
-      action: update where id = choose(select where type = "epic" and id() not in dependsOn) set dependsOn = dependsOn + id()
+      label: "Link to project"
+      action: update where id = choose(select where type = "project" and id() not in dependsOn) set dependsOn = dependsOn + id()
 - name: Roadmap
   actions:
     - key: "l"
-      label: "Add tiki to epic"
-      action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic" and id not in target.dependsOn)
+      label: "Add tiki to project"
+      action: update where id = id() set dependsOn = dependsOn + choose(select where type != "project" and id not in target.dependsOn)
 ```
 
-A tiki is linked to an epic by adding its id to the epic's `dependsOn` list. Each filter hides
-epics/tikis where the link already exists:
+A tiki is linked to a project by adding its id to the project's `dependsOn` list. Each filter hides
+projects/tikis where the link already exists:
 
-- Backlog: `id() not in dependsOn` — the candidate epic's own `dependsOn` doesn't already
+- Inbox: `id() not in dependsOn` — the candidate project's own `dependsOn` doesn't already
   contain this tiki.
 - Roadmap: `id not in target.dependsOn` — the candidate tiki's id is not already in the
-  selected epic's `dependsOn`.
+  selected project's `dependsOn`.

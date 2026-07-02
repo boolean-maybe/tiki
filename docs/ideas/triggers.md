@@ -5,24 +5,24 @@ Candidate triggers for the bundled kanban workflow. Each represents a common wor
 - [WIP limit per assignee](#wip-limit-per-assignee)
 - [Require description for high-priority tasks](#require-description-for-high-priority-tasks)
 - [Auto-create next occurrence for recurring tasks](#auto-create-next-occurrence-for-recurring-tasks)
-- [Return stale in-progress tasks to backlog](#return-stale-in-progress-tasks-to-backlog)
+- [Return stale in-progress tasks to inbox](#return-stale-in-progress-tasks-to-inbox)
 - [Unblock tasks when dependencies complete](#unblock-tasks-when-dependencies-complete)
 - [Prevent re-opening completed tasks directly](#prevent-re-opening-completed-tasks-directly)
 - [Auto-assign creator on start](#auto-assign-creator-on-start)
 - [Escalate overdue tasks](#escalate-overdue-tasks)
-- [Require points estimate before review](#require-points-estimate-before-review)
+- [Require points estimate before done](#require-points-estimate-before-done)
 - [Auto-tag bugs as urgent when high priority](#auto-tag-bugs-as-urgent-when-high-priority)
-- [Prevent epics from being assigned](#prevent-epics-from-being-assigned)
+- [Prevent projects from being assigned](#prevent-projects-from-being-assigned)
 - [Auto-remove urgent tag when priority drops](#auto-remove-urgent-tag-when-priority-drops)
 - [Notify on critical task creation via webhook](#notify-on-critical-task-creation-via-webhook)
 - [Spike time-box](#spike-time-box)
 - [Require task breakdown for large estimates](#require-task-breakdown-for-large-estimates)
-- [Propagate priority from epic to children](#propagate-priority-from-epic-to-children)
+- [Propagate priority from project to children](#propagate-priority-from-project-to-children)
 - [Auto-set due date for in-progress tasks](#auto-set-due-date-for-in-progress-tasks)
 - [Require a title on creation](#require-a-title-on-creation)
 - [Prevent creating tasks as done](#prevent-creating-tasks-as-done)
-- [Epics require a description at creation](#epics-require-a-description-at-creation)
-- [Prevent deleting epics with active children](#prevent-deleting-epics-with-active-children)
+- [Projects require a description at creation](#projects-require-a-description-at-creation)
+- [Prevent deleting projects with active children](#prevent-deleting-projects-with-active-children)
 - [Block deletion of high-priority tasks](#block-deletion-of-high-priority-tasks)
 
 ## WIP limit per assignee
@@ -61,19 +61,19 @@ Recurring tasks automatically regenerate when completed.
     after update
       where new.status = "done" and old.recurrence is not empty
       create title=old.title priority=old.priority tags=old.tags
-             recurrence=old.recurrence due=next_date(old.recurrence) status="backlog"
+             recurrence=old.recurrence due=next_date(old.recurrence) status="inbox"
 ```
 
-## Return stale in-progress tasks to backlog
+## Return stale in-progress tasks to inbox
 
 Tasks untouched for 7 days are likely blocked or abandoned.
 
 ```yaml
-- description: return stale in-progress tasks to backlog after 7 days
+- description: return stale in-progress tasks to inbox after 7 days
   ruki: >
     every 1day
       update where status = "inProgress" and now() - updatedAt > 7day
-      set status="backlog"
+      set status="inbox"
 ```
 
 ## Unblock tasks when dependencies complete
@@ -128,16 +128,16 @@ Overdue items that aren't already P1 get automatically escalated.
       set priority="high"
 ```
 
-## Require points estimate before review
+## Require points estimate before done
 
-Ensures the team reflects on effort before review catches unestimated work.
+Ensures the team reflects on effort before work is marked complete.
 
 ```yaml
-- description: tasks must be estimated before entering review
+- description: tasks must be estimated before being marked done
   ruki: >
     before update
-      where new.status = "review" and new.points = 0
-      deny "estimate points before moving to review"
+      where new.status = "done" and new.points = 0
+      deny "estimate points before moving to done"
 ```
 
 ## Auto-tag bugs as urgent when high priority
@@ -152,16 +152,16 @@ High-priority bugs should be visually flagged without relying on humans to remem
       update where id = new.id set tags=tags + ["urgent"]
 ```
 
-## Prevent epics from being assigned
+## Prevent projects from being assigned
 
-Epics are containers, not actionable units — assign individual tasks instead.
+Projects are containers, not actionable units — assign individual tasks instead.
 
 ```yaml
-- description: epics track work groups and should not be assigned
+- description: projects track work groups and should not be assigned
   ruki: >
     before update
-      where new.type = "epic" and new.assignee is not empty
-      deny "epics represent work groups — assign individual tasks instead"
+      where new.type = "project" and new.assignee is not empty
+      deny "projects represent work groups — assign individual tasks instead"
 ```
 
 ## Auto-remove urgent tag when priority drops
@@ -208,19 +208,19 @@ Large estimates are a smell — nudge toward decomposition for better flow.
 - description: large tasks should be broken into smaller pieces
   ruki: >
     before update
-      where new.points >= 8 and new.type != "epic"
-      deny "tasks with 8+ points should be broken down — use an epic instead"
+      where new.points >= 8 and new.type != "project"
+      deny "tasks with 8+ points should be broken down — use a project instead"
 ```
 
-## Propagate priority from epic to children
+## Propagate priority from project to children
 
-When an epic gets escalated, its children should follow.
+When a project gets escalated, its children should follow.
 
 ```yaml
-- description: raise child task priority when epic priority increases
+- description: raise child task priority when project priority increases
   ruki: >
     after update
-      where new.type = "epic" and new.priority < old.priority
+      where new.type = "project" and new.priority < old.priority
       update where new.id in dependsOn and priority > new.priority
       set priority=new.priority
 ```
@@ -261,28 +261,28 @@ New tasks should enter the workflow, not skip it entirely.
       deny "cannot create a task that is already done"
 ```
 
-## Epics require a description at creation
+## Projects require a description at creation
 
-Epics define scope — a description ensures the goal is documented upfront.
+Projects define scope — a description ensures the goal is documented upfront.
 
 ```yaml
-- description: epics require a description at creation
+- description: projects require a description at creation
   ruki: >
     before create
-      where new.type = "epic" and new.description is empty
-      deny "epics must have a description explaining the goal"
+      where new.type = "project" and new.description is empty
+      deny "projects must have a description explaining the goal"
 ```
 
-## Prevent deleting epics with active children
+## Prevent deleting projects with active children
 
-Deleting an epic should not orphan its child tasks.
+Deleting a project should not orphan its child tasks.
 
 ```yaml
-- description: cannot delete epics that still have linked tasks
+- description: cannot delete projects that still have linked tasks
   ruki: >
     before delete
-      where old.type = "epic" and count(select where old.id in dependsOn and status != "done") > 0
-      deny "cannot delete epic with active child tasks"
+      where old.type = "project" and count(select where old.id in dependsOn and status != "done") > 0
+      deny "cannot delete project with active child tasks"
 ```
 
 ## Block deletion of high-priority tasks

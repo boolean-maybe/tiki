@@ -160,7 +160,7 @@ update where id = id() set reviewers=reviewers + ["alice"]
 select where status = "ready" order by effort desc
 
 -- sort by category, then priority
-select where status = "backlog" order by category, priority
+select where status = "inbox" order by category, priority
 
 -- sort by deadline
 select where deadline is not empty order by deadline

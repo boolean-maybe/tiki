@@ -105,7 +105,6 @@ header:
 
 # Tiki settings
 tiki:
-  maxPoints: 10             # Maximum story points for tasks
   maxImageRows: 40          # Maximum rows for inline images (Kitty protocol)
 
 # Logging settings
@@ -169,7 +168,7 @@ the recommended way to enable `user()` when the scan root is not a git repositor
 
 ### workflow.yaml
 
-For detailed instructions see [Customization](plugin.md)
+For detailed instructions see [Customization](customization/customization.md)
 
 Example `workflow.yaml`:
 
@@ -178,31 +177,29 @@ fields:
   - name: status
     type: enum
     values:
-      - value: backlog
-        label: Backlog
-        emoji: "📥"
+      - value: inbox
+        label: Inbox
+        visual: "📥"
         default: true
       - value: ready
         label: Ready
-        emoji: "📋"
+        visual: "📋"
       - value: inProgress
         label: "In Progress"
-        emoji: "⚙️"
-      - value: review
-        label: Review
-        emoji: "👀"
+        visual: "⚙️"
       - value: done
         label: Done
-        emoji: "✅"
+        visual: "✅"
   - name: type
     type: enum
     values:
       - value: story
         label: Story
+        default: true
       - value: bug
         label: Bug
-      - value: epic
-        label: Epic
+      - value: project
+        label: Project
 
 actions:                        # top-level global actions (available from every view)
   - key: "a"
@@ -222,33 +219,33 @@ views:                          # top-level list of views (no plugins: wrapper)
     default: true
     key: "F1"
     lanes:
+      - name: Inbox
+        filter: select where status = "inbox" and type != "project" order by priority, createdAt
+        action: update where id = id() set status="inbox"
       - name: Ready
-        filter: select where status = "ready" and type != "epic" order by priority, createdAt
+        filter: select where status = "ready" and type != "project" order by priority, createdAt
         action: update where id = id() set status="ready"
       - name: In Progress
-        filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
+        filter: select where status = "inProgress" and type != "project" order by priority, createdAt
         action: update where id = id() set status="inProgress"
-      - name: Review
-        filter: select where status = "review" and type != "epic" order by priority, createdAt
-        action: update where id = id() set status="review"
       - name: Done
-        filter: select where status = "done" and type != "epic" order by priority, createdAt
+        filter: select where status = "done" and type != "project" order by priority, createdAt
         action: update where id = id() set status="done"
-  - name: Backlog
+  - name: Inbox
     kind: board
     description: "Tasks waiting to be picked up, sorted by priority"
     key: "F3"
     lanes:
-      - name: Backlog
+      - name: Inbox
         columns: 4
-        filter: select where status = "backlog" and type != "epic" order by priority, id
+        filter: select where status = "inbox" and type != "project" order by priority, id
     actions:
       - key: "b"
         label: "Add to board"
         action: update where id = id() set status="ready"
       - key: "e"
-        label: "Link to epic"
-        action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+        label: "Link to project"
+        action: update where id = choose(select where type = "project") set dependsOn = dependsOn + id()
   - name: Recent
     kind: board
     description: "Tasks changed in the last 24 hours, most recent first"
@@ -259,7 +256,7 @@ views:                          # top-level list of views (no plugins: wrapper)
         filter: select where now() - updatedAt < 24hour order by updatedAt desc
   - name: Roadmap
     kind: board
-    description: "Epics organized by Now, Next, and Later horizons"
+    description: "Projects organized by Now, Next, and Later horizons"
     key: "F4"
     layout:                     # required — declares the tiki-box layout
       - ['type.visual + " " + id']
@@ -269,22 +266,22 @@ views:                          # top-level list of views (no plugins: wrapper)
       - name: Now
         columns: 1
         width: 25
-        filter: select where type = "epic" and status = "ready" order by priority, points desc
+        filter: select where type = "project" and status = "ready" order by priority, points desc
         action: update where id = id() set status="ready"
       - name: Next
         columns: 1
         width: 25
-        filter: select where type = "epic" and status = "backlog" and priority = "high" order by priority, points desc
-        action: update where id = id() set status="backlog" priority="high"
+        filter: select where type = "project" and status = "inbox" and priority = "high" order by priority, points desc
+        action: update where id = id() set status="inbox" priority="high"
       - name: Later
         columns: 2
         width: 50
-        filter: select where type = "epic" and status = "backlog" and priority > "high" order by priority, points desc
-        action: update where id = id() set status="backlog" priority="medium-high"
+        filter: select where type = "project" and status = "inbox" and priority > "high" order by priority, points desc
+        action: update where id = id() set status="inbox" priority="medium-high"
     actions:
       - key: "l"
-        label: "Add to epic"
-        action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
+        label: "Add to project"
+        action: update where id = id() set dependsOn = dependsOn + choose(select where type != "project")
   - name: Docs
     kind: wiki
     description: "Project notes and documentation files"
@@ -297,11 +294,11 @@ triggers:
       before update
         where new.status = "done" and new.dependsOn any status != "done"
         deny "cannot complete: has open dependencies"
-  - description: tasks must pass through review before completion
+  - description: tasks must pass through in-progress before completion
     ruki: >
       before update
-        where new.status = "done" and old.status != "review"
-        deny "tasks must go through review before marking done"
+        where new.status = "done" and old.status != "inProgress"
+        deny "tasks must go through in-progress before marking done"
   - description: remove deleted task from dependency lists
     ruki: >
       after delete
@@ -315,15 +312,15 @@ triggers:
       before update
         where new.status = "inProgress" and new.assignee is empty
         deny "assign someone before moving to in-progress"
-  - description: auto-complete epics when all child tasks finish
+  - description: auto-complete projects when all child tasks finish
     ruki: >
       after update
-        where new.status = "done" and new.type != "epic"
-        update where type = "epic" and new.id in dependsOn and dependsOn all status = "done"
+        where new.status = "done" and new.type != "project"
+        update where type = "project" and new.id in dependsOn and dependsOn all status = "done"
         set status="done"
   - description: cannot delete tasks that are actively being worked
     ruki: >
       before delete
         where old.status = "inProgress"
-        deny "cannot delete an in-progress task — move to backlog or done first"
+        deny "cannot delete an in-progress task — move to inbox or done first"
 ```

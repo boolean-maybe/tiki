@@ -35,14 +35,13 @@ the customizations travel with your repo.
 Before changing anything, let us look at what ships with tiki. With no `workflow.yaml`
 present, tiki uses its embedded default workflow:
 
-**Five statuses** — the stages a task moves through:
+**Four statuses** — the stages a task moves through:
 
 | Status | Meaning |
 |--------|---------|
-| 📥 Backlog | Where new tasks land |
+| 📥 Inbox | Where new tasks land |
 | 📋 Ready | Picked up and ready to start |
 | ⚙️ In Progress | Someone is working on it |
-| 👀 Review | Waiting for a teammate to check |
 | ✅ Done | Finished |
 
 **Four task types** — what kind of work it is:
@@ -52,16 +51,15 @@ present, tiki uses its embedded default workflow:
 | 🌀 Story | A feature or user-facing change |
 | 💥 Bug | Something broken that needs fixing |
 | 🔍 Spike | Research or investigation |
-| 🗂️ Epic | A big-picture goal that groups smaller tasks |
+| 🗂️ Project | A big-picture goal that groups smaller tasks |
 
-**Five views** — different screens you switch between with hotkeys:
+**Views** — different screens you switch between with hotkeys:
 
 | View | Key | What it shows |
 |------|-----|---------------|
-| Kanban | F1 | The main board with Ready, In Progress, Review, Done columns |
+| Kanban | F1 | The main board with Inbox, Ready, In Progress, Done columns |
 | Docs | F2 | Project documentation files |
-| Backlog | F3 | Tasks waiting to be picked up |
-| Roadmap | F4 | Epics organized by Now, Next, Later |
+| Roadmap | F4 | Projects organized by Now, Next, Later |
 | Recent | Ctrl-R | Tasks changed in the last 24 hours |
 
 Plus a set of keyboard shortcuts (actions) and automation rules (triggers) that
@@ -85,41 +83,34 @@ fields:
   - name: status
     type: enum
     values:
-      - value: backlog
-        label: Backlog
-        emoji: "📥"
+      - value: inbox
+        label: Inbox
+        visual: "📥"
         default: true
       - value: ready
         label: Ready
-        emoji: "📋"
-        active: true
+        visual: "📋"
       - value: inProgress
         label: "In Progress"
-        emoji: "⚙️"
-        active: true
+        visual: "⚙️"
       - value: blocked
         label: Blocked
-        emoji: "🚧"
-      - value: review
-        label: Review
-        emoji: "👀"
-        active: true
+        visual: "🚧"
       - value: done
         label: Done
-        emoji: "✅"
-        done: true
+        visual: "✅"
 ```
 
 This is the same as the default, with one new entry: `blocked`.
 
-Let us look at the flags on each status:
+Let us look at the keys on each status value:
 
-- **`default: true`** — where new tasks start. Exactly one status must have this.
-  Here that is Backlog.
-- **`done: true`** — the finish line. Exactly one status must have this. Here
-  that is Done.
-- **`active: true`** — means work is happening. You can mark as many as you like.
-  Blocked is intentionally *not* active — the task is stuck, not being worked on.
+- **`default: true`** — where new tasks start. At most one status may have this.
+  Here that is Inbox.
+- **`visual`** — a glyph (emoji or `<role>`-tagged markup) shown next to the label. Tiki has no
+  built-in notion of a "done" or "active" status — the runtime does not special-case any value. Use
+  `visual` to give terminal or in-progress states a recognizable glyph (e.g. ✅ on the value that
+  represents completion).
 
 Each status also has a **value** and a **label**. The value is the permanent
 identifier — it is what gets stored in your task files and used in filters. The
@@ -148,26 +139,27 @@ Add this to your `./workflow.yaml`, right after the status field entry:
     values:
       - value: story
         label: Story
-        emoji: "🌀"
+        visual: "🌀"
+        default: true
       - value: bug
         label: Bug
-        emoji: "💥"
+        visual: "💥"
       - value: chore
         label: Chore
-        emoji: "🔧"
+        visual: "🔧"
       - value: spike
         label: Spike
-        emoji: "🔍"
-      - value: epic
-        label: Epic
-        emoji: "🗂️"
+        visual: "🔍"
+      - value: project
+        label: Project
+        visual: "🗂️"
 ```
 
 This keeps all four original types and adds `chore` in the middle.
 
-One thing to note: the **first type in the list becomes the default** for new
+One thing to note: the **`default: true`** value becomes the default for new
 tasks. Here that is `story`. If you wanted chores to be the default, you would
-move it to the top of the list.
+move `default: true` onto the `chore` entry (only one value may carry it).
 
 > **Never remove a type that existing tasks use.** If you have tasks saved as
 > "spike" and you remove that type from the list, those tasks will stop loading.
@@ -177,26 +169,24 @@ move it to the top of the list.
 
 ## 4. Customizing the Kanban view
 
-Now let us customize the main board. The default Kanban has four lanes: Ready,
-In Progress, Review, and Done. We want to:
+Now let us customize the main board. The default Kanban has four lanes: Inbox,
+Ready, In Progress, and Done. We want to:
 
-1. Add a **Blocked** lane for our new status
-2. Rename "Review" to **"Testing"** on screen (while keeping the key `review`
-   so existing tasks stay valid)
+1. Add a **Blocked** lane for the status we added in section 2
+2. Add a **Testing** status and lane for work waiting to be checked
 
-First, update the status field values we wrote earlier — change the label on
-`review`:
+First, add a `testing` status. Statuses are a replace-the-whole-list field, so
+add it to the `status` values from section 2 (before `done`):
 
 ```yaml
-      - value: review
+      - value: testing
         label: Testing
-        emoji: "🧪"
-        active: true
+        visual: "🧪"
 ```
 
-Notice the value is still `review`. Your existing tasks that are in review will
-keep working perfectly — they just show up under the name "Testing" now. We also
-swapped the emoji to a test tube to match.
+The `value` (`testing`) is the permanent key stored in your task files; the
+`label` (`Testing`) is what shows on screen. They can differ — rename the label
+freely later without touching your tasks.
 
 Now for the Kanban view itself. Views live at the top level of `workflow.yaml`
 under `views:`. Every view declares a `kind:` (here, `board`) that tells tiki
@@ -211,21 +201,24 @@ views:
     default: true
     key: "F1"
     lanes:
+      - name: Inbox
+        filter: select where status = "inbox" and type != "project" order by priority, createdAt
+        action: update where id = id() set status="inbox"
       - name: Ready
-        filter: select where status = "ready" and type != "epic" order by priority, createdAt
+        filter: select where status = "ready" and type != "project" order by priority, createdAt
         action: update where id = id() set status="ready"
       - name: In Progress
-        filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
+        filter: select where status = "inProgress" and type != "project" order by priority, createdAt
         action: update where id = id() set status="inProgress"
       - name: Blocked
         width: 15
-        filter: select where status = "blocked" and type != "epic" order by priority, createdAt
+        filter: select where status = "blocked" and type != "project" order by priority, createdAt
         action: update where id = id() set status="blocked"
       - name: Testing
-        filter: select where status = "review" and type != "epic" order by priority, createdAt
-        action: update where id = id() set status="review"
+        filter: select where status = "testing" and type != "project" order by priority, createdAt
+        action: update where id = id() set status="testing"
       - name: Done
-        filter: select where status = "done" and type != "epic" order by priority, createdAt
+        filter: select where status = "done" and type != "project" order by priority, createdAt
         action: update where id = id() set status="done"
 ```
 
@@ -240,11 +233,11 @@ It is written in a small built-in language called [ruki](../ruki/index.md) — b
 do not let that intimidate you, it reads almost like English:
 
 ```
-select where status = "ready" and type != "epic" order by priority, createdAt
+select where status = "ready" and type != "project" order by priority, createdAt
 ```
 
 This means: *show me tasks where the status is "ready" and the type is not
-"epic", sorted by priority first, then by creation date.*
+"project", sorted by priority first, then by creation date.*
 
 **What does `action` do?** The action is what happens when you move a task into
 this lane:
@@ -485,19 +478,18 @@ understand how they work, then add our own.
 Here is one from the bundled kanban workflow:
 
 ```yaml
-- description: tasks must pass through review before completion
+- description: tasks must pass through in-progress before completion
   ruki: >
     before update
-      where new.status = "done" and old.status != "review"
-      deny "tasks must go through review before marking done"
+      where new.status = "done" and old.status != "inProgress"
+      deny "tasks must be in-progress before marking done"
 ```
 
 Let us break it down:
 
 - **`before update`** — this trigger fires before a task is changed
 - **`new.status = "done"`** — someone is trying to move the task to Done
-- **`old.status != "review"`** — but it was not in Review (or in our case,
-  Testing) beforehand
+- **`old.status != "inProgress"`** — but it was not In Progress beforehand
 - **`deny "..."`** — block the change and show this message
 
 The words `old` and `new` are how triggers refer to the task before and after
@@ -559,7 +551,7 @@ the priority to 1 automatically.
 > `select where ...`, `update where ... set ...`, `before`/`after`. This is
 > called **ruki** — a small language built into tiki for filters, actions, and
 > triggers. You already know enough to build most things. If you want to
-> explore further, see the [ruki reference](ruki/index.md).
+> explore further, see the [ruki reference](../ruki/index.md).
 
 ---
 
@@ -679,29 +671,25 @@ fields:
   - name: status
     type: enum
     values:
-      - value: backlog
-        label: Backlog
-        emoji: "📥"
+      - value: inbox
+        label: Inbox
+        visual: "📥"
         default: true
       - value: ready
         label: Ready
-        emoji: "📋"
-        active: true
+        visual: "📋"
       - value: inProgress
         label: "In Progress"
-        emoji: "⚙️"
-        active: true
+        visual: "⚙️"
       - value: blocked
         label: Blocked
-        emoji: "🚧"
-      - value: review
+        visual: "🚧"
+      - value: testing
         label: Testing
-        emoji: "🧪"
-        active: true
+        visual: "🧪"
       - value: done
         label: Done
-        emoji: "✅"
-        done: true
+        visual: "✅"
 
   # Types: kinds of work
   - name: type
@@ -709,19 +697,20 @@ fields:
     values:
       - value: story
         label: Story
-        emoji: "🌀"
+        visual: "🌀"
+        default: true
       - value: bug
         label: Bug
-        emoji: "💥"
+        visual: "💥"
       - value: chore
         label: Chore
-        emoji: "🔧"
+        visual: "🔧"
       - value: spike
         label: Spike
-        emoji: "🔍"
-      - value: epic
-        label: Epic
-        emoji: "🗂️"
+        visual: "🔍"
+      - value: project
+        label: Project
+        visual: "🗂️"
 
   # Custom fields: project-specific data on every task
   - name: severity
@@ -754,21 +743,24 @@ views:
     default: true
     key: "F1"
     lanes:
+      - name: Inbox
+        filter: select where status = "inbox" and type != "project" order by priority, createdAt
+        action: update where id = id() set status="inbox"
       - name: Ready
-        filter: select where status = "ready" and type != "epic" order by priority, createdAt
+        filter: select where status = "ready" and type != "project" order by priority, createdAt
         action: update where id = id() set status="ready"
       - name: In Progress
-        filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
+        filter: select where status = "inProgress" and type != "project" order by priority, createdAt
         action: update where id = id() set status="inProgress"
       - name: Blocked
         width: 15
-        filter: select where status = "blocked" and type != "epic" order by priority, createdAt
+        filter: select where status = "blocked" and type != "project" order by priority, createdAt
         action: update where id = id() set status="blocked"
       - name: Testing
-        filter: select where status = "review" and type != "epic" order by priority, createdAt
-        action: update where id = id() set status="review"
+        filter: select where status = "testing" and type != "project" order by priority, createdAt
+        action: update where id = id() set status="testing"
       - name: Done
-        filter: select where status = "done" and type != "epic" order by priority, createdAt
+        filter: select where status = "done" and type != "project" order by priority, createdAt
         action: update where id = id() set status="done"
 
   # Your personal task list
@@ -818,10 +810,10 @@ triggers:
       before update
         where new.status = "done" and new.dependsOn any status != "done"
         deny "cannot complete: has open dependencies"
-  - description: tasks must pass through review before completion
+  - description: tasks must pass through testing before completion
     ruki: >
       before update
-        where new.status = "done" and old.status != "review"
+        where new.status = "done" and old.status != "testing"
         deny "tasks must go through testing before marking done"
   - description: remove deleted task from dependency lists
     ruki: >
@@ -836,23 +828,23 @@ triggers:
       before update
         where new.status = "inProgress" and new.assignee is empty
         deny "assign someone before moving to in-progress"
-  - description: auto-complete epics when all child tasks finish
+  - description: auto-complete projects when all child tasks finish
     ruki: >
       after update
-        where new.status = "done" and new.type != "epic"
-        update where type = "epic" and new.id in dependsOn and dependsOn all status = "done"
+        where new.status = "done" and new.type != "project"
+        update where type = "project" and new.id in dependsOn and dependsOn all status = "done"
         set status="done"
   - description: cannot delete tasks that are actively being worked
     ruki: >
       before delete
         where old.status = "inProgress"
-        deny "cannot delete an in-progress task — move to backlog or done first"
+        deny "cannot delete an in-progress task — move to inbox or done first"
   - description: spawn next occurrence when recurring task completes
     ruki: >
       after update
         where new.status = "done" and old.recurrence is not empty
         create title=old.title priority=old.priority tags=old.tags
-               recurrence=old.recurrence due=next_date(old.recurrence) status="backlog"
+               recurrence=old.recurrence due=next_date(old.recurrence) status="inbox"
   - description: make newly-created standups recur weekly
     ruki: >
       after create
@@ -889,7 +881,7 @@ You now have a fully customized workflow. Here are some places to go from here:
 
 - **[Customization reference](customization.md)** — the complete list of
   everything you can put in `workflow.yaml`
-- **[ruki reference](ruki/index.md)** — the full language for filters, actions,
+- **[ruki reference](../ruki/index.md)** — the full language for filters, actions,
   and triggers
 - **[Custom fields](custom-fields.md)** — more on field types, templates, and
   edge cases

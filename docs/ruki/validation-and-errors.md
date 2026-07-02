@@ -439,7 +439,7 @@ Fails with: `choose() expects 1 argument(s), got 0`.
 `choose()` with a non-subquery argument:
 
 ```sql
-update where id = id() set assignee = choose("epic")
+update where id = id() set assignee = choose("project")
 ```
 
 Fails with: `choose() argument must be a select subquery`.
@@ -447,7 +447,7 @@ Fails with: `choose() argument must be a select subquery`.
 Duplicate `choose()` (more than one call per action):
 
 ```sql
-update where id = id() set assignee = choose(select where status = "ready") title = choose(select where type = "epic")
+update where id = id() set assignee = choose(select where status = "ready") title = choose(select where type = "project")
 ```
 
 Fails with: `choose() may only be used once per action`.
@@ -466,7 +466,7 @@ Fails at workflow load time with: `input() and choose() cannot be used in the sa
 `choose()` outside plugin runtime (CLI, trigger):
 
 ```sql
-update where status = "backlog" set assignee = choose(select)
+update where status = "inbox" set assignee = choose(select)
 ```
 
 Fails with: `choose() requires user interaction and is only valid in plugin actions`.

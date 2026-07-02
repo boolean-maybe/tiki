@@ -115,15 +115,15 @@ select where not exists(select where outer.id in dependsOn)
 Find work owned by assignees who already have too much in progress:
 
 ```sql
-select where count(select where assignee = outer.assignee and status = "in progress") >= 3
+select where count(select where assignee = outer.assignee and status = "inProgress") >= 3
 ```
 
-Block an epic from completing when any dependency is unfinished:
+Block a project from completing when any dependency is unfinished:
 
 ```sql
-before update where new.type = "epic" and new.status = "done"
+before update where new.type = "project" and new.status = "done"
 and exists(select where id in new.dependsOn and status != "done")
-deny "epic has unfinished dependencies"
+deny "project has unfinished dependencies"
 ```
 
 Current user:
@@ -191,8 +191,8 @@ select id where id in ids() | run("my-bulk-tool " + filepaths())
 Pick a task interactively:
 
 ```sql
-update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
-update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
+update where id = choose(select where type = "project") set dependsOn = dependsOn + id()
+update where id = id() set dependsOn = dependsOn + choose(select where type != "project")
 update where id = id() set dependsOn = dependsOn + choose(select where id != outer.id)
 ```
 
@@ -214,8 +214,8 @@ before update where new.priority <= "medium-high" and new.description is empty d
 Limit how many in-progress tikis someone can have:
 
 ```sql
-before update where new.status = "in progress"
-and count(select where assignee = new.assignee and status = "in progress") >= 3
+before update where new.status = "inProgress"
+and count(select where assignee = new.assignee and status = "inProgress") >= 3
 deny "WIP limit reached for this assignee"
 ```
 
@@ -250,15 +250,15 @@ after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
 Run a command after an update:
 
 ```sql
-after update where new.status = "in progress" and "claude" in new.tags run("claude -p 'implement tiki " + old.id + "'")
+after update where new.status = "inProgress" and "claude" in new.tags run("claude -p 'implement tiki " + old.id + "'")
 ```
 
 ## Time triggers
 
-Move stale in-progress tasks back to backlog:
+Move stale in-progress tasks back to inbox:
 
 ```sql
-every 1hour update where status = "in_progress" and updatedAt < now() - 7day set status="backlog"
+every 1hour update where status = "inProgress" and updatedAt < now() - 7day set status="inbox"
 ```
 
 Delete expired done tasks:

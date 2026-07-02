@@ -96,8 +96,8 @@ Prevent anyone from having too many in-progress tikis at once:
 
 ```sql
 before update
-  where new.status = "in progress"
-    and count(select where assignee = new.assignee and status = "in progress") >= 3
+  where new.status = "inProgress"
+    and count(select where assignee = new.assignee and status = "inProgress") >= 3
   deny "WIP limit reached for this assignee"
 ```
 
@@ -141,17 +141,17 @@ This fires after every delete, with no guard condition. The `old.id in dependsOn
 
 ### Cascade completion
 
-Auto-complete an epic when all its dependencies are done:
+Auto-complete a project when all its dependencies are done:
 
 ```sql
 after update
   where new.status = "done"
-  update where id in blocks(old.id) and type = "epic"
+  update where id in blocks(old.id) and type = "project"
     and dependsOn all status = "done"
     set status="done"
 ```
 
-When any tiki is marked done, this finds epics that block on it. If all of the epic's other dependencies are also done, the epic is completed automatically. This itself fires further after-update triggers, so cascade chains work naturally (up to the depth limit).
+When any tiki is marked done, this finds projects that block on it. If all of the project's other dependencies are also done, the project is completed automatically. This itself fires further after-update triggers, so cascade chains work naturally (up to the depth limit).
 
 ### Propagate cancellation
 
@@ -160,11 +160,11 @@ When a tiki is cancelled, cancel downstream tikis that haven't started:
 ```sql
 after update
   where new.status = "cancelled"
-  update where id in blocks(old.id) and status in ["backlog", "ready"]
+  update where id in blocks(old.id) and status in ["inbox", "ready"]
     set status="cancelled"
 ```
 
-Only tikis in `backlog` or `ready` are affected — in-progress work is not cancelled automatically.
+Only tikis in `inbox` or `ready` are affected — in-progress work is not cancelled automatically.
 
 ### Run an external command
 
@@ -172,7 +172,7 @@ Trigger a script when a tiki enters a specific state:
 
 ```sql
 after update
-  where new.status = "in progress" and "claude" in new.tags
+  where new.status = "inProgress" and "claude" in new.tags
   run("claude -p 'implement tiki " + old.id + "'")
 ```
 
@@ -279,10 +279,10 @@ Where `<statement>` is `create`, `update`, or `delete` (not `select` or `run()`)
 
 ```yaml
 triggers:
-  - description: stale tasks go back to backlog
+  - description: stale tasks go back to inbox
     ruki: >
       every 1hour
-        update where status = "in_progress" and updatedAt < now() - 7day set status="backlog"
+        update where status = "inProgress" and updatedAt < now() - 7day set status="inbox"
 
   - description: delete expired tasks
     ruki: >

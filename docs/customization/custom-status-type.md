@@ -14,26 +14,26 @@ fields:
   - name: status
     type: enum
     values:
-      - value: backlog
-        label: Backlog
-        emoji: "📥"
+      - value: inbox
+        label: Inbox
+        visual: "📥"
         default: true
       - value: inProgress
         label: "In Progress"
-        emoji: "⚙️"
+        visual: "⚙️"
       - value: done
         label: Done
-        emoji: "✅"
+        visual: "✅"
   - name: type
     type: enum
     values:
       - value: story
         label: Story
-        emoji: "🌀"
+        visual: "🌀"
         default: true
       - value: bug
         label: Bug
-        emoji: "💥"
+        visual: "💥"
 ```
 
 ### Shared Rules
@@ -43,19 +43,20 @@ These rules apply to every enum field:
 | Rule | Detail |
 |---|---|
 | Label defaults to value | When `label` is omitted, the value is used as the label. |
-| Emoji trimmed | Leading/trailing whitespace is stripped from emoji values. |
-| Unique display strings | Each entry must produce a unique `"Label Emoji"` display. Duplicates are rejected. |
+| Visual trimmed | Leading/trailing whitespace is stripped from `visual` values. |
+| Unique display strings | Each entry must produce a unique display string (its `visual`, or `label` when no visual). Duplicates are rejected. |
 | At least one entry | An empty list is invalid. |
 | Duplicate values rejected | Two entries with the same value are invalid. |
 | Unknown keys rejected | Only documented metadata keys are allowed in each entry. |
 | At most one `default: true` | The default value is the creation default for the field. |
 
-Valid keys in an enum value entry: `value`, `label`, `emoji`, `default`.
+Valid keys in an enum value entry: `value`, `label`, `visual`, `default`.
 
-The legacy `active:` and `done:` flags on enum values are no longer accepted — they were
-status-specific concepts that the runtime no longer recognizes. If you want a visual cue for
-"in-progress" or "terminal" states, use the `emoji:` field on each value (e.g. ✅ on the value
-that represents completion).
+The legacy `emoji:`, `active:`, and `done:` keys on enum values are no longer accepted — `emoji:` was
+renamed to `visual:`, and `active:`/`done:` were status-specific concepts the runtime no longer
+recognizes. If you want a visual cue for "in-progress" or "terminal" states, use the `visual:` field on
+each value (e.g. ✅ on the value that represents completion). `visual:` accepts a glyph or `<role>`-tagged
+color markup.
 
 ### Required Sections
 
@@ -93,6 +94,7 @@ remapping.
 
 ## Pre-Init Rules
 
-Calling enum helpers (`task.ParseType()`, `task.AllTypes()`, `task.DefaultType()`,
-`task.ParseStatus()`, etc.) before `config.LoadWorkflowFields()` returns empty/zero values without
-panicking. Helpers fall back to "no enum field configured" semantics when the catalog is empty.
+Enum values resolve through the field catalog, which is populated by `config.LoadWorkflowFields()`.
+Before that call the catalog is empty: enum lookups fall back to "no enum field configured" semantics
+(empty/zero values) rather than panicking, and `config.RequireWorkflowFieldsLoaded()` reports the
+not-yet-loaded state for code paths that must not run before the catalog is ready.

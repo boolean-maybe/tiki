@@ -35,29 +35,26 @@ fields:
   - name: status
     type: enum
     values:
-      - value: backlog
-        label: Backlog
-        emoji: "📥"
+      - value: inbox
+        label: Inbox
+        visual: "📥"
         default: true
       - value: ready
         label: Ready
-        emoji: "📋"
+        visual: "📋"
       - value: inProgress
         label: "In Progress"
-        emoji: "⚙️"
-      - value: review
-        label: Review
-        emoji: "👀"
+        visual: "⚙️"
       - value: done
         label: Done
-        emoji: "✅"
+        visual: "✅"
 ```
 
 Each enum value has:
 - `value` — canonical identifier (camelCase recommended). Used in filters, actions, and frontmatter.
 - `label` — display name shown in the UI (defaults to value when omitted).
-- `emoji` — emoji shown alongside the label. Use this to mark "done"/"in progress" with a glyph
-  (e.g. ✅ on the terminal value) — there is no separate `done:` flag.
+- `visual` — a short glyph (emoji or `<role>`-tagged markup) shown alongside the label. Use this to mark
+  "done"/"in progress" with a glyph (e.g. ✅ on the terminal value) — there is no separate `done:` flag.
 - `default` — at most one value may carry `default: true`; that value is the creation default.
 
 `status` is just an ordinary enum field — no value is special-cased by the runtime. All filters
@@ -76,22 +73,23 @@ fields:
     values:
       - value: story
         label: Story
-        emoji: "🌀"
+        visual: "🌀"
+        default: true
       - value: bug
         label: Bug
-        emoji: "💥"
+        visual: "💥"
       - value: spike
         label: Spike
-        emoji: "🔍"
-      - value: epic
-        label: Epic
-        emoji: "🗂️"
+        visual: "🔍"
+      - value: project
+        label: Project
+        visual: "🗂️"
 ```
 
 Each type has:
 - `value` — canonical lowercase identifier. Used in filters, actions, and frontmatter.
 - `label` — display name shown in the UI (defaults to key when omitted)
-- `emoji` — emoji shown alongside the label
+- `visual` — a short glyph (emoji or `<role>`-tagged markup) shown alongside the label
 
 Mark one type `default: true` to use it as the creation default for new tikis.
 If no type is marked, the first configured type wins.
@@ -101,7 +99,7 @@ If no type is marked, the first configured type wins.
 Creation defaults are derived from `workflow.yaml fields:`. Every field that declares a default
 contributes one frontmatter key on capture:
 
-- Enum fields apply the value marked `default: true` (typically `status: backlog`, `type: story`).
+- Enum fields apply the value marked `default: true` (in the stock workflow, `status: inbox`, `type: story`).
 - Non-enum fields apply their declared `default:` value (e.g. `points: 1`,
   `tags: ["idea"]`).
 - Fields with no declared default are absent from the captured frontmatter — the tiki only carries
@@ -118,7 +116,7 @@ fields:
     values:
       - value: bug
         label: Bug
-        emoji: "🐛"
+        visual: "🐛"
         default: true
   - name: severity
     type: enum
@@ -148,26 +146,26 @@ Every screen in the tiki TUI is a **view**. Views are defined at the top level o
 Views are matched to keyboard shortcuts via `key:`, and at most one view may be marked `default: true` so
 the TUI knows which screen to open on startup.
 
-Here is a simple single-lane board called Backlog:
+Here is a simple single-lane board called Inbox:
 
 ```yaml
 views:
-  - name: Backlog
-    label: Backlog
+  - name: Inbox
+    label: Inbox
     description: "Tasks waiting to be picked up, sorted by priority"
     kind: board
     key: "F3"
     lanes:
-      - name: Backlog
+      - name: Inbox
         columns: 4
-        filter: select where status = "backlog" and type != "epic" order by priority, id
+        filter: select where status = "inbox" and type != "project" order by priority, id
     actions:
       - key: "b"
         label: "Add to board"
         action: update where id = id() set status="ready"
 ```
 
-This shows every document in `status = "backlog"`, sorts by priority and then id, and arranges them visually
+This shows every document in `status = "inbox"`, sorts by priority and then id, and arranges them visually
 in 4 columns inside a single lane. The `actions:` list defines a keyboard shortcut `b` that moves the
 selected document to the board by setting its status to `ready`.
 
@@ -200,6 +198,11 @@ views:
     kind: board
     key: "F4"
     lanes:
+      - name: Inbox
+        columns: 1
+        width: 20
+        filter: select where status = "inbox" order by priority, title
+        action: update where id = id() set status="inbox"
       - name: Ready
         columns: 1
         width: 20
@@ -210,11 +213,6 @@ views:
         width: 30
         filter: select where status = "inProgress" order by priority, title
         action: update where id = id() set status="inProgress"
-      - name: Review
-        columns: 1
-        width: 30
-        filter: select where status = "review" order by priority, title
-        action: update where id = id() set status="review"
       - name: Done
         columns: 1
         width: 20
@@ -237,8 +235,8 @@ views:
       - ["<highlight>title"]
       - ['"priority " + priority.visual']
     lanes:
-      - name: Backlog
-        filter: select where status = "backlog"
+      - name: Inbox
+        filter: select where status = "inbox"
 ```
 
 This replaces the pre-0.6.0 `mode: compact`/`mode: expanded` field, which is no longer accepted.
@@ -505,11 +503,11 @@ Actions using `choose()` open an interactive Quick Select document picker. The s
 ```yaml
 actions:
   - key: "e"
-    label: "Link to epic"
-    action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+    label: "Link to project"
+    action: update where id = choose(select where type = "project") set dependsOn = dependsOn + id()
   - key: "l"
-    label: "Add to epic"
-    action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
+    label: "Add to project"
+    action: update where id = id() set dependsOn = dependsOn + choose(select where type != "project")
 ```
 
 When the shortcut key is pressed, the Quick Select modal opens with the filtered candidate list.
@@ -622,13 +620,13 @@ Sorting is part of the select — use `order by` to control display order.
 
 ```sql
 -- basic filter with sort
-select where status = "backlog" and type != "epic" order by priority, id
+select where status = "inbox" and type != "project" order by priority, id
 
 -- recent items, most recent first
 select where now() - updatedAt < 24hour order by updatedAt desc
 
 -- multiple conditions
-select where type = "epic" and status = "backlog" and priority > "high" order by priority, points desc
+select where type = "project" and status = "inbox" and priority > "high" order by priority, points desc
 
 -- assigned to me
 select where assignee = user() order by priority
@@ -643,7 +641,7 @@ The `action` field uses a `ruki` `update` statement. In view context, `id()` ref
 update where id = id() set status="ready"
 
 -- set multiple fields
-update where id = id() set status="backlog" priority="medium-high"
+update where id = id() set status="inbox" priority="medium-high"
 
 -- assign to current user
 update where id = id() set assignee=user()

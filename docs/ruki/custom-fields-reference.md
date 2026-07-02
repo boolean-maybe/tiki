@@ -16,7 +16,7 @@
 
 ## Overview
 
-Custom fields extend tiki's built-in field catalog with user-defined fields declared in `workflow.yaml`. This reference covers the precise rules for how custom fields are loaded, validated, persisted, and queried — the behavioral contract behind the [Custom Fields](../custom-fields.md) user guide.
+Custom fields extend tiki's built-in field catalog with user-defined fields declared in `workflow.yaml`. This reference covers the precise rules for how custom fields are loaded, validated, persisted, and queried — the behavioral contract behind the [Custom Fields](../customization/custom-fields.md) user guide.
 
 ## Registration and loading
 

@@ -108,7 +108,7 @@ Examples:
 ```sql
 before create where new.type = "story" and new.description is empty deny "stories must have a description"
 before delete where old.priority <= "medium-high" deny "cannot delete high priority tikis"
-before update where old.status = "in progress" and new.status = "done" deny "review required"
+before update where old.status = "inProgress" and new.status = "done" deny "review required"
 select where not exists(select where outer.id in dependsOn)
 ```
 
@@ -139,7 +139,7 @@ Examples:
 
 ```sql
 select where not exists(select where outer.id in dependsOn)
-select where count(select where assignee = outer.assignee and status = "in progress") > 1
+select where count(select where assignee = outer.assignee and status = "inProgress") > 1
 before update where exists(select where id = outer.id and assignee = new.assignee) deny "blocked"
 ```
 
@@ -216,7 +216,7 @@ Rules:
 Examples:
 
 ```sql
-every 1hour update where status = "in_progress" and updatedAt < now() - 7day set status="backlog"
+every 1hour update where status = "inProgress" and updatedAt < now() - 7day set status="inbox"
 every 1day delete where status = "done" and updatedAt < now() - 30day
 every 2week create title="sprint review" status="ready" priority="medium"
 ```

@@ -33,8 +33,10 @@ Rules:
 - `workflow.yaml` and `config.yaml` are configuration files, not tikis.
 - Non-Markdown files (images, svgs, binary assets) are not loaded as tikis; keep them under `assets/`
   or alongside the tikis that reference them.
-- New tikis from `tiki demo`, piped input, and `ruki create` default to `./<ID>.md`. You are free to move
-  them into subdirectories afterward — the `id` is stable.
+- New tikis from `tiki demo`, piped input, and `ruki create` are named `./<slug>.md`, where `<slug>` is
+  a lowercase-kebab transliteration of the title (e.g. "Fix Login Bug" → `fix-login-bug.md`). On a name
+  collision a numeric suffix is appended (`fix-login-bug-2.md`). The filename is not the source of the
+  `id` — the frontmatter `id` is — so you are free to rename or move files afterward; the `id` is stable.
 
 ## Required frontmatter
 
@@ -112,20 +114,19 @@ status: inProgress
 
 ### `priority`
 
-Optional. Stored as an integer 1–5 (1 = highest, 5 = lowest). Default on explicit creation: `3`.
-
-In the TUI, priority is displayed as text with a color indicator:
+Optional. Priority is an `enum` field whose values are defined in `workflow.yaml` — tiki has no built-in
+priority scale. The stock kanban workflow ships with five string values, most to least urgent:
 
 | Value | TUI label | Emoji |
 |-------|-----------|-------|
-| 1 | High | 🔴 |
-| 2 | Medium High | 🟠 |
-| 3 | Medium | 🟡 |
-| 4 | Medium Low | 🔵 |
-| 5 | Low | 🟢 |
+| `high` | High | 🔴 |
+| `medium-high` | Medium High | 🟠 |
+| `medium` | Medium | 🟡 |
+| `medium-low` | Medium Low | 🟢 |
+| `low` | Low | 🔵 |
 
-Text aliases are accepted on create (case-insensitive, hyphens/underscores/spaces as separators):
-`high` = 1, `medium-high` = 2, `medium` = 3, `medium-low` = 4, `low` = 5.
+The default on explicit creation is `medium`. The value stored in frontmatter is the enum key
+(a string), not a number. Unknown values are logged and replaced with the configured default at load.
 
 ```yaml
 priority: medium-high
@@ -133,8 +134,10 @@ priority: medium-high
 
 ### `points`
 
-Optional integer. Range: `0` to `maxPoints` (configurable via `tiki.maxPoints`, default max is 10).
-`0` means unestimated. Values outside the valid range default to `maxPoints / 2` (typically 5).
+Optional. Like `priority`, points is an `enum` field defined in `workflow.yaml` — there is no built-in
+numeric scale or `maxPoints` setting. The stock kanban workflow ships with the estimation values
+`1`, `3`, `7`, `11` (stored as strings), defaulting to `3`. Redefine the `points` field in your own
+workflow to use a different scale.
 
 ```yaml
 points: 3
@@ -251,8 +254,8 @@ the model; the absence of fields is the whole story. Such a tiki:
   `where status = "done"` evaluates `false` for tikis with no `status`, and `where status != "done"`
   evaluates `true`. Use `has(<field>)` when you need to filter explicitly by presence — for example,
   `select where has(status)` lists every tiki that carries a status, regardless of value.
-- gains a field whenever you assign one. `update where id = "ABC123" set status = "backlog"` simply
-  writes `status: backlog` into the frontmatter. There is no special "promotion" event — fields are
+- gains a field whenever you assign one. `update where id = "ABC123" set status = "inbox"` simply
+  writes `status: inbox` into the frontmatter. There is no special "promotion" event — fields are
   added and removed like any other map entry.
 
 ```yaml

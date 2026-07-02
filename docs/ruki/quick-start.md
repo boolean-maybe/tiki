@@ -154,7 +154,7 @@ after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
 `after` triggers may also use `run(...)` as a top-level action:
 
 ```sql
-after update where new.status = "in progress" and "claude" in new.tags
+after update where new.status = "inProgress" and "claude" in new.tags
 run("claude -p 'implement tiki " + old.id + "'")
 ```
 

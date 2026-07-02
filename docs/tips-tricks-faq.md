@@ -95,10 +95,9 @@ Add fields to pre-fill defaults, e.g. `action: create title=input() type="bug" p
 Each view's lanes have filters on both `status` and `type`, so a new tiki may land in a view other
 than the one you're looking at:
 
-- **Status** — new tiki get the workflow's default status (e.g. `backlog`). In the stock Kanban
-  workflow the default view is Kanban but new tiki land in Backlog.
-- **Type** — epics are filtered out of Kanban and Backlog (`type != "epic"`) and only appear in
-  Roadmap.
+- **Status** — new tiki get the workflow's default status. In the stock Kanban workflow that is
+  `inbox`, so a new tiki lands in the **Inbox** lane of the (default) Kanban view.
+- **Type** — projects are filtered out of Kanban (`type != "project"`) and only appear in Roadmap.
 
 Switch to the view that matches. To change the behavior, either pre-set fields in the create
 action (e.g. `action: create title=input() status="ready"`) or adjust the defaults in the workflow
@@ -121,13 +120,8 @@ obsidian vault=my-project open
 
 opens Obsidian vault and browse the markdown with backlinks, graph view, and live preview.
 
-```bash
-# Obsidian does not display dot folders
-ln -s .doc doc
-# if you want to keep in git
-git add doc
-git commit -m "add doc symlink for Obsidian"
-```
+Tiki scans the project directory itself, so the tiki `.md` files sit at the root of the folder you open
+as a vault — Obsidian picks them up directly, no extra setup needed.
 
 ### Open the current tiki in VS Code
 

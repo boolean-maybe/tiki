@@ -215,6 +215,8 @@ create title="x" dependsOn=dependsOn + tags
 | `daily()` | `recurrence` | 0 | returns the daily cron `0 0 * * *` |
 | `weekly(...)` | `recurrence` | exactly 1 | argument must be a string weekday name (case-insensitive, e.g. `"monday"`); errors at runtime for an unknown weekday |
 | `monthly(...)` | `recurrence` | exactly 1 | argument must be an int day of month; errors at runtime for a day outside 1..31 |
+| `next_enum(...)` | same enum | exactly 1 | argument must be an enum field reference; returns the next value in the field's declared order, clamping at the last value. The stock workflow uses `set priority = next_enum(priority)` to bump priority |
+| `prev_enum(...)` | same enum | exactly 1 | argument must be an enum field reference; returns the previous value in the field's declared order, clamping at the first value |
 | `blocks(...)` | `list<ref>` | exactly 1 | argument must be `id`, `ref`, or string literal |
 | `id()` | `id` | 0 | plugin runtime only; requires exactly one selected tiki |
 | `ids()` | `list<ref>` | 0 | plugin runtime only; returns the full set of selected tiki IDs |
@@ -234,17 +236,17 @@ create title="x" due=next_date(recurrence)
 update where id = id() set recurrence=daily() due=next_date(daily())
 select where blocks(id) is empty
 select where id() in dependsOn
-select where count(select where assignee = outer.assignee and status = "in progress") >= 3
-before update where new.type = "epic"
+select where count(select where assignee = outer.assignee and status = "inProgress") >= 3
+before update where new.type = "project"
 and exists(select where id in new.dependsOn and status != "done")
-deny "epic has unfinished dependencies"
+deny "project has unfinished dependencies"
 create title=call("echo hi")
 select where assignee = user()
 select where has(status) and not has(assignee)
 update where id = id() set assignee = input()
 update where id = id() set tags = tags + [input()]
 update where id in ids() set status = "done"
-update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+update where id = choose(select where type = "project") set dependsOn = dependsOn + id()
 create title = input()
 update where id = id() set tags = tags + ["edited:" + filepath()]
 ```
@@ -330,7 +332,7 @@ Runtime notes:
 Example:
 
 ```sql
-after update where new.status = "in progress" run("echo hello")
+after update where new.status = "inProgress" run("echo hello")
 ```
 
 ## Shell-related forms
@@ -346,7 +348,7 @@ after update where new.status = "in progress" run("echo hello")
 
 - Used as the top-level action of an `after` trigger
 - Command string may reference `old.` and `new.` fields
-- Example: `after update where new.status = "in progress" run("echo hello")`
+- Example: `after update where new.status = "inProgress" run("echo hello")`
 
 **`| run(...)` on select** — a pipe suffix
 
