@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -83,7 +84,9 @@ func ensureDemoWorkflow(dst string) error {
 // ensureDemoAssets restores bundled demo media that existing demo directories
 // may be missing, without overwriting local edits to files already present.
 func ensureDemoAssets(dst string) error {
-	assetRoot := filepath.Join(demoFSRoot, "assets")
+	// embed.FS paths always use forward slashes; use path.Join, not
+	// filepath.Join, which would emit backslashes on Windows and break the walk.
+	assetRoot := path.Join(demoFSRoot, "assets")
 	return fs.WalkDir(demoFS, assetRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
