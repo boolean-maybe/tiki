@@ -230,17 +230,29 @@ func editModeWidthFloor(name string, ctx FieldRenderContext) int {
 	if ctx.Mode != RenderModeEdit {
 		return 0
 	}
-	fd, ok := LookupField(name)
-	if !ok {
-		return 0
-	}
-	ui, ok := LookupType(fd.Semantic)
+	ui, ok := editModeTypeUI(name)
 	if !ok || ui.EditMeasure == nil {
 		return 0
 	}
 	// EditMeasure() is the raw content width; add the breathing cell the
 	// truncating value view reserves, mirroring scalarCellWidth.
 	return ui.EditMeasure() + scalarBreathingCell
+}
+
+// editModeTypeUI resolves the TypeUI for a field's semantic in edit mode. It
+// prefers a static FieldDescriptor's semantic, then falls back to bridging the
+// workflow catalog's ValueType (via semanticForValueType) so a catalog-only
+// field with no descriptor — e.g. a user-declared datetime like bug-tracker's
+// dueBy — still resolves its type-level EditMeasure floor. Mirrors the same
+// descriptor→catalog fallback MeasureFieldValue uses for the stored-value path.
+func editModeTypeUI(name string) (TypeUI, bool) {
+	if fd, ok := LookupField(name); ok {
+		return LookupType(fd.Semantic)
+	}
+	if wfd, ok := workflow.Field(name); ok {
+		return LookupType(semanticForValueType(wfd.Type))
+	}
+	return TypeUI{}, false
 }
 
 func maxInt(a, b int) int {
@@ -516,10 +528,16 @@ func registerBuiltinTypes() {
 	}
 	typeRegistry[SemanticDateTime] = TypeUI{
 		Render:           renderDateTimeValue,
+		Edit:             editDateTimeValue,
 		HeightFn:         singleRowHeight,
-		Capability:       EditorStub,
+		Capability:       EditorImplemented,
 		IsEmpty:          timeFieldEmpty,
 		EmptyPlaceholder: "Unknown",
+		// EditMeasure: focusing an EMPTY datetime seeds a full "YYYY-MM-DD HH:MM"
+		// (the segmented editor never shows the "Unknown" placeholder once
+		// focused), so the column must reserve the full 16-cell value width even
+		// when the stored value is empty — otherwise the seeded value clips.
+		EditMeasure: widestDateTimeWidth,
 	}
 	typeRegistry[SemanticRecurrence] = TypeUI{
 		Render:     renderRecurrenceValue,
@@ -825,7 +843,7 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRe
 			if t.IsZero() {
 				return "—"
 			}
-			return t.Format("2006-01-02 15:04")
+			return t.Format(value.DateTimeFormat)
 		}
 	}
 	switch v := raw.(type) {
@@ -926,13 +944,13 @@ func renderDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primiti
 	if !ok {
 		return placeholderRow("(unknown)")
 	}
-	value := emptyPlaceholder(fd.Name, SemanticDateTime)
+	display := emptyPlaceholder(fd.Name, SemanticDateTime)
 	if fd.Get != nil {
 		if t, ok := fd.Get(tk).(time.Time); ok && !t.IsZero() {
-			value = t.Format("2006-01-02 15:04")
+			display = t.Format(value.DateTimeFormat)
 		}
 	}
-	return valueOnlyLine(value, ctx.Roles)
+	return valueOnlyLine(display, ctx.Roles)
 }
 
 // textEmptyPlaceholder returns the empty-value placeholder for a text field —
@@ -955,6 +973,13 @@ func renderRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primi
 // Wednesday") is at least as wide as the editor string ("Weekly > Wednesday"),
 // so sizing to it covers the editor too. Computed lazily once and cached.
 var widestRecurrenceWidthCached int
+
+// widestDateTimeWidth is the on-screen width of a fully-populated datetime
+// value ("YYYY-MM-DD HH:MM"). The segmented editor can only ever display a
+// value of exactly this width, so it is both the floor and the ceiling.
+func widestDateTimeWidth() int {
+	return len(value.DateTimeFormat) // "2006-01-02 15:04" → 16
+}
 
 func widestRecurrenceWidth() int {
 	if widestRecurrenceWidthCached > 0 {
@@ -1173,6 +1198,24 @@ func editDueValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string
 	return a
 }
 
+// editDateTimeValue builds the segmented datetime editor. It reads the field's
+// value generically by ctx.FieldName so it serves both descriptor-backed and
+// catalog-only (workflow TypeTimestamp) fields. The widget fires the canonical
+// "YYYY-MM-DD HH:MM" string (or "" when cleared) on every accepted change.
+func editDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	editor := component.NewDateTimeEdit()
+	editor.SetLabel(getFocusMarker(ctx.Roles))
+	editor.SetChangeHandler(func(s string) {
+		if onChange != nil {
+			onChange(s)
+		}
+	})
+	if t, present, _ := tk.TimeField(ctx.FieldName); present && !t.IsZero() {
+		editor.SetInitialValue(value.FormatDateTime(t))
+	}
+	return &dateTimeEditAdapter{DateTimeEdit: editor}
+}
+
 // editRecurrenceValue builds the recurrence editor. RecurrenceEdit.GetValue()
 // assembles a canonical cron expression from the freq/value parts; the
 // adapter exposes that as GetText() so the registry boundary stays uniform.
@@ -1239,9 +1282,14 @@ func buildFieldEditor(name string, tk *tikipkg.Tiki, ctx FieldRenderContext, onC
 		}
 		return ui.Edit(tk, withFieldDescriptor(ctx, fd), onChange)
 	}
-	if wfd, ok := workflow.Field(name); ok && wfd.Type == workflow.TypeEnum {
+	if wfd, ok := workflow.Field(name); ok {
 		ctx.FieldName = name
-		return editEnumValue(tk, ctx, onChange)
+		switch wfd.Type {
+		case workflow.TypeEnum:
+			return editEnumValue(tk, ctx, onChange)
+		case workflow.TypeTimestamp:
+			return editDateTimeValue(tk, ctx, onChange)
+		}
 	}
 	return nil
 }
@@ -1260,8 +1308,11 @@ func FieldHasEditor(name string) bool {
 		}
 		return ui.Capability == EditorImplemented && ui.Edit != nil
 	}
-	if wfd, ok := workflow.Field(name); ok && wfd.Type == workflow.TypeEnum {
-		return true
+	if wfd, ok := workflow.Field(name); ok {
+		switch wfd.Type {
+		case workflow.TypeEnum, workflow.TypeTimestamp:
+			return true
+		}
 	}
 	return false
 }
@@ -1330,6 +1381,30 @@ func (a *dateEditAdapter) CycleValue(direction int) bool {
 
 // GetText returns the validated formatted date.
 func (a *dateEditAdapter) GetText() string {
+	return a.GetCurrentText()
+}
+
+// dateTimeEditAdapter wraps DateTimeEdit to satisfy FieldEditorWidget. Unlike
+// the date adapter there is no read-only mode: recurrence-driven auto-compute
+// applies to due (a date field), not to generic datetime fields.
+type dateTimeEditAdapter struct {
+	*component.DateTimeEdit
+}
+
+// CycleValue routes grid-level Up/Down through the widget's segment cycle.
+// direction >= 0 (Down/next) increments; direction < 0 (Up/prev) decrements —
+// matching dateEditAdapter's mapping so Tab-cycle behaves consistently.
+func (a *dateTimeEditAdapter) CycleValue(direction int) bool {
+	key := tcell.KeyDown
+	if direction < 0 {
+		key = tcell.KeyUp
+	}
+	a.InputHandler()(tcell.NewEventKey(key, 0, tcell.ModNone), nil)
+	return true
+}
+
+// GetText returns the canonical formatted datetime (or "" when empty).
+func (a *dateTimeEditAdapter) GetText() string {
 	return a.GetCurrentText()
 }
 

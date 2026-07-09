@@ -775,7 +775,7 @@ func TestConfigurableDetailView_NoEditableFieldsLeavesViewMode(t *testing.T) {
 func TestFieldRegistry_ImplementedAndStubCapabilities(t *testing.T) {
 	implemented := []SemanticType{
 		SemanticEnum,
-		SemanticText, SemanticDate,
+		SemanticText, SemanticDate, SemanticDateTime,
 		SemanticRecurrence, SemanticStringList,
 	}
 	for _, sem := range implemented {
@@ -790,7 +790,7 @@ func TestFieldRegistry_ImplementedAndStubCapabilities(t *testing.T) {
 		})
 	}
 	stubs := []SemanticType{
-		SemanticBoolean, SemanticDateTime, SemanticInteger,
+		SemanticBoolean, SemanticInteger,
 		SemanticTikiIDList,
 	}
 	for _, sem := range stubs {

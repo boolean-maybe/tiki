@@ -720,3 +720,67 @@ func TestRenderEnumValue_EmptyTypeMutedNone(t *testing.T) {
 		t.Errorf("empty-type render = %q, want it to contain muted placeholder %q", rawOut, want)
 	}
 }
+
+func TestSemanticDateTimeIsEditable(t *testing.T) {
+	ui, ok := LookupType(SemanticDateTime)
+	if !ok {
+		t.Fatal("SemanticDateTime not registered")
+	}
+	if ui.Capability != EditorImplemented {
+		t.Errorf("SemanticDateTime capability = %v, want EditorImplemented", ui.Capability)
+	}
+	if ui.Edit == nil {
+		t.Error("SemanticDateTime has no Edit factory")
+	}
+}
+
+func TestSystemTimestampsStayReadOnly(t *testing.T) {
+	// createdAt/updatedAt are ReadOnly descriptors -> FieldHasEditor false
+	for _, name := range []string{"createdAt", "updatedAt"} {
+		if FieldHasEditor(name) {
+			t.Errorf("FieldHasEditor(%q) = true, want false (read-only system field)", name)
+		}
+	}
+}
+
+func TestCatalogOnlyTimestampFieldIsEditable(t *testing.T) {
+	// install a workflow declaring a timestamp field with no static descriptor.
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "reviewedAt", Type: workflow.TypeTimestamp},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
+	if !FieldHasEditor("reviewedAt") {
+		t.Error("FieldHasEditor(reviewedAt) = false, want true (catalog timestamp)")
+	}
+}
+
+// TestEmptyDateTimeReservesEditorWidth pins that an EMPTY datetime field reserves
+// the full editor width in edit mode. Focusing an empty datetime seeds a full
+// "YYYY-MM-DD HH:MM" (16 cells); without the EditMeasure floor the column was
+// sized to the 7-cell "Unknown" placeholder and the seeded value clipped
+// (bug-tracker Due on a tiki with no dueBy). Covers the catalog-only path
+// (dueBy has no static FieldDescriptor).
+func TestEmptyDateTimeReservesEditorWidth(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "dueBy", Type: workflow.TypeTimestamp},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
+	tk := tikipkg.New()
+	tk.SetID("SLEQ61") // dueBy intentionally empty
+
+	editCtx := FieldRenderContext{Mode: RenderModeEdit, Roles: theme.Roles()}
+	if got := MeasureFieldValue("dueBy", tk, editCtx); got < 16 {
+		t.Errorf("empty dueBy edit-mode measure = %d, want >=16 (editor seeds a full datetime)", got)
+	}
+	// view mode must still measure the compact placeholder, not the editor floor.
+	viewCtx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
+	if got := MeasureFieldValue("dueBy", tk, viewCtx); got >= 16 {
+		t.Errorf("empty dueBy view-mode measure = %d, want < 16 (compact placeholder)", got)
+	}
+}

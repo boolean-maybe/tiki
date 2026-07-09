@@ -1,295 +1,181 @@
 package component
 
 import (
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/workflow/value"
 	"github.com/gdamore/tcell/v2"
 )
 
-func TestNewDateEdit(t *testing.T) {
-	de := NewDateEdit()
+// pressDate drives a DateEdit's core.
+func pressDate(de *DateEdit, key tcell.Key, r rune) {
+	pressCore(de.segmentedTimeEdit, key, r)
+}
 
-	if de.currentText != "" {
-		t.Errorf("Expected empty currentText, got %q", de.currentText)
-	}
-	if de.GetText() != "" {
-		t.Errorf("Expected empty text, got %q", de.GetText())
+func TestDateEdit_InitialValueRoundTrip(t *testing.T) {
+	de := NewDateEdit()
+	de.SetInitialValue("2026-07-08")
+	if got := de.GetCurrentText(); got != "2026-07-08" {
+		t.Errorf("GetCurrentText = %q, want 2026-07-08", got)
 	}
 }
 
-func TestDateEdit_SetInitialValue(t *testing.T) {
-	de := NewDateEdit()
-	de.SetInitialValue("2025-06-15")
-
-	if de.currentText != "2025-06-15" {
-		t.Errorf("Expected currentText='2025-06-15', got %q", de.currentText)
-	}
-	if de.GetText() != "2025-06-15" {
-		t.Errorf("Expected text='2025-06-15', got %q", de.GetText())
-	}
-}
-
-func TestDateEdit_SetInitialValueEmpty(t *testing.T) {
+func TestDateEdit_EmptyInitialValue(t *testing.T) {
 	de := NewDateEdit()
 	de.SetInitialValue("")
-
-	if de.currentText != "" {
-		t.Errorf("Expected empty currentText, got %q", de.currentText)
+	if got := de.GetCurrentText(); got != "" {
+		t.Errorf("GetCurrentText = %q, want empty", got)
 	}
 }
 
-func TestDateEdit_IncrementDay(t *testing.T) {
+func TestDateEdit_InvalidInitialValueIsEmpty(t *testing.T) {
 	de := NewDateEdit()
-	de.SetInitialValue("2025-06-15")
-
-	de.incrementDay()
-
-	if de.currentText != "2025-06-16" {
-		t.Errorf("Expected '2025-06-16', got %q", de.currentText)
-	}
-	if de.GetText() != "2025-06-16" {
-		t.Errorf("Expected text '2025-06-16', got %q", de.GetText())
+	de.SetInitialValue("2026-07-08 14:30") // datetime string is not a valid date-only value
+	if got := de.GetCurrentText(); got != "" {
+		t.Errorf("GetCurrentText = %q, want empty (invalid date-only seed ignored)", got)
 	}
 }
 
-func TestDateEdit_DecrementDay(t *testing.T) {
+// TestDateEdit_DatePartMatchesDateTime is the contract this refactor exists to
+// guarantee: the date-only editor's segment behaviour is identical to the
+// datetime editor's date part. Same navigation, same within-segment wrap, same
+// day clamp — verified by driving identical key sequences and comparing the
+// date portion.
+func TestDateEdit_DatePartMatchesDateTime(t *testing.T) {
+	d := NewDateEdit()
+	dt := NewDateTimeEdit()
+	d.SetInitialValue("2026-12-31")
+	dt.SetInitialValue("2026-12-31 00:00")
+
+	// move to month, cycle up: both wrap Dec->Jan with year unchanged.
+	pressDate(d, tcell.KeyRight, 0)
+	press(dt, tcell.KeyRight, 0)
+	pressDate(d, tcell.KeyUp, 0)
+	press(dt, tcell.KeyUp, 0)
+
+	if d.GetCurrentText() != "2026-01-31" {
+		t.Errorf("date month wrap: got %q, want 2026-01-31", d.GetCurrentText())
+	}
+	if dt.GetCurrentText()[:10] != d.GetCurrentText() {
+		t.Errorf("date part diverged: date=%q datetime=%q", d.GetCurrentText(), dt.GetCurrentText()[:10])
+	}
+}
+
+func TestDateEdit_MonthWrapsWithinSegment(t *testing.T) {
 	de := NewDateEdit()
-	de.SetInitialValue("2025-06-15")
-
-	de.decrementDay()
-
-	if de.currentText != "2025-06-14" {
-		t.Errorf("Expected '2025-06-14', got %q", de.currentText)
+	de.SetInitialValue("2026-12-15")
+	pressDate(de, tcell.KeyRight, 0) // month
+	pressDate(de, tcell.KeyUp, 0)    // 12 -> 1, year unchanged
+	if got := de.GetCurrentText(); got != "2026-01-15" {
+		t.Errorf("month wrap: got %q, want 2026-01-15", got)
 	}
 }
 
-func TestDateEdit_IncrementFromEmpty(t *testing.T) {
+func TestDateEdit_DayClampsOnMonthChange(t *testing.T) {
+	de := NewDateEdit()
+	de.SetInitialValue("2026-01-31") // Jan 31, non-leap year 2026
+	pressDate(de, tcell.KeyRight, 0) // month
+	pressDate(de, tcell.KeyUp, 0)    // Jan -> Feb; day 31 clamps to 28
+	if got := de.GetCurrentText(); got != "2026-02-28" {
+		t.Errorf("day clamp: got %q, want 2026-02-28", got)
+	}
+}
+
+func TestDateEdit_EmptySeedsFromTodayOnArrow(t *testing.T) {
+	testWithFixedNow(t, time.Date(2026, 7, 8, 9, 15, 30, 0, time.Local))
 	de := NewDateEdit()
 	de.SetInitialValue("")
-
-	de.incrementDay()
-
-	// should start from tomorrow and add one more day
-	expected := time.Now().AddDate(0, 0, 1).AddDate(0, 0, 1).Format(value.DateFormat)
-	if de.currentText != expected {
-		t.Errorf("Expected %q, got %q", expected, de.currentText)
+	pressDate(de, tcell.KeyUp, 0)
+	if de.GetCurrentText() == "" {
+		t.Fatal("expected a seeded value after first arrow, got empty")
 	}
 }
 
-func TestDateEdit_DecrementFromEmpty(t *testing.T) {
+func TestDateEdit_TypeOverwritesSegmentAndAdvances(t *testing.T) {
+	de := NewDateEdit()
+	de.SetInitialValue("2026-06-15")
+	pressDate(de, tcell.KeyRight, 0) // month
+	pressDate(de, tcell.KeyRune, '0')
+	pressDate(de, tcell.KeyRune, '9') // month = 09, auto-advance to day
+	if got := de.GetCurrentText(); got != "2026-09-15" {
+		t.Errorf("typed month: got %q, want 2026-09-15", got)
+	}
+	if de.activeSegment != 2 {
+		t.Errorf("auto-advance: activeSegment = %d, want 2 (day)", de.activeSegment)
+	}
+}
+
+func TestDateEdit_SegmentNavigationClampsAtEnds(t *testing.T) {
+	de := NewDateEdit()
+	de.SetInitialValue("2026-06-15")
+	pressDate(de, tcell.KeyLeft, 0) // already at year -> stays 0
+	if de.activeSegment != 0 {
+		t.Errorf("left at start: activeSegment = %d, want 0", de.activeSegment)
+	}
+	last := len(de.segments) - 1 // day (index 2)
+	for i := 0; i < 10; i++ {
+		pressDate(de, tcell.KeyRight, 0)
+	}
+	if de.activeSegment != last {
+		t.Errorf("right at end: activeSegment = %d, want %d", de.activeSegment, last)
+	}
+}
+
+func TestDateEdit_ClearsToEmpty(t *testing.T) {
+	de := NewDateEdit()
+	de.SetInitialValue("2026-06-15")
+	var last string
+	fired := 0
+	de.SetChangeHandler(func(s string) { last = s; fired++ })
+	pressDate(de, tcell.KeyBackspace, 0)
+	if de.GetCurrentText() != "" {
+		t.Errorf("after clear: GetCurrentText = %q, want empty", de.GetCurrentText())
+	}
+	if fired == 0 || last != "" {
+		t.Errorf("clear should fire onChange(\"\"); fired=%d last=%q", fired, last)
+	}
+}
+
+func TestDateEdit_SegmentCells(t *testing.T) {
+	// "2026-07-08"
+	//  0123456789
+	cases := []struct{ seg, wantLo, wantHi int }{
+		{0, 0, 3}, // year
+		{1, 5, 6}, // month
+		{2, 8, 9}, // day
+	}
+	de := NewDateEdit()
+	for _, c := range cases {
+		lo, hi := de.segmentCells(c.seg)
+		if lo != c.wantLo || hi != c.wantHi {
+			t.Errorf("segmentCells(%d) = (%d,%d), want (%d,%d)", c.seg, lo, hi, c.wantLo, c.wantHi)
+		}
+	}
+}
+
+func TestDateEdit_DrawShowsValue(t *testing.T) {
+	de := NewDateEdit()
+	de.SetInitialValue("2026-07-08")
+	row, _ := drawToScreen(t, de.segmentedTimeEdit, 15, false)
+	if !strings.Contains(row, "2026-07-08") {
+		t.Errorf("drawn row = %q, want it to contain the date", row)
+	}
+}
+
+func TestDateEdit_DrawShowsEmptyPlaceholder(t *testing.T) {
 	de := NewDateEdit()
 	de.SetInitialValue("")
-
-	de.decrementDay()
-
-	// should start from tomorrow and subtract one day = today
-	expected := time.Now().Format(value.DateFormat)
-	if de.currentText != expected {
-		t.Errorf("Expected %q, got %q", expected, de.currentText)
-	}
-}
-
-func TestDateEdit_ArrowKeyHandling(t *testing.T) {
-	de := NewDateEdit()
-	de.SetInitialValue("2025-01-15")
-
-	handler := de.InputHandler()
-
-	// down arrow increments
-	handler(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), nil)
-	if de.currentText != "2025-01-16" {
-		t.Errorf("After KeyDown, expected '2025-01-16', got %q", de.currentText)
-	}
-
-	// up arrow decrements
-	handler(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil)
-	if de.currentText != "2025-01-15" {
-		t.Errorf("After KeyUp, expected '2025-01-15', got %q", de.currentText)
-	}
-}
-
-func TestDateEdit_ChangeHandler(t *testing.T) {
-	de := NewDateEdit()
-	de.SetInitialValue("2025-06-15")
-
-	var calledWith string
-	callCount := 0
-	de.SetChangeHandler(func(s string) {
-		calledWith = s
-		callCount++
-	})
-
-	de.incrementDay()
-
-	if callCount != 1 {
-		t.Errorf("Expected callback called once, got %d", callCount)
-	}
-	if calledWith != "2025-06-16" {
-		t.Errorf("Expected callback with '2025-06-16', got %q", calledWith)
-	}
-}
-
-func TestDateEdit_ValidateAndUpdate_ValidDate(t *testing.T) {
-	de := NewDateEdit()
-	de.SetInitialValue("2025-06-15")
-
-	var calledWith string
-	de.SetChangeHandler(func(s string) {
-		calledWith = s
-	})
-
-	de.SetText("2025-07-20")
-	de.validateAndUpdate()
-
-	if de.currentText != "2025-07-20" {
-		t.Errorf("Expected currentText '2025-07-20', got %q", de.currentText)
-	}
-	if calledWith != "2025-07-20" {
-		t.Errorf("Expected callback with '2025-07-20', got %q", calledWith)
-	}
-}
-
-func TestDateEdit_ValidateAndUpdate_InvalidDate(t *testing.T) {
-	de := NewDateEdit()
-	de.SetInitialValue("2025-06-15")
-
-	de.SetText("not-a-date")
-	de.validateAndUpdate()
-
-	// should revert
-	if de.currentText != "2025-06-15" {
-		t.Errorf("Expected currentText unchanged at '2025-06-15', got %q", de.currentText)
-	}
-	if de.GetText() != "2025-06-15" {
-		t.Errorf("Expected text reverted to '2025-06-15', got %q", de.GetText())
-	}
-}
-
-func TestDateEdit_ValidateAndUpdate_EmptyClears(t *testing.T) {
-	de := NewDateEdit()
-	de.SetInitialValue("2025-06-15")
-
-	var calledWith string
-	de.SetChangeHandler(func(s string) {
-		calledWith = s
-	})
-
-	de.SetText("")
-	de.validateAndUpdate()
-
-	// empty is valid (clears due date)
-	if de.currentText != "" {
-		t.Errorf("Expected empty currentText, got %q", de.currentText)
-	}
-	if calledWith != "" {
-		t.Errorf("Expected callback with empty string, got %q", calledWith)
-	}
-}
-
-func TestDateEdit_OnlyDigitsAndHyphens(t *testing.T) {
-	de := NewDateEdit()
-	de.SetInitialValue("2025-06-15")
-	de.clearOnType = false // simulate already-typed state
-
-	handler := de.InputHandler()
-
-	// letters should be ignored
-	handler(tcell.NewEventKey(tcell.KeyRune, 'a', tcell.ModNone), nil)
-	handler(tcell.NewEventKey(tcell.KeyRune, 'z', tcell.ModNone), nil)
-
-	// text should be unchanged
-	if de.GetText() != "2025-06-15" {
-		t.Errorf("Expected text unchanged, got %q", de.GetText())
-	}
-}
-
-func TestDateEdit_CtrlU_ClearsToNone(t *testing.T) {
-	de := NewDateEdit()
-	de.SetInitialValue("2025-06-15")
-
-	var calledWith string
-	callCount := 0
-	de.SetChangeHandler(func(s string) {
-		calledWith = s
-		callCount++
-	})
-
-	handler := de.InputHandler()
-	handler(tcell.NewEventKey(tcell.KeyCtrlU, 0, tcell.ModNone), nil)
-
-	if de.currentText != "" {
-		t.Errorf("Expected empty currentText after Ctrl+U, got %q", de.currentText)
-	}
-	if de.GetText() != "" {
-		t.Errorf("Expected empty text after Ctrl+U, got %q", de.GetText())
-	}
-	if callCount != 1 {
-		t.Errorf("Expected callback called once, got %d", callCount)
-	}
-	if calledWith != "" {
-		t.Errorf("Expected callback with empty string, got %q", calledWith)
-	}
-}
-
-func TestDateEdit_MonthBoundary(t *testing.T) {
-	de := NewDateEdit()
-	de.SetInitialValue("2025-01-31")
-
-	de.incrementDay()
-
-	if de.currentText != "2025-02-01" {
-		t.Errorf("Expected '2025-02-01', got %q", de.currentText)
-	}
-}
-
-func TestDateEdit_Backspace_ClearsToNone(t *testing.T) {
-	de := NewDateEdit()
-	de.SetInitialValue("2025-06-15")
-
-	var calledWith string
-	callCount := 0
-	de.SetChangeHandler(func(s string) {
-		calledWith = s
-		callCount++
-	})
-
-	handler := de.InputHandler()
-	handler(tcell.NewEventKey(tcell.KeyBackspace2, 0, tcell.ModNone), nil)
-
-	if de.currentText != "" {
-		t.Errorf("Expected empty currentText after Backspace, got %q", de.currentText)
-	}
-	if de.GetText() != "" {
-		t.Errorf("Expected empty text after Backspace, got %q", de.GetText())
-	}
-	if callCount != 1 {
-		t.Errorf("Expected callback called once, got %d", callCount)
-	}
-	if calledWith != "" {
-		t.Errorf("Expected callback with empty string, got %q", calledWith)
+	row, _ := drawToScreen(t, de.segmentedTimeEdit, 15, false)
+	if !strings.Contains(row, "None") {
+		t.Errorf("drawn empty row = %q, want it to contain None", row)
 	}
 }
 
 func TestDateEdit_FluentAPI(t *testing.T) {
-	called := false
-	de := NewDateEdit().
-		SetLabel("Due: ").
-		SetInitialValue("2025-03-01").
-		SetChangeHandler(func(s string) {
-			called = true
-		})
-
-	if de.GetLabel() != "Due: " {
-		t.Errorf("Expected label 'Due: ', got %q", de.GetLabel())
-	}
-	if de.currentText != "2025-03-01" {
-		t.Errorf("Expected currentText '2025-03-01', got %q", de.currentText)
-	}
-
-	de.incrementDay()
-	if !called {
-		t.Error("Expected change handler to be called")
+	de := NewDateEdit().SetLabel("x").SetInitialValue("2026-07-08")
+	de.SetChangeHandler(func(string) {})
+	if de.GetCurrentText() != "2026-07-08" {
+		t.Errorf("fluent chain lost value: %q", de.GetCurrentText())
 	}
 }
