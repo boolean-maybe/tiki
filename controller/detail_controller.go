@@ -11,6 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/view/fieldmeta"
 	"github.com/boolean-maybe/tiki/workflow"
 
 	"github.com/gdamore/tcell/v2"
@@ -340,22 +341,23 @@ func (dc *DetailController) wireEditFieldHandlers(v DetailEditableView) {
 	v.SetEditFieldChangeHandler(tikipkg.FieldTags, func(display string) {
 		dc.editSession.SaveTags(strings.Fields(display))
 	})
-	// Wire a SemanticEnum save handler for any workflow-declared enum
-	// field in this view's layout that doesn't already have a built-in
-	// handler above. Without this, custom enums (e.g. severity in
-	// bug-tracker.yaml) would render as editable but never persist their
-	// edits, because no save handler would be installed for them.
+	// Wire the generic save handler for every workflow-declared field in this
+	// view's layout that has an editor but no built-in handler above. This
+	// covers custom enums AND custom text/integer/boolean/datetime fields —
+	// previously only enums were wired, so a custom datetime rendered editable
+	// but its edits were silently dropped on commit (no handler). Gate on
+	// fieldmeta.FieldHasEditor — the same predicate the view uses for
+	// focusability — so a field is wired iff the user can focus it.
 	for _, name := range v.Layout() {
 		if _, hasBuiltin := builtinEditFieldHandlers[name]; hasBuiltin {
 			continue
 		}
-		wfd, ok := workflow.Field(name)
-		if !ok || wfd.Type != workflow.TypeEnum {
+		if !fieldmeta.FieldHasEditor(name) {
 			continue
 		}
 		fieldName := name // capture for closure
-		v.SetEditFieldChangeHandler(fieldName, func(canonicalKey string) {
-			dc.editSession.SaveWorkflowEnum(fieldName, canonicalKey)
+		v.SetEditFieldChangeHandler(fieldName, func(raw string) {
+			dc.editSession.SaveWorkflowField(fieldName, raw)
 		})
 	}
 }

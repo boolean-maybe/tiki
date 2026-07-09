@@ -139,10 +139,10 @@ actions:
   - key: "-"
     label: "Priority down"
     action: update where id = id() set priority = next_enum(priority)
-  - key: "R"
+  - key: "g"
     label: "Mark regression"
     action: update where id = id() set regression=true
-  - key: "r"
+  - key: "G"
     label: "Clear regression"
     action: update where id = id() set regression=false
   - key: "E"

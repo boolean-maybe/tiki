@@ -48,6 +48,40 @@ func TestMeasureFieldValue_EmptyDateTimeMatchesRenderedWidth(t *testing.T) {
 	}
 }
 
+// TestMeasureFieldValue_EmptyStringListMatchesPlaceholderWidth is the regression
+// guard for the clipped "Tags (no…" defect: an empty stringList (tags) RENDERS
+// its "(none)" placeholder through valueOnlyLine's truncating text view, which
+// draws to width-1. measureStringListField used to return the longest-token
+// floor of 1, so the solver reserved a 1-cell column and the placeholder clipped.
+// The measure must equal the placeholder width PLUS the breathing cell the
+// truncating view reserves — otherwise the last glyph clips ("(no…").
+func TestMeasureFieldValue_EmptyStringListMatchesPlaceholderWidth(t *testing.T) {
+	tk := tikipkg.New() // tags never set → empty string list
+
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles(), FieldName: tikipkg.FieldTags}
+	placeholder := emptyPlaceholder(tikipkg.FieldTags, SemanticStringList)
+
+	got := MeasureFieldValue(tikipkg.FieldTags, tk, ctx)
+	if want := tview.TaggedStringWidth(placeholder) + scalarBreathingCell; got != want {
+		t.Errorf("MeasureFieldValue(empty tags) = %d, want %d (placeholder %q + breathing cell)", got, want, placeholder)
+	}
+}
+
+// TestMeasureFieldValue_EmptyTikiIDListMatchesPlaceholderWidth mirrors the above
+// for a TypeListRef field (dependsOn): empty renders "(none)" through the same
+// truncating view, so it needs placeholder width + breathing cell.
+func TestMeasureFieldValue_EmptyTikiIDListMatchesPlaceholderWidth(t *testing.T) {
+	tk := tikipkg.New() // dependsOn never set → empty id list
+
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles(), FieldName: tikipkg.FieldDependsOn}
+	placeholder := emptyPlaceholder(tikipkg.FieldDependsOn, SemanticTikiIDList)
+
+	got := MeasureFieldValue(tikipkg.FieldDependsOn, tk, ctx)
+	if want := tview.TaggedStringWidth(placeholder) + scalarBreathingCell; got != want {
+		t.Errorf("MeasureFieldValue(empty dependsOn) = %d, want %d (placeholder %q + breathing cell)", got, want, placeholder)
+	}
+}
+
 // TestFieldIsEmpty_TypedPredicate pins the typed emptiness check across every
 // participating semantic type, plus the never-empty types (recurrence, boolean)
 // which report false regardless so they are never `?`-hidden.

@@ -375,6 +375,83 @@ func (tc *TikiEditSession) SaveWorkflowEnum(fieldName, value string) bool {
 	})
 }
 
+// SaveWorkflowField persists a raw editor string to a workflow-declared field
+// by its declared type, for catalog-only fields with no dedicated Save* method
+// (custom text/integer/boolean/datetime). It is the generic counterpart to
+// SaveWorkflowEnum and the single save authority the detail controller wires for
+// every non-builtin editable field. Empty raw clears the field. Integers are
+// unbounded (the schema declares no per-field range). Returns false on parse
+// failure so a malformed value is rejected rather than silently written.
+func (tc *TikiEditSession) SaveWorkflowField(name, raw string) bool {
+	wfd, ok := workflow.Field(name)
+	if !ok {
+		slog.Warn("SaveWorkflowField: unknown field", "field", name)
+		return false
+	}
+	switch wfd.Type {
+	case workflow.TypeEnum:
+		return tc.SaveWorkflowEnum(name, raw)
+	case workflow.TypeInt:
+		return tc.saveWorkflowInt(name, raw)
+	case workflow.TypeBool:
+		return tc.saveWorkflowBool(name, raw)
+	case workflow.TypeTimestamp:
+		return tc.saveWorkflowTimestamp(name, raw)
+	case workflow.TypeString:
+		return tc.setOrDelete(name, raw, raw == "")
+	}
+	slog.Warn("SaveWorkflowField: unsupported type", "field", name, "type", wfd.Type)
+	return false
+}
+
+func (tc *TikiEditSession) saveWorkflowInt(name, raw string) bool {
+	if raw == "" {
+		return tc.setOrDelete(name, 0, true)
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		slog.Warn("saveWorkflowInt: not an integer", "field", name, "value", raw)
+		return false
+	}
+	return tc.setOrDelete(name, n, false)
+}
+
+func (tc *TikiEditSession) saveWorkflowBool(name, raw string) bool {
+	if raw == "" {
+		return tc.setOrDelete(name, false, true)
+	}
+	b, err := strconv.ParseBool(raw)
+	if err != nil {
+		slog.Warn("saveWorkflowBool: not a boolean", "field", name, "value", raw)
+		return false
+	}
+	return tc.setOrDelete(name, b, false)
+}
+
+func (tc *TikiEditSession) saveWorkflowTimestamp(name, raw string) bool {
+	if raw == "" {
+		return tc.setOrDelete(name, time.Time{}, true)
+	}
+	t, ok := value.ParseDateTime(raw)
+	if !ok {
+		slog.Warn("saveWorkflowTimestamp: cannot parse", "field", name, "value", raw)
+		return false
+	}
+	return tc.setOrDelete(name, t, t.IsZero())
+}
+
+// setOrDelete deletes the field when clear is true, else sets it to fieldValue,
+// on whichever tiki the session is currently editing (draft or existing copy).
+func (tc *TikiEditSession) setOrDelete(name string, fieldValue interface{}, clear bool) bool {
+	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+		if clear {
+			tk.Delete(name)
+			return
+		}
+		tk.Set(name, fieldValue)
+	})
+}
+
 // SavePriority saves the new priority to the current tiki. Priority is now
 // a workflow enum: empty string deletes the field, any other value must be
 // a recognized canonical key for the configured priority enum. Display

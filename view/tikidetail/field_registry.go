@@ -14,6 +14,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/view/fieldmeta"
 	"github.com/boolean-maybe/tiki/view/gridbox"
 	"github.com/boolean-maybe/tiki/workflow"
 	"github.com/boolean-maybe/tiki/workflow/value"
@@ -26,24 +27,24 @@ import (
 // edited. The registry routes a field by its semantic type to the matching
 // renderer/editor factory; immutable types like ID/Author are handled by the
 // title block, not by this registry.
-type SemanticType string
+//
+// The type and its constants are aliases into the tview-free fieldmeta leaf, so
+// the editability tables there and the renderer/editor registry here key off
+// exactly the same values. SemanticEnum is the unified renderer/editor for any
+// TypeEnum field — status, type, priority, and any user-declared enums in
+// workflow.yaml all route through it.
+type SemanticType = fieldmeta.SemanticType
 
 const (
-	// SemanticEnum is the unified renderer/editor for any TypeEnum field —
-	// status, type, priority, and any user-declared enums in workflow.yaml
-	// all route through it. The dedicated SemanticStatus/SemanticType_/
-	// SemanticPriority constants were removed once the generic editor proved
-	// equivalent: each had been a copy of the same select-list with a
-	// different hardcoded label.
-	SemanticEnum       SemanticType = "enum"
-	SemanticText       SemanticType = "text"
-	SemanticInteger    SemanticType = "integer"
-	SemanticBoolean    SemanticType = "boolean"
-	SemanticDate       SemanticType = "date"
-	SemanticDateTime   SemanticType = "datetime"
-	SemanticRecurrence SemanticType = "recurrence"
-	SemanticStringList SemanticType = "string_list"
-	SemanticTikiIDList SemanticType = "tiki_id_list"
+	SemanticEnum       = fieldmeta.SemanticEnum
+	SemanticText       = fieldmeta.SemanticText
+	SemanticInteger    = fieldmeta.SemanticInteger
+	SemanticBoolean    = fieldmeta.SemanticBoolean
+	SemanticDate       = fieldmeta.SemanticDate
+	SemanticDateTime   = fieldmeta.SemanticDateTime
+	SemanticRecurrence = fieldmeta.SemanticRecurrence
+	SemanticStringList = fieldmeta.SemanticStringList
+	SemanticTikiIDList = fieldmeta.SemanticTikiIDList
 )
 
 // EditorCapability tracks whether the type UI registry supports in-place
@@ -139,6 +140,11 @@ type FieldDescriptor struct {
 	// text renderers emit it verbatim. This replaces the per-field-name
 	// switches that previously special-cased assignee/createdBy/type.
 	EmptyPlaceholder string
+	// Suggestions, when non-nil, makes the text editor a picker seeded from the
+	// returned options (used by assignee → known users) instead of a plain
+	// input. This is how the generic text editor supports the assignee UX
+	// without a field-name branch. nil → plain InputField.
+	Suggestions func(s store.Store) []string
 }
 
 var fieldRegistry = map[string]FieldDescriptor{}
@@ -210,6 +216,12 @@ func MeasureFieldValue(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) in
 		return measureStringListField(name, tk)
 	case workflow.TypeListRef:
 		return measureTikiIDListField(name, tk, ctx.Store)
+	case workflow.TypeEnum:
+		// the in-place enum editor cycles labels without the grid re-solving, so
+		// the column must fit the WIDEST declared label — not just the stored
+		// value — or cycling to a longer label clips. Sized identically in view
+		// and edit mode so the column never shifts width as the value changes.
+		return measureWidestEnumValue(fd, ctx)
 	}
 	// an empty scalar renders its placeholder ("None"/"Unknown"/"─"/…), not the
 	// "—" sentinel genericFieldValueString emits — measure the SAME string the
@@ -219,6 +231,29 @@ func MeasureFieldValue(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) in
 		stored = scalarCellWidth(genericFieldValueString(fd, tk, ctx))
 	}
 	return maxInt(stored, editModeWidthFloor(name, ctx))
+}
+
+// measureWidestEnumValue returns the column width an enum field needs to hold
+// its widest declared value — plus the scalar breathing cell — so an in-place
+// cycle to a longer label never clips. It formats each value the same way
+// renderEnumValue draws it: the visual form (label + emoji) for a `.visual`
+// cell, the bare label otherwise. An enum with no declared values (should not
+// happen for a TypeEnum field) falls back to the empty placeholder width.
+func measureWidestEnumValue(fd workflow.FieldDef, ctx FieldRenderContext) int {
+	widest := scalarCellWidth(emptyPlaceholder(fd.Name, SemanticEnum))
+	for _, key := range fd.AllowedValues() {
+		widest = maxInt(widest, scalarCellWidth(enumValueDisplay(fd, key, ctx)))
+	}
+	return widest
+}
+
+// enumValueDisplay renders a single enum key exactly as renderEnumValue does:
+// the color-expanded visual form for a `.visual` cell, else the bare label.
+func enumValueDisplay(fd workflow.FieldDef, key string, ctx FieldRenderContext) string {
+	if ctx.Display == gridlayout.DisplayVisual {
+		return expandFieldText(fd.EnumDisplay(key), ctx.Roles)
+	}
+	return tview.Escape(fd.EnumLabel(key))
 }
 
 // editModeWidthFloor returns the minimum content width a field's column needs in
@@ -239,13 +274,13 @@ func editModeWidthFloor(name string, ctx FieldRenderContext) int {
 	return ui.EditMeasure() + scalarBreathingCell
 }
 
-// editModeTypeUI resolves the TypeUI for a field's semantic in edit mode. It
-// prefers a static FieldDescriptor's semantic, then falls back to bridging the
-// workflow catalog's ValueType (via semanticForValueType) so a catalog-only
-// field with no descriptor — e.g. a user-declared datetime like bug-tracker's
-// dueBy — still resolves its type-level EditMeasure floor. Mirrors the same
-// descriptor→catalog fallback MeasureFieldValue uses for the stored-value path.
-func editModeTypeUI(name string) (TypeUI, bool) {
+// resolvedTypeUI resolves the semantic TypeUI for a field the same way both the
+// value-measure and the edit paths do: a static descriptor's semantic wins, else
+// the workflow catalog's ValueType is bridged via semanticForValueType. This is
+// the single view-side authority the focusable/editable/measure layers derive
+// from; the controller derives the same answer from fieldmeta.FieldHasEditor,
+// which reads the same editability table this registry's Capability is built on.
+func resolvedTypeUI(name string) (TypeUI, bool) {
 	if fd, ok := LookupField(name); ok {
 		return LookupType(fd.Semantic)
 	}
@@ -253,6 +288,21 @@ func editModeTypeUI(name string) (TypeUI, bool) {
 		return LookupType(semanticForValueType(wfd.Type))
 	}
 	return TypeUI{}, false
+}
+
+// fieldIsReadOnly reports whether a field must never be edited. It defers to the
+// fieldmeta leaf's read-only set, the single authority both view and controller
+// share.
+func fieldIsReadOnly(name string) bool {
+	return fieldmeta.FieldIsReadOnly(name)
+}
+
+// editModeTypeUI resolves the TypeUI for a field's semantic in edit mode. It is
+// an alias for resolvedTypeUI kept for its call sites (the EditMeasure floor
+// path); a catalog-only field with no descriptor — e.g. a user-declared
+// datetime like bug-tracker's dueBy — still resolves its type-level EditMeasure.
+func editModeTypeUI(name string) (TypeUI, bool) {
+	return resolvedTypeUI(name)
 }
 
 func maxInt(a, b int) int {
@@ -277,9 +327,18 @@ func scalarCellWidth(rendered string) int {
 
 // measureStringListField returns the longest single token width across a string
 // list field's values, mirroring the wordListColumn renderer (which wraps per
-// word). Returns at least 1 so an empty/placeholder list still reserves a cell.
+// word). An empty list measures its "(none)" placeholder width, so the solver
+// reserves room for the placeholder the renderer draws instead of clipping it.
 func measureStringListField(name string, tk *tikipkg.Tiki) int {
 	vals, _, _ := tk.StringSliceField(name)
+	if len(vals) == 0 {
+		// empty list renders the "(none)" placeholder through valueOnlyLine's
+		// truncating text view (see renderStringListValue), NOT the wordListColumn
+		// the non-empty branch uses. The truncating view draws to width-1, so the
+		// measure needs the placeholder width PLUS the breathing cell — exactly
+		// like the scalar empty path. Without the +1 the last glyph clips ("(no…").
+		return scalarCellWidth(emptyPlaceholder(name, SemanticStringList))
+	}
 	maxWord := 1
 	for _, v := range vals {
 		if w := tview.TaggedStringWidth(v); w > maxWord {
@@ -294,11 +353,14 @@ func measureStringListField(name string, tk *tikipkg.Tiki) int {
 // room for the resolved titles instead of clipping them. Each id contributes
 // idColumnWidth + 1 + titleWidth (resolved title, or "(unresolved)" when the id
 // is not in the store, or the bare id when no store is available — mirroring
-// the renderer). Returns at least 1 for an empty list.
+// the renderer). An empty list measures its "(none)" placeholder width.
 func measureTikiIDListField(name string, tk *tikipkg.Tiki, tikiStore store.Store) int {
 	ids, _, _ := tk.StringSliceField(name)
 	if len(ids) == 0 {
-		return 1
+		// empty list renders the "(none)" placeholder through valueOnlyLine's
+		// truncating text view (see renderTikiIDListValue), so it needs the
+		// placeholder width plus a breathing cell — mirroring the stringList branch.
+		return scalarCellWidth(emptyPlaceholder(name, SemanticTikiIDList))
 	}
 	idColumnWidth := 0
 	for _, id := range ids {
@@ -347,7 +409,12 @@ func MeasureAnchor(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext
 		if a.RowSpan > 1 {
 			return gridbox.LongestWordWidth(compositePlainText(a, tk, ctx))
 		}
-		return tview.TaggedStringWidth(buildCompositeText(a, tk, ctx))
+		// a single-row composite draws through the truncating value view, which
+		// reserves one right-edge cell (width-1). Add it back so the solver
+		// reserves content+1 — mirroring scalarCellWidth / the literal +1 — else
+		// a composite that exactly fills its column clips (e.g. the Detail Status
+		// cell "In Progress ⚙️" rendered "In Progress …").
+		return tview.TaggedStringWidth(buildCompositeText(a, tk, ctx)) + scalarBreathingCell
 	case gridlayout.AnchorLiteral:
 		return gridbox.MeasureAnchorText(a)
 	}
@@ -429,6 +496,16 @@ func registerBuiltinFields() {
 		Get:              func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldAssignee); return v },
 		EditTraversable:  true,
 		EmptyPlaceholder: "Unassigned",
+		Suggestions: func(s store.Store) []string {
+			if s == nil {
+				return nil
+			}
+			users, err := s.GetAllUsers()
+			if err != nil {
+				return nil
+			}
+			return users
+		},
 	}
 	fieldRegistry[tikipkg.FieldDue] = FieldDescriptor{
 		Name:            tikipkg.FieldDue,
@@ -495,34 +572,40 @@ func registerBuiltinFields() {
 	}
 }
 
+// registerBuiltinTypes wires the renderer/editor primitives for every semantic
+// type. Each entry declares its Render/Edit/HeightFn/etc.; the per-type
+// EditorCapability is NOT set here — deriveCapabilities() computes it from the
+// fieldmeta editability table so "editable" is stated exactly once (in the leaf)
+// and cannot drift from what FieldHasEditor reports.
 func registerBuiltinTypes() {
 	typeRegistry[SemanticText] = TypeUI{
-		Render:     renderTextValue,
-		Edit:       editAssigneeValue,
-		HeightFn:   singleRowHeight,
-		Capability: EditorImplemented,
-		IsEmpty:    stringFieldEmpty,
+		Render:   renderTextValue,
+		Edit:     editTextValue,
+		HeightFn: singleRowHeight,
+		IsEmpty:  stringFieldEmpty,
 		// no per-type default: the "─" fallback in emptyPlaceholder applies;
 		// per-field overrides supply "Unassigned"/"Unknown".
 	}
 	typeRegistry[SemanticInteger] = TypeUI{
 		Render:           renderIntegerValue,
+		Edit:             editIntegerValue,
 		HeightFn:         singleRowHeight,
-		Capability:       EditorStub,
 		IsEmpty:          intFieldEmpty,
 		EmptyPlaceholder: "─",
 	}
 	typeRegistry[SemanticBoolean] = TypeUI{
-		Render:     renderBooleanValue,
-		HeightFn:   singleRowHeight,
-		Capability: EditorStub,
-		// IsEmpty nil: boolean is a stub that always renders a concrete value.
+		Render:   renderBooleanValue,
+		Edit:     editBooleanValue,
+		HeightFn: singleRowHeight,
+		// IsEmpty nil: booleans default to false and are never empty.
+		// EditMeasure: the editor cycles false↔true without the grid re-solving,
+		// so the column must fit the widest reachable value ("false").
+		EditMeasure: func() int { return len("false") },
 	}
 	typeRegistry[SemanticDate] = TypeUI{
 		Render:           renderDateValue,
 		Edit:             editDueValue,
 		HeightFn:         singleRowHeight,
-		Capability:       EditorImplemented,
 		IsEmpty:          timeFieldEmpty,
 		EmptyPlaceholder: "None",
 	}
@@ -530,7 +613,6 @@ func registerBuiltinTypes() {
 		Render:           renderDateTimeValue,
 		Edit:             editDateTimeValue,
 		HeightFn:         singleRowHeight,
-		Capability:       EditorImplemented,
 		IsEmpty:          timeFieldEmpty,
 		EmptyPlaceholder: "Unknown",
 		// EditMeasure: focusing an EMPTY datetime seeds a full "YYYY-MM-DD HH:MM"
@@ -540,10 +622,9 @@ func registerBuiltinTypes() {
 		EditMeasure: widestDateTimeWidth,
 	}
 	typeRegistry[SemanticRecurrence] = TypeUI{
-		Render:     renderRecurrenceValue,
-		Edit:       editRecurrenceValue,
-		HeightFn:   singleRowHeight,
-		Capability: EditorImplemented,
+		Render:   renderRecurrenceValue,
+		Edit:     editRecurrenceValue,
+		HeightFn: singleRowHeight,
 		// IsEmpty nil: an empty recurrence renders "None" via RecurrenceDisplay,
 		// so it is never `?`-hidden.
 		// EditMeasure: the in-place editor cycles frequency/weekday without the
@@ -554,7 +635,6 @@ func registerBuiltinTypes() {
 		Render:           renderEnumValue,
 		Edit:             editEnumValue,
 		HeightFn:         singleRowHeight,
-		Capability:       EditorImplemented,
 		IsEmpty:          stringFieldEmpty,
 		EmptyPlaceholder: "─",
 	}
@@ -562,16 +642,38 @@ func registerBuiltinTypes() {
 		Render:           renderStringListValue,
 		Edit:             editTagsValue,
 		HeightFn:         stringListHeight,
-		Capability:       EditorImplemented,
 		IsEmpty:          listFieldEmpty,
 		EmptyPlaceholder: "(none)",
 	}
 	typeRegistry[SemanticTikiIDList] = TypeUI{
 		Render:           renderTikiIDListValue,
 		HeightFn:         tikiIDListHeight,
-		Capability:       EditorStub,
 		IsEmpty:          listFieldEmpty,
 		EmptyPlaceholder: "(none)",
+	}
+	deriveCapabilities()
+}
+
+// deriveCapabilities sets each registered type's EditorCapability from the
+// fieldmeta editability table — EditorImplemented iff the leaf marks the
+// semantic editable, else EditorStub. This makes the leaf the single source of
+// truth: enabling a new editable type is one flip in fieldmeta, and the registry
+// and FieldHasEditor stay consistent by construction. It also guards the two
+// halves against drift: a type the leaf calls editable but whose Edit factory is
+// still nil is a programming error, so it panics at init rather than silently
+// rendering a focusable-but-unbuildable field.
+func deriveCapabilities() {
+	for sem, ui := range typeRegistry {
+		if !fieldmeta.SemanticEditable(sem) {
+			ui.Capability = EditorStub
+			typeRegistry[sem] = ui
+			continue
+		}
+		if ui.Edit == nil {
+			panic(fmt.Sprintf("fieldmeta marks %q editable but its TypeUI has no Edit factory", sem))
+		}
+		ui.Capability = EditorImplemented
+		typeRegistry[sem] = ui
 	}
 }
 
@@ -610,30 +712,12 @@ func intFieldEmpty(tk *tikipkg.Tiki, name string) bool {
 // semanticForValueType bridges the workflow catalog's ValueType to the
 // detail-view registry's SemanticType, so emptiness/placeholder traits resolve
 // even for catalog-only fields that have no FieldDescriptor (e.g. user-declared
-// enums). It generalizes the TypeEnum routing renderConfiguredField already
-// does. The string family (TypeString/TypeID/TypeRef/TypeDuration) and any
-// unmapped type fall through to SemanticText — string emptiness — matching
-// genericFieldValueString's default branch.
+// enums). It delegates to fieldmeta.ForValueType so the view and the tview-free
+// editability leaf share one bridge. The string family
+// (TypeString/TypeID/TypeRef/TypeDuration) and any unmapped type fall through to
+// SemanticText — string emptiness — matching genericFieldValueString's default.
 func semanticForValueType(t workflow.ValueType) SemanticType {
-	switch t {
-	case workflow.TypeEnum:
-		return SemanticEnum
-	case workflow.TypeInt:
-		return SemanticInteger
-	case workflow.TypeBool:
-		return SemanticBoolean
-	case workflow.TypeDate:
-		return SemanticDate
-	case workflow.TypeTimestamp:
-		return SemanticDateTime
-	case workflow.TypeRecurrence:
-		return SemanticRecurrence
-	case workflow.TypeListString:
-		return SemanticStringList
-	case workflow.TypeListRef:
-		return SemanticTikiIDList
-	}
-	return SemanticText
+	return fieldmeta.ForValueType(t)
 }
 
 // fieldIsEmpty reports whether tk holds no value for the workflow field, via the
@@ -922,8 +1006,21 @@ func renderIntegerValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitiv
 	return valueOnlyLine(value, ctx.Roles)
 }
 
-func renderBooleanValue(_ *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	return valueOnlyLine("(stub)", ctx.Roles)
+// renderBooleanValue renders a boolean field's value ("true"/"false"). Absent →
+// "false" (booleans default false and are never empty, so no placeholder path).
+func renderBooleanValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	return valueOnlyLine(boolFieldString(tk, ctx.FieldName), ctx.Roles)
+}
+
+// boolFieldString reads a boolean field's canonical string, defaulting to
+// "false" for absent or non-bool values. Shared by the renderer and editor seed.
+func boolFieldString(tk *tikipkg.Tiki, name string) string {
+	if raw, ok := tk.Get(name); ok {
+		if b, ok := raw.(bool); ok && b {
+			return "true"
+		}
+	}
+	return "false"
 }
 
 func renderDateValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
@@ -1147,30 +1244,106 @@ func editTitleValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(stri
 	return &titleEditAdapter{InputField: input}
 }
 
-// editAssigneeValue builds the assignee editor (free-text + suggestions).
-func editAssigneeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
-	var options []string
-	if ctx.Store != nil {
-		if users, err := ctx.Store.GetAllUsers(); err == nil {
-			options = append(options, users...)
+// editTextValue is the generic in-place editor for any SemanticText field. When
+// the field's descriptor declares Suggestions (assignee → known users) it builds
+// a typing-enabled select-list seeded from those options; otherwise a plain
+// input. The field is read by ctx.FieldName so it serves descriptor-backed and
+// catalog-only text fields alike — no field-name branch.
+func editTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	current, _, _ := tk.StringField(ctx.FieldName)
+	if fd, ok := LookupField(ctx.FieldName); ok && fd.Suggestions != nil {
+		return textSuggestionEditor(fd, current, ctx, onChange)
+	}
+	input := tview.NewInputField()
+	roles := ctx.Roles
+	input.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
+	input.SetFieldTextColor(roles.TextPrimary().TCell())
+	input.SetLabel(getFocusMarker(ctx.Roles))
+	input.SetBorder(false)
+	input.SetText(current)
+	input.SetChangedFunc(func(text string) {
+		if onChange != nil {
+			onChange(text)
 		}
+	})
+	return &textInputEditAdapter{InputField: input}
+}
+
+// textSuggestionEditor builds the picker variant of the text editor (assignee).
+// The "Unassigned" normalization stays in the controller's assignee save
+// handler; here the widget just offers users + free typing.
+func textSuggestionEditor(fd FieldDescriptor, current string, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	options := fd.Suggestions(ctx.Store)
+	if current == "" && fd.EmptyPlaceholder != "" {
+		current = fd.EmptyPlaceholder // "Unassigned"
 	}
-	if len(options) == 0 {
-		options = []string{"Unassigned"}
-	}
-	assignee, _, _ := tk.StringField(tikipkg.FieldAssignee)
-	if assignee == "" {
-		assignee = "Unassigned"
+	if len(options) == 0 && current != "" {
+		options = []string{current}
 	}
 	editor := component.NewEditSelectList(options, true)
 	editor.SetLabel(getFocusMarker(ctx.Roles))
-	editor.SetInitialValue(assignee)
+	editor.SetInitialValue(current)
 	editor.SetSubmitHandler(func(text string) {
 		if onChange != nil {
 			onChange(text)
 		}
 	})
 	return &selectListAdapter{EditSelectList: editor}
+}
+
+// editIntegerValue is the generic in-place editor for any SemanticInteger
+// field. It is a free-type input with a digit(+leading-minus) filter — integers
+// are unbounded in the workflow schema, so there is no spinner range to cycle.
+// An absent value opens blank; onChange fires the decimal string (or "" when
+// cleared).
+func editIntegerValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	input := tview.NewInputField()
+	roles := ctx.Roles
+	input.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
+	input.SetFieldTextColor(roles.TextPrimary().TCell())
+	input.SetLabel(getFocusMarker(ctx.Roles))
+	input.SetBorder(false)
+	input.SetAcceptanceFunc(acceptSignedInteger)
+	if v, present, _ := tk.IntField(ctx.FieldName); present {
+		input.SetText(strconv.Itoa(v))
+	}
+	input.SetChangedFunc(func(text string) {
+		if onChange != nil {
+			onChange(text)
+		}
+	})
+	return &intEditAdapter{InputField: input}
+}
+
+// acceptSignedInteger permits an optional leading '-' followed by digits, and
+// the intermediate states a user types through ("" and "-"). tview calls this on
+// every keystroke with the prospective text; returning false rejects the key.
+func acceptSignedInteger(textToCheck string, _ rune) bool {
+	if textToCheck == "" || textToCheck == "-" {
+		return true
+	}
+	s := strings.TrimPrefix(textToCheck, "-")
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// editBooleanValue is the generic in-place editor for any SemanticBoolean
+// field. It is a two-value cycle (false↔true) surfaced through a select-list so
+// the grid's Up/Down cycle dispatch works uniformly. Absent seeds "false".
+func editBooleanValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	editor := component.NewEditSelectList([]string{"false", "true"}, false)
+	editor.SetLabel(getFocusMarker(ctx.Roles))
+	editor.SetInitialValue(boolFieldString(tk, ctx.FieldName))
+	editor.SetSubmitHandler(func(text string) {
+		if onChange != nil {
+			onChange(text)
+		}
+	})
+	return &boolEditAdapter{selectListAdapter: selectListAdapter{EditSelectList: editor}}
 }
 
 // editDueValue builds the date editor. The widget's onChange fires with
@@ -1262,59 +1435,36 @@ func editTagsValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 	return a
 }
 
-// buildFieldEditor is a convenience that looks up the type registry and
-// returns the editor widget if the type supports editing. The ctx is
-// stamped with the field descriptor before invoking the editor factory so
-// generic factories (notably the SemanticEnum editor) can resolve their
-// target field via ctx.FieldName.
-//
-// Workflow-declared TypeEnum fields without a static FieldDescriptor go
-// through the SemanticEnum editor directly — same UX as the built-in
-// status/type/priority editors, but driven entirely by workflow.yaml.
+// buildFieldEditor returns the editor widget for a field via the single semantic
+// resolver. title keeps a dedicated factory (editTitleValue is not
+// type-registered and title needs plain-input behavior distinct from the generic
+// text editor) — it is the sole intentional field-name branch, NOT a type
+// whitelist. ctx is stamped with the field name so generic factories (SemanticEnum,
+// SemanticText, datetime) resolve their target via ctx.FieldName, working for
+// descriptor-backed and catalog-only fields alike.
 func buildFieldEditor(name string, tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
 	if name == "title" {
 		return editTitleValue(tk, ctx, onChange)
 	}
-	if fd, ok := LookupField(name); ok {
-		ui, ok := LookupType(fd.Semantic)
-		if !ok || ui.Capability != EditorImplemented || ui.Edit == nil {
-			return nil
-		}
-		return ui.Edit(tk, withFieldDescriptor(ctx, fd), onChange)
+	if !FieldHasEditor(name) {
+		return nil
 	}
-	if wfd, ok := workflow.Field(name); ok {
-		ctx.FieldName = name
-		switch wfd.Type {
-		case workflow.TypeEnum:
-			return editEnumValue(tk, ctx, onChange)
-		case workflow.TypeTimestamp:
-			return editDateTimeValue(tk, ctx, onChange)
-		}
+	ui, ok := resolvedTypeUI(name)
+	if !ok || ui.Edit == nil {
+		return nil
 	}
-	return nil
+	ctx.FieldName = name
+	return ui.Edit(tk, ctx, onChange)
 }
 
 // FieldHasEditor reports whether the named field has a registered, fully
-// implemented editor. Returns true for both built-in editable fields and
-// workflow-declared custom enum fields.
+// implemented editor. It delegates to the tview-free fieldmeta leaf so the view
+// (focusability) and the controller (save-handler wiring) share one predicate
+// and can never disagree — the former {TypeEnum, TypeTimestamp} catalog
+// whitelist is gone. Editable iff the field is not read-only and its resolved
+// semantic type is marked editable in fieldmeta.
 func FieldHasEditor(name string) bool {
-	if fd, ok := LookupField(name); ok {
-		if fd.ReadOnly {
-			return false
-		}
-		ui, ok := LookupType(fd.Semantic)
-		if !ok {
-			return false
-		}
-		return ui.Capability == EditorImplemented && ui.Edit != nil
-	}
-	if wfd, ok := workflow.Field(name); ok {
-		switch wfd.Type {
-		case workflow.TypeEnum, workflow.TypeTimestamp:
-			return true
-		}
-	}
-	return false
+	return fieldmeta.FieldHasEditor(name)
 }
 
 // --- adapter widgets ---
@@ -1439,6 +1589,31 @@ func (a *tagsEditAdapter) CycleValue(int) bool { return false }
 // GetText returns the textarea content (whitespace-joined tags).
 func (a *tagsEditAdapter) GetText() string {
 	return a.TextArea.GetText()
+}
+
+// textInputEditAdapter wraps tview.InputField for generic text editing —
+// non-cyclable, GetText returns the field content.
+type textInputEditAdapter struct {
+	*tview.InputField
+}
+
+func (a *textInputEditAdapter) CycleValue(int) bool { return false }
+func (a *textInputEditAdapter) GetText() string     { return a.InputField.GetText() }
+
+// intEditAdapter wraps tview.InputField for integer editing — non-cyclable
+// (free-type), GetText returns the decimal string as typed.
+type intEditAdapter struct {
+	*tview.InputField
+}
+
+func (a *intEditAdapter) CycleValue(int) bool { return false }
+func (a *intEditAdapter) GetText() string     { return a.InputField.GetText() }
+
+// boolEditAdapter reuses the select-list cycle; GetText returns the chosen
+// "true"/"false" string directly (the option labels ARE the canonical values,
+// so no key/label conversion is needed).
+type boolEditAdapter struct {
+	selectListAdapter
 }
 
 // titleEditAdapter wraps tview.InputField for title editing — non-cyclable,

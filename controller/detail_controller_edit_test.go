@@ -30,6 +30,7 @@ type fakeDetailEditView struct {
 	valid              bool            // value returned by IsValid (defaults true via newFakeDetailEditView)
 	validationErrs     []string        // value returned by ValidationErrors
 	focusChangeHandler func(model.EditField)
+	layout             []string // fields returned by Layout(); nil → default set
 }
 
 func (f *fakeDetailEditView) IsFullscreen() bool { return f.fullscreen }
@@ -89,7 +90,12 @@ func (f *fakeDetailEditView) SetEditFieldChangeHandler(name string, h func(strin
 	f.fieldHandlers[name] = h
 }
 func (f *fakeDetailEditView) SetEditTikiSource(func() *tikipkg.Tiki) {}
-func (f *fakeDetailEditView) Layout() []string                       { return []string{"status", "type", "priority"} }
+func (f *fakeDetailEditView) Layout() []string {
+	if f.layout != nil {
+		return f.layout
+	}
+	return []string{"status", "type", "priority"}
+}
 func (f *fakeDetailEditView) FlushFocusedEditor() {
 	f.flushCalls++
 	f.flushBeforeExit = f.editing
