@@ -53,6 +53,40 @@ func TestEditTextValue_AssigneeUsesSuggestions(t *testing.T) {
 	}
 }
 
+// TestEditTextValue_AssigneeEmptySeedsBlank pins that opening the assignee
+// editor on an UNASSIGNED task starts with an empty buffer, not the display
+// placeholder "Unassigned". Reproduces the bug-tracker smoke defect where
+// typing appended to the placeholder ("Unassignedalexander") and would have
+// persisted the placeholder-prefixed string. "Unassigned" is a render-only
+// affordance; it must never seed the editable buffer.
+func TestEditTextValue_AssigneeEmptySeedsBlank(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TXT003")
+	tk.Set(tikipkg.FieldAssignee, "") // unassigned
+	ctx := FieldRenderContext{FieldName: tikipkg.FieldAssignee, Roles: theme.Roles(), Store: s}
+	w := buildFieldEditor(tikipkg.FieldAssignee, tk, ctx, func(string) {})
+	if w == nil {
+		t.Fatal("assignee editor is nil")
+	}
+	if got := w.GetText(); got != "" {
+		t.Fatalf("empty assignee editor seeded %q, want empty buffer", got)
+	}
+}
+
+// TestEditTextValue_AssigneeExistingSeedsValue pins the positive case: an
+// assigned task opens the editor seeded with the real value (no regression
+// from the empty-seed fix).
+func TestEditTextValue_AssigneeExistingSeedsValue(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TXT004")
+	tk.Set(tikipkg.FieldAssignee, "alexander")
+	ctx := FieldRenderContext{FieldName: tikipkg.FieldAssignee, Roles: theme.Roles(), Store: s}
+	w := buildFieldEditor(tikipkg.FieldAssignee, tk, ctx, func(string) {})
+	if got := w.GetText(); got != "alexander" {
+		t.Fatalf("assigned editor seeded %q, want %q", got, "alexander")
+	}
+}
+
 // TestEditTextValue_ExtremesNoClip pins the measure↔render contract for a plain
 // text field at its narrowest (1 char) and widest (60 char) stored values, in
 // edit mode: the focused input, drawn at the width the solver reserves for the

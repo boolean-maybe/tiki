@@ -1274,9 +1274,11 @@ func editTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 // handler; here the widget just offers users + free typing.
 func textSuggestionEditor(fd FieldDescriptor, current string, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
 	options := fd.Suggestions(ctx.Store)
-	if current == "" && fd.EmptyPlaceholder != "" {
-		current = fd.EmptyPlaceholder // "Unassigned"
-	}
+	// an empty field opens with an EMPTY buffer — the display placeholder
+	// ("Unassigned") is a render-only affordance and must never seed the
+	// editable text, or typing would append to it and persist the
+	// placeholder-prefixed string. When there are no suggestions but a real
+	// value exists, seed the option list with it so the picker isn't empty.
 	if len(options) == 0 && current != "" {
 		options = []string{current}
 	}

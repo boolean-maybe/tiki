@@ -30,6 +30,15 @@ type adapterEmbeddingTextArea struct {
 	*tview.TextArea
 }
 
+// adapterEmbeddingEditSelectList mirrors view/tikidetail.selectListAdapter — the
+// assignee free-text editor after the "unify multi-part editors" refactor. It
+// wraps a *component.EditSelectList, which itself embeds *tview.InputField, so
+// the focused primitive nests the text input TWO levels deep. isTextInputFocused
+// must still recognise it when the list allows free typing.
+type adapterEmbeddingEditSelectList struct {
+	*component.EditSelectList
+}
+
 // TestIsTextInputFocused_DirectInputField pins that a bare InputField is
 // recognised as a text-input target.
 func TestIsTextInputFocused_DirectInputField(t *testing.T) {
@@ -61,6 +70,34 @@ func TestIsTextInputFocused_EmbeddedTextAreaAdapter(t *testing.T) {
 	app.SetRoot(adapter, true)
 	if !isTextInputFocused(app) {
 		t.Error("expected isTextInputFocused=true for adapter embedding *tview.TextArea")
+	}
+}
+
+// TestIsTextInputFocused_EmbeddedEditSelectListAdapter pins the assignee
+// free-text editor (selectListAdapter → EditSelectList → *tview.InputField).
+// The reproduction for the smoke-test "q quits the app" defect: a free-typing
+// EditSelectList holds focus, so typed runes must reach the widget rather than
+// falling through to the global 'q' → Quit action. The primitive nests the
+// text input two levels deep, which the one-level reflection walk missed.
+func TestIsTextInputFocused_EmbeddedEditSelectListAdapter(t *testing.T) {
+	editor := component.NewEditSelectList([]string{"alice", "bob"}, true)
+	adapter := &adapterEmbeddingEditSelectList{EditSelectList: editor}
+	app := tview.NewApplication()
+	app.SetRoot(adapter, true)
+	if !isTextInputFocused(app) {
+		t.Error("expected isTextInputFocused=true for adapter embedding a free-typing *component.EditSelectList")
+	}
+}
+
+// TestIsTextInputFocused_ReadOnlyEditSelectList pins that a NON-typing
+// EditSelectList (enum/boolean pickers, allowTyping=false) is NOT treated as a
+// text input — arrow keys cycle values and single-letter globals stay active.
+func TestIsTextInputFocused_ReadOnlyEditSelectList(t *testing.T) {
+	editor := component.NewEditSelectList([]string{"low", "high"}, false)
+	app := tview.NewApplication()
+	app.SetRoot(editor, true)
+	if isTextInputFocused(app) {
+		t.Error("expected isTextInputFocused=false for a non-typing *component.EditSelectList")
 	}
 }
 

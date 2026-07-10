@@ -304,13 +304,13 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 		return false, false
 	}
 
-	// When a free-form text editor (title InputField, assignee InputField,
-	// description/tags TextArea, or an adapter wrapping one) holds focus,
-	// typing keys must reach the widget rather than the global action
-	// registry. Without this, single-letter globals like 'r' (Refresh),
-	// 'q' (Quit), 'F1'..'F4' shadow the keystroke and the user cannot type
-	// those characters into the field. Tab/Backtab/Esc/Ctrl-S are already
-	// consumed above so this only covers the runes-and-backspace path.
+	// When a free-form text editor holds focus — title InputField,
+	// description/tags TextArea, the free-typing assignee EditSelectList, or an
+	// adapter wrapping one — typing keys must reach the widget rather than the
+	// global action registry. Without this, single-letter globals like 'r'
+	// (Refresh), 'q' (Quit), 'F1'..'F4' shadow the keystroke and the user
+	// cannot type those characters into the field. Tab/Backtab/Esc/Ctrl-S are
+	// already consumed above so this only covers the runes-and-backspace path.
 	if isTextInputFocused(ir.navController.GetApp()) && isTextInputKey(event) {
 		return true, false
 	}
@@ -319,8 +319,10 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 }
 
 // isTextInputFocused reports whether the currently focused tview primitive
-// is a free-form text editor — tview.InputField or tview.TextArea, directly
-// or via an embedding adapter (e.g. titleEditAdapter wraps *tview.InputField).
+// is a free-form text editor — tview.InputField or tview.TextArea, a
+// free-typing component.EditSelectList (via the textInputCapable marker),
+// directly or via an embedding adapter (e.g. titleEditAdapter wraps
+// *tview.InputField; selectListAdapter wraps *component.EditSelectList).
 func isTextInputFocused(app *tview.Application) bool {
 	return focusMatches(app, isInputFieldOrTextArea)
 }
@@ -333,7 +335,22 @@ func isTextAreaFocused(app *tview.Application) bool {
 	return focusMatches(app, isTextArea)
 }
 
+// textInputCapable is a marker for widgets that capture free-form typing but
+// are neither *tview.InputField nor *tview.TextArea — e.g. component.EditSelectList
+// in free-typing mode (the assignee editor). Such a widget embeds an InputField
+// but only IT knows whether typing is enabled, so it must declare the capability
+// rather than have the router infer it from struct shape via reflection.
+type textInputCapable interface {
+	AcceptsTextInput() bool
+}
+
 func isInputFieldOrTextArea(p tview.Primitive) bool {
+	// a widget that embeds an *tview.InputField but only conditionally accepts
+	// typing (EditSelectList) must be asked directly — a non-typing picker
+	// (enum/boolean) shares the same struct shape but must NOT swallow runes.
+	if tic, ok := p.(textInputCapable); ok {
+		return tic.AcceptsTextInput()
+	}
 	switch p.(type) {
 	case *tview.InputField, *tview.TextArea:
 		return true
@@ -360,6 +377,13 @@ func focusMatches(app *tview.Application, pred func(tview.Primitive) bool) bool 
 	}
 	if pred(focus) {
 		return true
+	}
+	// a widget that declares its text-input capability is authoritative: its
+	// embedded *tview.InputField must NOT be re-examined by the reflection
+	// fallback below, or a non-typing picker (AcceptsTextInput()==false) would
+	// be matched via that embedded field and wrongly swallow global keys.
+	if _, ok := focus.(textInputCapable); ok {
+		return false
 	}
 	// adapter case: wrapper struct embedding a *tview primitive
 	v := reflect.ValueOf(focus)
