@@ -91,6 +91,7 @@ func TestFieldIsEmpty_TypedPredicate(t *testing.T) {
 		{Name: "labels", Type: workflow.TypeListString, Custom: true},
 		{Name: "deps", Type: workflow.TypeListRef, Custom: true},
 		{Name: "owner", Type: workflow.TypeString, Custom: true},
+		{Name: "reviewer", Type: workflow.TypeUser, Custom: true},
 		{Name: "count", Type: workflow.TypeInt, Custom: true},
 		{Name: "flag", Type: workflow.TypeBool, Custom: true},
 		{Name: "cron", Type: workflow.TypeRecurrence, Custom: true},
@@ -106,6 +107,7 @@ func TestFieldIsEmpty_TypedPredicate(t *testing.T) {
 	full.Set("labels", []string{"x"})
 	full.Set("deps", []string{"ABC123"})
 	full.Set("owner", "alice")
+	full.Set("reviewer", "alice")
 	full.Set("count", 3)
 
 	mustField := func(name string) workflow.FieldDef {
@@ -116,7 +118,7 @@ func TestFieldIsEmpty_TypedPredicate(t *testing.T) {
 		return fd
 	}
 
-	emptyCases := []string{"when", "labels", "deps", "owner", "count"}
+	emptyCases := []string{"when", "labels", "deps", "owner", "reviewer", "count"}
 	for _, name := range emptyCases {
 		if !fieldIsEmpty(empty, mustField(name)) {
 			t.Errorf("fieldIsEmpty(empty, %q) = false, want true", name)
@@ -146,6 +148,7 @@ func TestEmptyPlaceholder_ResolutionOrder(t *testing.T) {
 		{"per-field override beats type default", tikipkg.FieldType, SemanticEnum, "(none)"},
 		{"per-type default when no override", tikipkg.FieldDue, SemanticDate, "None"},
 		{"enum with no override falls to dash", tikipkg.FieldStatus, SemanticEnum, "─"},
+		{"user empty stays blank", "reviewer", SemanticUser, ""},
 		{"datetime default", "createdAt", SemanticDateTime, "Unknown"},
 		{"unknown field, type default", "does-not-exist", SemanticStringList, "(none)"},
 	}
@@ -174,6 +177,7 @@ func TestSemanticForValueType(t *testing.T) {
 		{workflow.TypeRecurrence, SemanticRecurrence},
 		{workflow.TypeListString, SemanticStringList},
 		{workflow.TypeListRef, SemanticTikiIDList},
+		{workflow.TypeUser, SemanticUser},
 		{workflow.TypeString, SemanticText},
 		{workflow.TypeID, SemanticText},
 		{workflow.TypeRef, SemanticText},

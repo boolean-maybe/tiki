@@ -75,6 +75,7 @@ func TestBuildCustomFieldDefaults_WithDefaults(t *testing.T) {
 	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
 		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium", Default: true}, {Value: "high"}}},
 		{Name: "blocked", Type: workflow.TypeBool, DefaultValue: false},
+		{Name: "reviewer", Type: workflow.TypeUser, DefaultValue: "alice"},
 		{Name: "notes", Type: workflow.TypeString},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
@@ -90,6 +91,9 @@ func TestBuildCustomFieldDefaults_WithDefaults(t *testing.T) {
 	}
 	if v, ok := defaults["blocked"]; !ok || v != false {
 		t.Errorf("blocked = %v, want false", v)
+	}
+	if v, ok := defaults["reviewer"]; !ok || v != "alice" {
+		t.Errorf("reviewer = %v, want \"alice\"", v)
 	}
 	if _, ok := defaults["notes"]; ok {
 		t.Error("notes should not have a default")

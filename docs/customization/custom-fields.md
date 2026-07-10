@@ -30,6 +30,7 @@ Use cases include:
 - adding an effort estimate or story-point alternative
 - flagging a tiki with a boolean (e.g. `blocked`, `reviewed`)
 - recording a deadline timestamp with time-of-day precision
+- picking a person from known users while still allowing free text
 - categorizing tikis with a constrained set of values (enum)
 - linking related tikis beyond `dependsOn`
 
@@ -47,6 +48,8 @@ fields:
     type: boolean
   - name: deadline
     type: datetime
+  - name: reviewer
+    type: user
   - name: category
     type: enum
     values:
@@ -72,6 +75,7 @@ Custom fields come from the `workflow.yaml` file (see [Configuration: Precedence
 | YAML type     | Description                           | ruki type        |
 |---------------|---------------------------------------|------------------|
 | `text`        | free-form string                      | `string`         |
+| `user`        | free-form string with user picker     | `string`         |
 | `integer`     | whole number                          | `int`            |
 | `boolean`     | true or false                         | `bool`           |
 | `datetime`    | timestamp (RFC3339 or YYYY-MM-DD)     | `timestamp`      |
@@ -84,6 +88,9 @@ For list field types, values are normalized with set semantics:
 - empty entries are dropped
 - duplicate entries are removed
 - `tikiIdList` entries are uppercased
+
+`user` fields are not validated against the suggestion list. The editor offers known users from the store, but
+typing any value is allowed and the stored/ruki value remains a plain string.
 
 ## Enum fields
 
@@ -250,6 +257,9 @@ fields:
   - name: escalations
     type: integer
     default: 0
+  - name: reviewer
+    type: user
+    default: alice
 ```
 
 Fields without a `default:` key are absent on new tikis.
@@ -278,6 +288,7 @@ The zero values produced when projecting an absent custom field are:
 | Field type    | Projected as      |
 |---------------|-------------------|
 | `text`        | `""` (empty cell) |
+| `user`        | `""` (empty cell) |
 | `integer`     | empty cell / `null` |
 | `boolean`     | empty cell / `null` |
 | `datetime`    | empty cell / `null` |

@@ -1072,6 +1072,7 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 
 	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{Name: "notes", Type: workflow.TypeString},
+		{Name: "reviewer", Type: workflow.TypeUser},
 		{Name: "labels", Type: workflow.TypeListString},
 		{Name: "yesno", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "true"}, {Value: "false"}, {Value: "maybe"}}},
 	}); err != nil {
@@ -1098,6 +1099,33 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 			check: func(t *testing.T, fields map[string]interface{}) {
 				if v, ok := fields["notes"].(string); !ok || v != "2026-05-15" {
 					t.Errorf("notes = %v (%T), want string \"2026-05-15\"", fields["notes"], fields["notes"])
+				}
+			},
+		},
+		{
+			name:   "user that looks like bool",
+			fields: map[string]interface{}{"reviewer": "true"},
+			check: func(t *testing.T, fields map[string]interface{}) {
+				if v, ok := fields["reviewer"].(string); !ok || v != "true" {
+					t.Errorf("reviewer = %v (%T), want string \"true\"", fields["reviewer"], fields["reviewer"])
+				}
+			},
+		},
+		{
+			name:   "user that looks like date",
+			fields: map[string]interface{}{"reviewer": "2026-07-10"},
+			check: func(t *testing.T, fields map[string]interface{}) {
+				if v, ok := fields["reviewer"].(string); !ok || v != "2026-07-10" {
+					t.Errorf("reviewer = %v (%T), want string \"2026-07-10\"", fields["reviewer"], fields["reviewer"])
+				}
+			},
+		},
+		{
+			name:   "user that looks like int",
+			fields: map[string]interface{}{"reviewer": "42"},
+			check: func(t *testing.T, fields map[string]interface{}) {
+				if v, ok := fields["reviewer"].(string); !ok || v != "42" {
+					t.Errorf("reviewer = %v (%T), want string \"42\"", fields["reviewer"], fields["reviewer"])
 				}
 			},
 		},
@@ -1340,6 +1368,38 @@ func TestExtractCustomFields_StaleEnumValueDemotedToUnknown(t *testing.T) {
 	}
 	if unknown == nil || unknown["severity"] != "high" {
 		t.Errorf("unknown[severity] = %v, want 'high' (preserved for repair)", unknown["severity"])
+	}
+}
+
+func TestExtractCustomFields_UserWrongShapeDemotedToUnknown(t *testing.T) {
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
+
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "reviewer", Type: workflow.TypeUser},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	fmMap := map[string]interface{}{
+		"title":    "Test",
+		"status":   "ready",
+		"reviewer": []interface{}{"alice"},
+	}
+
+	custom, unknown, err := extractCustomFields(fmMap)
+	if err != nil {
+		t.Fatalf("extractCustomFields should not error on wrong-shaped user value, got: %v", err)
+	}
+	if _, exists := custom["reviewer"]; exists {
+		t.Error("wrong-shaped user value should not appear in custom fields")
+	}
+	if unknown == nil {
+		t.Fatal("unknown fields are nil, want preserved reviewer")
+	}
+	got, ok := unknown["reviewer"].([]interface{})
+	if !ok || len(got) != 1 || got[0] != "alice" {
+		t.Errorf("unknown[reviewer] = %#v, want preserved []interface{}{alice}", unknown["reviewer"])
 	}
 }
 

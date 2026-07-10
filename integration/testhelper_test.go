@@ -66,5 +66,5 @@ const testWorkflowPreamble = `fields:
   - name: recurrence
     type: recurrence
   - name: assignee
-    type: text
+    type: user
 `

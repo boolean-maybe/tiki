@@ -78,6 +78,10 @@ See [Workflow format versions](workflow-format.md) for schema evolution.
 Search order: user config dir → `./workflow.yaml` (cwd). Last match wins. When neither file exists, the
 embedded default (kanban) workflow is used.
 
+On startup, tiki installs the bundled workflow only when the user config workflow does not already exist.
+Existing installed workflows are not rewritten during upgrades. For example, an older `assignee: text`
+declaration remains plain text until you edit it to `type: user` or explicitly reinstall/reset the workflow.
+
 - Missing `fields:` entry `name: status` in the winning file is an error.
 - Missing `fields:` entry `name: type` in the winning file is an error.
 - Missing `views:` or explicit empty `views: []` means no views. The pre-0.6.0 `views: { plugins: [] }`
@@ -87,7 +91,7 @@ embedded default (kanban) workflow is used.
 
 Global actions are declared at the **top level** under `actions:` (not nested under `views:`) and apply to
 every view. Per-view actions with the same key override globals for that view. See
-[Workflow format versions](workflow-format.md) for the full 0.6.0 schema and the migration map from
+[Workflow format versions](workflow-format.md) for the full 0.6.1 schema and the migration map from
 pre-0.6.0 configs.
 
 Actions can declare `require:` — a list of context attributes needed for the action to be enabled.

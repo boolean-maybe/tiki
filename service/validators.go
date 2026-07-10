@@ -82,7 +82,7 @@ func validateTikiWorkflowFields(tk *tikipkg.Tiki) string {
 // satisfy the declared type for fd, or "" if it does.
 func validateWorkflowFieldValue(fd workflow.FieldDef, raw interface{}) string {
 	switch fd.Type {
-	case workflow.TypeString:
+	case workflow.TypeString, workflow.TypeUser:
 		if _, ok := raw.(string); !ok {
 			return fmt.Sprintf("%s field has wrong type (expected string)", fd.Name)
 		}

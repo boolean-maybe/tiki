@@ -25,6 +25,7 @@ const (
 	TypeListString           // []string (e.g. tags)
 	TypeListRef              // []string of document ID references (e.g. dependsOn)
 	TypeEnum                 // enum field with EnumValues metadata
+	TypeUser                 // string with user-picker editor semantics
 )
 
 // IsList reports whether the type is one of the list-valued types

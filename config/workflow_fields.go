@@ -292,6 +292,8 @@ func parseFieldType(s string) (workflow.ValueType, error) {
 	switch strings.ToLower(s) {
 	case "text":
 		return workflow.TypeString, nil
+	case "user":
+		return workflow.TypeUser, nil
 	case "integer":
 		return workflow.TypeInt, nil
 	case "boolean":
@@ -309,7 +311,7 @@ func parseFieldType(s string) (workflow.ValueType, error) {
 	case "recurrence":
 		return workflow.TypeRecurrence, nil
 	default:
-		return 0, fmt.Errorf("unknown field type %q (valid: text, integer, boolean, date, datetime, enum, stringList, tikiIdList, recurrence)", s)
+		return 0, fmt.Errorf("unknown field type %q (valid: text, user, integer, boolean, date, datetime, enum, stringList, tikiIdList, recurrence)", s)
 	}
 }
 
@@ -317,7 +319,7 @@ func parseFieldType(s string) (workflow.ValueType, error) {
 // expected Go type for the given field type.
 func coerceFieldDefault(vt workflow.ValueType, raw interface{}, allowed []string) (interface{}, error) {
 	switch vt {
-	case workflow.TypeString:
+	case workflow.TypeString, workflow.TypeUser:
 		s, ok := raw.(string)
 		if !ok {
 			return nil, fmt.Errorf("expected string, got %T", raw)

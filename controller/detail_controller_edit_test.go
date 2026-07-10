@@ -6,11 +6,14 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 
+	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 )
@@ -31,6 +34,50 @@ type fakeDetailEditView struct {
 	validationErrs     []string        // value returned by ValidationErrors
 	focusChangeHandler func(model.EditField)
 	layout             []string // fields returned by Layout(); nil → default set
+}
+
+func TestDetailController_AssigneeUserUsesGenericHandler(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: tikipkg.FieldStatus, Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "ready", Default: true}}},
+		{Name: tikipkg.FieldAssignee, Type: workflow.TypeUser},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tikiStore := store.NewInMemoryStore()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	nav := newMockNavigationController()
+	tc := NewTikiEditSession(tikiStore, gate, nav, nil)
+
+	tk := tikipkg.New()
+	tk.SetID("TIKIUA")
+	tk.SetTitle("Test")
+	tk.Set(tikipkg.FieldStatus, "ready")
+	if err := tikiStore.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+
+	pluginDef := newTestDetailPlugin([]string{tikipkg.FieldAssignee}, nil)
+	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
+	dc.SetSelectedTikiID(tk.ID())
+
+	view := newFakeDetailEditView()
+	view.layout = []string{tikipkg.FieldAssignee}
+	dc.BindEditView(view)
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	saver, ok := view.fieldHandlers[tikipkg.FieldAssignee]
+	if !ok || saver == nil {
+		t.Fatal("assignee user save handler not installed by generic workflow path")
+	}
+	saver("Unassigned")
+	if got := tc.GetEditingTiki(); got == nil {
+		t.Fatal("editing tiki missing")
+	} else if assignee, _, _ := got.StringField(tikipkg.FieldAssignee); assignee != "Unassigned" {
+		t.Fatalf("assignee = %q, want literal Unassigned", assignee)
+	}
 }
 
 func (f *fakeDetailEditView) IsFullscreen() bool { return f.fullscreen }
@@ -626,6 +673,19 @@ func TestDetailController_FocusChangeUpdatesStatuslineHint(t *testing.T) {
 	}
 	if level != model.MessageLevelInfo {
 		t.Errorf("hint level = %v, want MessageLevelInfo", level)
+	}
+
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "reviewer", Type: workflow.TypeUser},
+	})
+	t.Cleanup(teststatuses.Init)
+	view.focusChangeHandler(model.EditField("reviewer"))
+	msg, level, _ = sl.GetMessage()
+	if !strings.Contains(msg, "↑↓ change value") {
+		t.Errorf("user status hint = %q, want it to contain %q", msg, "↑↓ change value")
+	}
+	if level != model.MessageLevelInfo {
+		t.Errorf("user hint level = %v, want MessageLevelInfo", level)
 	}
 
 	view.focusChangeHandler(model.EditFieldTitle)

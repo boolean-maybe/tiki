@@ -397,7 +397,7 @@ func (tc *TikiEditSession) SaveWorkflowField(name, raw string) bool {
 		return tc.saveWorkflowBool(name, raw)
 	case workflow.TypeTimestamp:
 		return tc.saveWorkflowTimestamp(name, raw)
-	case workflow.TypeString:
+	case workflow.TypeString, workflow.TypeUser:
 		return tc.setOrDelete(name, raw, raw == "")
 	}
 	slog.Warn("SaveWorkflowField: unsupported type", "field", name, "type", wfd.Type)
@@ -471,24 +471,6 @@ func (tc *TikiEditSession) SavePriority(priority string) bool {
 			tk.Delete(tikipkg.FieldPriority)
 		} else {
 			tk.Set(tikipkg.FieldPriority, priority)
-		}
-	})
-}
-
-// SaveAssignee saves the new assignee to the current tiki.
-// The special value "Unassigned" is normalized to an empty string.
-// Returns true if the assignee was successfully updated, false otherwise.
-func (tc *TikiEditSession) SaveAssignee(assignee string) bool {
-	// Normalize "Unassigned" to empty string
-	if assignee == "Unassigned" {
-		assignee = ""
-	}
-
-	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		if assignee == "" {
-			tk.Delete(tikipkg.FieldAssignee)
-		} else {
-			tk.Set(tikipkg.FieldAssignee, assignee)
 		}
 	})
 }

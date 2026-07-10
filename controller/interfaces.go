@@ -268,14 +268,6 @@ type WorkflowEnumEditableView interface {
 	SetWorkflowEnumSaveHandler(handler func(name, canonicalKey string))
 }
 
-// AssigneeEditableView is a view that supports assignee editing functionality
-type AssigneeEditableView interface {
-	View
-
-	// SetAssigneeSaveHandler sets the callback for when assignee is saved
-	SetAssigneeSaveHandler(handler func(string))
-}
-
 // PointsEditableView is a view that supports story points editing functionality
 type PointsEditableView interface {
 	View

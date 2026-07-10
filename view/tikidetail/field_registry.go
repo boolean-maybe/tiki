@@ -38,6 +38,7 @@ type SemanticType = fieldmeta.SemanticType
 const (
 	SemanticEnum       = fieldmeta.SemanticEnum
 	SemanticText       = fieldmeta.SemanticText
+	SemanticUser       = fieldmeta.SemanticUser
 	SemanticInteger    = fieldmeta.SemanticInteger
 	SemanticBoolean    = fieldmeta.SemanticBoolean
 	SemanticDate       = fieldmeta.SemanticDate
@@ -119,6 +120,10 @@ type TypeUI struct {
 	Capability       EditorCapability
 	IsEmpty          FieldEmptyFn
 	EmptyPlaceholder string
+	// EmptyPlaceholderSet allows a semantic type to declare an intentionally
+	// blank placeholder. EmptyPlaceholder alone cannot represent that because
+	// the zero value means "fall through to the default dash".
+	EmptyPlaceholderSet bool
 	// EditMeasure, when set, overrides the stored-value width in edit mode with
 	// the type's widest reachable value (see EditMeasureFn).
 	EditMeasure EditMeasureFn
@@ -140,11 +145,6 @@ type FieldDescriptor struct {
 	// text renderers emit it verbatim. This replaces the per-field-name
 	// switches that previously special-cased assignee/createdBy/type.
 	EmptyPlaceholder string
-	// Suggestions, when non-nil, makes the text editor a picker seeded from the
-	// returned options (used by assignee → known users) instead of a plain
-	// input. This is how the generic text editor supports the assignee UX
-	// without a field-name branch. nil → plain InputField.
-	Suggestions func(s store.Store) []string
 }
 
 var fieldRegistry = map[string]FieldDescriptor{}
@@ -275,17 +275,17 @@ func editModeWidthFloor(name string, ctx FieldRenderContext) int {
 }
 
 // resolvedTypeUI resolves the semantic TypeUI for a field the same way both the
-// value-measure and the edit paths do: a static descriptor's semantic wins, else
-// the workflow catalog's ValueType is bridged via semanticForValueType. This is
-// the single view-side authority the focusable/editable/measure layers derive
-// from; the controller derives the same answer from fieldmeta.FieldHasEditor,
-// which reads the same editability table this registry's Capability is built on.
+// value-measure and the edit paths do: workflow metadata wins, else a static
+// descriptor's semantic is used for descriptor-only fields. This is the single
+// view-side authority the focusable/editable/measure layers derive from; the
+// controller derives the same answer from fieldmeta.FieldHasEditor, which reads
+// the same editability table this registry's Capability is built on.
 func resolvedTypeUI(name string) (TypeUI, bool) {
-	if fd, ok := LookupField(name); ok {
-		return LookupType(fd.Semantic)
-	}
 	if wfd, ok := workflow.Field(name); ok {
 		return LookupType(semanticForValueType(wfd.Type))
+	}
+	if fd, ok := LookupField(name); ok {
+		return LookupType(fd.Semantic)
 	}
 	return TypeUI{}, false
 }
@@ -489,23 +489,12 @@ func registerBuiltinFields() {
 		EditTraversable: true,
 	}
 	fieldRegistry[tikipkg.FieldAssignee] = FieldDescriptor{
-		Name:             tikipkg.FieldAssignee,
-		Label:            "Assignee",
-		Semantic:         SemanticText,
-		EditField:        model.EditFieldAssignee,
-		Get:              func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldAssignee); return v },
-		EditTraversable:  true,
-		EmptyPlaceholder: "Unassigned",
-		Suggestions: func(s store.Store) []string {
-			if s == nil {
-				return nil
-			}
-			users, err := s.GetAllUsers()
-			if err != nil {
-				return nil
-			}
-			return users
-		},
+		Name:            tikipkg.FieldAssignee,
+		Label:           "Assignee",
+		Semantic:        SemanticText,
+		EditField:       model.EditFieldAssignee,
+		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldAssignee); return v },
+		EditTraversable: true,
 	}
 	fieldRegistry[tikipkg.FieldDue] = FieldDescriptor{
 		Name:            tikipkg.FieldDue,
@@ -584,7 +573,14 @@ func registerBuiltinTypes() {
 		HeightFn: singleRowHeight,
 		IsEmpty:  stringFieldEmpty,
 		// no per-type default: the "─" fallback in emptyPlaceholder applies;
-		// per-field overrides supply "Unassigned"/"Unknown".
+		// per-field overrides supply values such as "Unknown".
+	}
+	typeRegistry[SemanticUser] = TypeUI{
+		Render:              renderUserValue,
+		Edit:                editUserValue,
+		HeightFn:            singleRowHeight,
+		IsEmpty:             stringFieldEmpty,
+		EmptyPlaceholderSet: true,
 	}
 	typeRegistry[SemanticInteger] = TypeUI{
 		Render:           renderIntegerValue,
@@ -741,8 +737,13 @@ func emptyPlaceholder(name string, semantic SemanticType) string {
 	if fd, ok := LookupField(name); ok && fd.EmptyPlaceholder != "" {
 		return fd.EmptyPlaceholder
 	}
-	if ui, ok := LookupType(semantic); ok && ui.EmptyPlaceholder != "" {
-		return ui.EmptyPlaceholder
+	if ui, ok := LookupType(semantic); ok {
+		if ui.EmptyPlaceholderSet {
+			return ui.EmptyPlaceholder
+		}
+		if ui.EmptyPlaceholder != "" {
+			return ui.EmptyPlaceholder
+		}
 	}
 	return "─"
 }
@@ -811,6 +812,10 @@ func listFieldCountText(name string, tk *tikipkg.Tiki) string {
 func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if ctx.Display == gridlayout.DisplayCount {
 		return valueOnlyLine(listFieldCountText(name, tk), ctx.Roles)
+	}
+	if wfd, ok := workflow.Field(name); ok && wfd.Type == workflow.TypeUser {
+		ctx.FieldName = wfd.Name
+		return renderUserValue(tk, ctx)
 	}
 	if fd, ok := LookupField(name); ok {
 		ui, ok := LookupType(fd.Semantic)
@@ -989,6 +994,14 @@ func renderTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	value, _, _ := tk.StringField(fd.Name)
 	if value == "" {
 		return valueOnlyLine(textEmptyPlaceholder(fd.Name), ctx.Roles)
+	}
+	return valueOnlyLine(expandFieldText(value, ctx.Roles), ctx.Roles)
+}
+
+func renderUserValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	value, _, _ := tk.StringField(ctx.FieldName)
+	if value == "" {
+		return valueOnlyLine(emptyPlaceholder(ctx.FieldName, SemanticUser), ctx.Roles)
 	}
 	return valueOnlyLine(expandFieldText(value, ctx.Roles), ctx.Roles)
 }
@@ -1244,16 +1257,11 @@ func editTitleValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(stri
 	return &titleEditAdapter{InputField: input}
 }
 
-// editTextValue is the generic in-place editor for any SemanticText field. When
-// the field's descriptor declares Suggestions (assignee → known users) it builds
-// a typing-enabled select-list seeded from those options; otherwise a plain
-// input. The field is read by ctx.FieldName so it serves descriptor-backed and
-// catalog-only text fields alike — no field-name branch.
+// editTextValue is the generic in-place editor for any SemanticText field. It
+// always builds a plain input. User suggestions live under SemanticUser so the
+// workflow field type, not a field name or descriptor trait, chooses the picker.
 func editTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
 	current, _, _ := tk.StringField(ctx.FieldName)
-	if fd, ok := LookupField(ctx.FieldName); ok && fd.Suggestions != nil {
-		return textSuggestionEditor(fd, current, ctx, onChange)
-	}
 	input := tview.NewInputField()
 	roles := ctx.Roles
 	input.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
@@ -1269,16 +1277,14 @@ func editTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 	return &textInputEditAdapter{InputField: input}
 }
 
-// textSuggestionEditor builds the picker variant of the text editor (assignee).
-// The "Unassigned" normalization stays in the controller's assignee save
-// handler; here the widget just offers users + free typing.
-func textSuggestionEditor(fd FieldDescriptor, current string, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
-	options := fd.Suggestions(ctx.Store)
-	// an empty field opens with an EMPTY buffer — the display placeholder
-	// ("Unassigned") is a render-only affordance and must never seed the
-	// editable text, or typing would append to it and persist the
-	// placeholder-prefixed string. When there are no suggestions but a real
-	// value exists, seed the option list with it so the picker isn't empty.
+func editUserValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	current, _, _ := tk.StringField(ctx.FieldName)
+	var options []string
+	if ctx.Store != nil {
+		if users, err := ctx.Store.GetAllUsers(); err == nil {
+			options = users
+		}
+	}
 	if len(options) == 0 && current != "" {
 		options = []string{current}
 	}

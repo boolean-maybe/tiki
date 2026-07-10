@@ -575,7 +575,7 @@ func extractCustomFields(fmMap map[string]interface{}) (customFields, unknownFie
 // coerceCustomValue converts a raw YAML value to the Go type expected by FieldDef.
 func coerceCustomValue(fd workflow.FieldDef, raw interface{}) (interface{}, error) {
 	switch fd.Type {
-	case workflow.TypeString:
+	case workflow.TypeString, workflow.TypeUser:
 		s, ok := raw.(string)
 		if !ok {
 			return nil, fmt.Errorf("expected string, got %T", raw)

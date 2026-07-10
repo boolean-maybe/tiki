@@ -3,17 +3,18 @@ package tikidetail
 import (
 	"testing"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func TestResolvedTypeUI(t *testing.T) {
-	if err := teststatuses.InitWith([]workflow.FieldDef{
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
 		{Name: "dueBy", Type: workflow.TypeTimestamp},
 		{Name: "note", Type: workflow.TypeString},
-	}); err != nil {
-		t.Fatalf("InitWith: %v", err)
-	}
+		{Name: "reviewer", Type: workflow.TypeUser},
+		{Name: "assignee", Type: workflow.TypeString},
+	})
 	t.Cleanup(teststatuses.Init)
 
 	cases := []struct {
@@ -23,6 +24,8 @@ func TestResolvedTypeUI(t *testing.T) {
 		{"due", true},               // descriptor-backed date
 		{"dueBy", true},             // catalog-only timestamp
 		{"note", true},              // catalog-only text
+		{"reviewer", true},          // catalog-only user
+		{"assignee", true},          // workflow type wins over static descriptor
 		{"nope-nonexistent", false}, // unknown field
 	}
 	for _, c := range cases {
@@ -39,5 +42,19 @@ func TestResolvedTypeUI(t *testing.T) {
 	}
 	if fieldIsReadOnly("due") {
 		t.Fatal("due should not be read-only")
+	}
+	ui, ok := resolvedTypeUI("assignee")
+	if !ok {
+		t.Fatal("assignee should resolve")
+	}
+	want, ok := LookupType(SemanticText)
+	if !ok {
+		t.Fatal("SemanticText should be registered")
+	}
+	if ui.Edit == nil || want.Edit == nil || ui.Edit == nil && want.Edit != nil {
+		t.Fatal("unexpected nil edit factory")
+	}
+	if gotSem := semanticForValueType(workflow.TypeUser); gotSem != SemanticUser {
+		t.Fatalf("semanticForValueType(TypeUser) = %q, want %q", gotSem, SemanticUser)
 	}
 }

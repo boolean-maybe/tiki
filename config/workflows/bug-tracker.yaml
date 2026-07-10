@@ -1,4 +1,4 @@
-version: "0.6.0"
+version: "0.6.1"
 description: |
   Bug tracker for triaging and resolving customer-reported issues.
   Six statuses (Open → Triaged → In Progress → In Review → Verified, plus Won't Fix),
@@ -86,7 +86,7 @@ fields:
   - name: tags
     type: stringList
   - name: assignee
-    type: text
+    type: user
   - name: dependsOn
     type: tikiIdList
 

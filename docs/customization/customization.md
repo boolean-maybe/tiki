@@ -6,7 +6,7 @@ lifecycle stages tasks move through; views decide what you see on each screen (b
 wiki pages, or a configured tiki detail view) and which keyboard actions are available. This section covers
 both.
 
-> **Version.** This reference describes the 0.6.0 `workflow.yaml` schema that ships with unified documents.
+> **Version.** This reference describes the 0.6.1 `workflow.yaml` schema that ships with unified documents.
 > Pre-0.6.0 `type: tiki` / `type: doki` plugins, `views: plugins:` wrappers, `fetcher:`/`url:`/`text:`, and
 > `view: compact|expanded` are no longer accepted. See [Workflow format versions](../workflow-format.md)
 > for the migration map and rejection-error table.

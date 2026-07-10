@@ -16,13 +16,18 @@
 
 ## Overview
 
-Custom fields extend tiki's built-in field catalog with user-defined fields declared in `workflow.yaml`. This reference covers the precise rules for how custom fields are loaded, validated, persisted, and queried — the behavioral contract behind the [Custom Fields](../customization/custom-fields.md) user guide.
+Custom fields extend tiki's built-in field catalog with user-defined fields declared in `workflow.yaml`. This
+reference covers the precise rules for how custom fields are loaded, validated, persisted, and queried — the
+behavioral contract behind the [Custom Fields](../customization/custom-fields.md) user guide.
 
 ## Registration and loading
 
-Custom field definitions come from the single highest-priority `workflow.yaml` (see [Configuration: Precedence](../config.md#precedence)). A missing `fields:` section means no custom fields are registered.
+Custom field definitions come from the single highest-priority `workflow.yaml` (see
+[Configuration: Precedence](../config.md#precedence)). A missing `fields:` section means no custom fields are
+registered.
 
-Fields are sorted by name for deterministic ordering and registered into the field catalog alongside built-in fields. Once registered, custom fields are available for ruki parsing, validation, and execution.
+Fields are sorted by name for deterministic ordering and registered into the field catalog alongside built-in
+fields. Once registered, custom fields are available for ruki parsing, validation, and execution.
 
 Registration happens during bootstrap before any task or template loading occurs.
 
@@ -31,7 +36,8 @@ Registration happens during bootstrap before any task or template loading occurs
 Field names must:
 
 - match the ruki identifier pattern (letters, digits, underscores; must start with a letter)
-- not collide with ruki reserved keywords (`select`, `update`, `where`, `and`, `or`, `not`, `in`, `is`, `empty`, `order`, `by`, `asc`, `desc`, `set`, `create`, `delete`, `limit`, etc.)
+- not collide with ruki reserved keywords (`select`, `update`, `where`, `and`, `or`, `not`, `in`, `is`,
+  `empty`, `order`, `by`, `asc`, `desc`, `set`, `create`, `delete`, `limit`, etc.)
 - not collide with built-in field names, case-insensitively (`title`, `status`, `priority`, `tags`, `dependsOn`, etc.)
 - not be `true` or `false` (reserved boolean literals)
 
@@ -44,16 +50,18 @@ When custom field values are read from frontmatter YAML, they are coerced to the
 | Field type    | Accepted YAML values                          | Coercion behavior                                |
 |---------------|-----------------------------------------------|--------------------------------------------------|
 | `text`        | string                                        | pass-through                                     |
-| `enum`        | string                                        | case-insensitive match against allowed values; stored in canonical casing |
-| `integer`     | integer or decimal number                     | integer pass-through; decimal accepted only if it represents a whole number (e.g. `3.0` → `3`, but `1.5` → error) |
+| `user`        | string                                        | pass-through; suggestions are UI-only           |
+| `enum`        | string                                        | case-insensitive match; canonical casing        |
+| `integer`     | integer or decimal number                     | decimals accepted only for whole numbers        |
 | `boolean`     | `true` / `false`                              | pass-through                                     |
-| `datetime`    | timestamp or date string                      | native YAML timestamps pass through; strings parsed as RFC3339, with fallback to `YYYY-MM-DD` |
+| `datetime`    | timestamp or date string                      | timestamp pass-through; strings parsed as dates |
 | `stringList`  | YAML list of strings                          | strings only; trim, drop empty, dedupe |
 | `tikiIdList`  | YAML list of strings                          | uppercase IDs; trim, drop empty, dedupe |
 
 ## Enum domain isolation
 
-Each enum field maintains its own independent set of allowed values. Two enum fields never share a domain, even if their values happen to overlap.
+Each enum field maintains its own independent set of allowed values. Two enum fields never share a domain, even
+if their values happen to overlap.
 
 This isolation is enforced at three levels:
 
@@ -67,16 +75,20 @@ Enum comparison is case-insensitive: `category = "Backend"` matches a stored `"b
 
 Custom fields follow the same validation pipeline as built-in fields:
 
-- **type compatibility**: assignments and comparisons are type-checked (e.g. you cannot assign a string to an integer field, or compare an enum field with an integer literal)
-- **enum value validation**: string literals assigned to or compared against an enum field must be in that field's allowed values
-- **ordering**: custom fields of orderable types (`text`, `integer`, `boolean`, `datetime`, `enum`) can appear in `order by` clauses; list types (`stringList`, `tikiIdList`) are not orderable
+- **type compatibility**: assignments and comparisons are type-checked (e.g. you cannot assign a string to an
+  integer field, or compare an enum field with an integer literal)
+- **enum value validation**: string literals assigned to or compared against an enum field must be in that
+  field's allowed values
+- **ordering**: custom fields of orderable types (`text`, `user`, `integer`, `boolean`, `datetime`, `enum`)
+  can appear in `order by` clauses; list types (`stringList`, `tikiIdList`) are not orderable
 
 ## Persistence and round-trip behavior
 
 Custom fields are stored in task file frontmatter alongside built-in fields. When a task is saved:
 
 - custom fields appear after built-in fields, sorted alphabetically by name
-- values that look ambiguous in YAML (e.g. a text field containing `"true"`, `"42"`, or `"2026-05-15"`) are quoted to prevent YAML type coercion from corrupting them on reload
+- values that look ambiguous in YAML (e.g. a text or user field containing `"true"`, `"42"`, or
+  `"2026-05-15"`) are quoted to prevent YAML type coercion from corrupting them on reload
 
 A save-then-load cycle preserves custom field values exactly. This holds as long as:
 
@@ -86,23 +98,32 @@ A save-then-load cycle preserves custom field values exactly. This holds as long
 
 ## Schema evolution and stale data
 
-When `workflow.yaml` changes — fields renamed, enum values added or removed, field types changed — existing task files may contain values that no longer match the current schema. tiki handles this gracefully:
+When `workflow.yaml` changes — fields renamed, enum values added or removed, field types changed — existing task
+files may contain values that no longer match the current schema. tiki handles this gracefully:
 
 ### Removed fields
 
-If a frontmatter key no longer matches any registered custom field, it is preserved as an **unknown field**. Unknown fields survive load-save round-trips: they are written back to the file exactly as found. This allows manual cleanup or re-registration without data loss.
+If a frontmatter key no longer matches any registered custom field, it is preserved as an **unknown field**.
+Unknown fields survive load-save round-trips: they are written back to the file exactly as found. This allows
+manual cleanup or re-registration without data loss.
 
 ### Stale enum values
 
-If a task file contains an enum value that is no longer in the field's allowed values list (e.g. `severity: critical` after `critical` was removed from the enum), the value is **demoted to an unknown field** with a warning. The task still loads and remains visible in views. The stale value is preserved in the file for repair.
+If a task file contains an enum value that is no longer in the field's allowed values list (e.g.
+`severity: critical` after `critical` was removed from the enum), the value is **demoted to an unknown field**
+with a warning. The task still loads and remains visible in views. The stale value is preserved in the file for
+repair.
 
 ### Type mismatches
 
-If a value cannot be coerced to the field's current type (e.g. a text value `"not_a_number"` in a field that was changed to `integer`), the same demotion-to-unknown behavior applies: the task loads, the value is preserved, a warning is logged.
+If a value cannot be coerced to the field's current type (e.g. a text value `"not_a_number"` in a field that was
+changed to `integer`), the same demotion-to-unknown behavior applies: the task loads, the value is preserved,
+a warning is logged.
 
 ### General principle
 
-tiki reads leniently and writes strictly. On load, unrecognized or incompatible values are preserved rather than rejected. On save, values are validated against the current schema.
+tiki reads leniently and writes strictly. On load, unrecognized or incompatible values are preserved rather than
+rejected. On save, values are validated against the current schema.
 
 ## Field defaults
 
@@ -110,6 +131,9 @@ Custom fields can declare a `default:` value in `workflow.yaml`. Default values 
 against the field's type and enum constraints during workflow load — invalid defaults are hard
 errors. Valid defaults are copied into new tasks created via `create` statements or the
 new-task UI flow. Fields without a `default:` key start empty.
+
+`user` defaults follow the same rules as `text`: the value must be a string, and no identity lookup or
+candidate validation is performed.
 
 ## Query behavior
 

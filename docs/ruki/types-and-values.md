@@ -13,7 +13,8 @@
 
 ## Overview
 
-This page explains the value types used in `ruki`. You do not write types explicitly. `ruki` works them out from the values, expressions, built-in functions, and tiki fields you use.
+This page explains the value types used in `ruki`. You do not write types explicitly. `ruki` works them out from
+the values, expressions, built-in functions, and tiki fields you use.
 
 ## Value types
 
@@ -60,6 +61,9 @@ the same catalog at load time. From `ruki`'s perspective, all fields behave iden
 | `createdAt` | `timestamp` |
 | `updatedAt` | `timestamp` |
 | `filepath` | `string` |
+
+Workflow fields declared as `type: user` also appear as `string` in ruki. The `user` type affects only the
+detail editor; ruki has no separate user value type.
 
 `filepath` is a synthetic, read-only field populated by the file-backed store. It holds the absolute path to the tiki's
 markdown file for persisted tikis, and is an empty string for in-memory or unsaved tikis. It never appears in YAML
@@ -159,7 +163,8 @@ List rules are intentionally strict:
 Important edge cases:
 
 - `dependsOn=["ABC123"]` is valid because a string-literal list can be assigned to `list<ref>`
-- `dependsOn=["ABC123", title]` is invalid because `list<ref>` assignment only permits literal string elements in that special case
+- `dependsOn=["ABC123", title]` is invalid because `list<ref>` assignment only permits literal string elements in
+  that special case
 - `dependsOn=["TIKI-ABC"]` is invalid: references must be bare document IDs (`^[A-Z0-9]{6}$`), not the
   legacy TIKI-prefixed format
 - `tags=[1, 2]` is invalid because `tags` is `list<string>`
@@ -183,7 +188,11 @@ select where status in ["done", 1]
 
 ## Type notes
 
-- `string`, `status`, `type`, `id`, and `ref` are treated as string-like in some comparison and concatenation paths, but they are not interchangeable everywhere.
-- Membership checks are stricter than general comparison compatibility. For `in` and `not in` with list collections, only exact type matches count, except that `id` and `ref` are treated as compatible with each other. When the right side is a `string` field, `in` performs a substring check — both sides must be `string` type (not `status`, `type`, `id`, or `ref`).
+- `string`, `status`, `type`, `id`, and `ref` are treated as string-like in some comparison and concatenation
+  paths, but they are not interchangeable everywhere.
+- Membership checks are stricter than general comparison compatibility. For `in` and `not in` with list
+  collections, only exact type matches count, except that `id` and `ref` are treated as compatible with each
+  other. When the right side is a `string` field, `in` performs a substring check — both sides must be
+  `string` type (not `status`, `type`, `id`, or `ref`).
 - Enum fields reject non-literal field references in assignments such as `status=title` or `type=title`.
 - The exact accepted `status` and `type` values depend on the enum values declared for those fields in `workflow.yaml`.

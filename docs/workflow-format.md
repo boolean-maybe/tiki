@@ -6,6 +6,24 @@ what it introduced and what changed from the previous version. For usage details
 
 ---
 
+## 0.6.1
+
+Adds the workflow field type `user`.
+
+`user` is stored, queried, and validated as an ordinary string. In ruki it is still a `string`; there is no
+separate user value type or identity lookup. The only difference from `text` is the detail editor: `user`
+fields use the same suggestion-enabled, free-form user picker that Assignee used before 0.6.1.
+
+The bundled workflows now declare `assignee` as `type: user`. Existing installed workflows are not rewritten
+on startup. If an older workflow still declares `assignee` as `type: text`, it remains valid and uses a plain
+text editor until you edit the declaration or reinstall/reset the bundled workflow.
+
+```yaml
+fields:
+  - name: reviewer
+    type: user
+```
+
 ## 0.6.0
 
 Breaking redesign of the views and actions schema as part of the unified-documents effort.
@@ -632,7 +650,8 @@ fields:
 **Per-field properties:**
 
 - `name` — identifier (must be a valid ruki identifier; not a reserved system field name)
-- `type` — one of: `text`, `integer`, `boolean`, `date`, `datetime`, `enum`, `stringList`, `tikiIdList`, `recurrence`
+- `type` — one of: `text`, `user`, `integer`, `boolean`, `date`, `datetime`, `enum`, `stringList`,
+  `tikiIdList`, `recurrence`
 - `default` — creation default for non-enum fields
 - `values` — required for enum fields; lists the allowed values
 

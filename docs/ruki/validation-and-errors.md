@@ -416,7 +416,8 @@ Type mismatch (declared type incompatible with target field):
   input: int
 ```
 
-Fails at workflow load time: `int` is not assignable to string field `assignee`.
+Fails at workflow load time: `int` is not assignable to string field `assignee`. In the bundled workflow,
+`assignee` is declared as `type: user`, but ruki still sees it as a string field.
 
 `input()` with arguments:
 

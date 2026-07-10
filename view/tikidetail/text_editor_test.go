@@ -1,9 +1,11 @@
 package tikidetail
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/store"
@@ -13,6 +15,16 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 )
+
+type userListStore struct {
+	store.Store
+	users []string
+	err   error
+}
+
+func (s userListStore) GetAllUsers() ([]string, error) {
+	return s.users, s.err
+}
 
 func TestEditTextValue_PlainInputForCatalogText(t *testing.T) {
 	if err := teststatuses.InitWith([]workflow.FieldDef{
@@ -38,7 +50,12 @@ func TestEditTextValue_PlainInputForCatalogText(t *testing.T) {
 	}
 }
 
-func TestEditTextValue_AssigneeUsesSuggestions(t *testing.T) {
+func TestEditTextValue_AssigneeTextUsesPlainInput(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: tikipkg.FieldAssignee, Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
 	s := store.NewInMemoryStore()
 	tk := newTestViewTiki("TXT002")
 	ctx := FieldRenderContext{FieldName: tikipkg.FieldAssignee, Roles: theme.Roles(), Store: s}
@@ -46,44 +63,141 @@ func TestEditTextValue_AssigneeUsesSuggestions(t *testing.T) {
 	if w == nil {
 		t.Fatal("assignee editor is nil")
 	}
-	// assignee's descriptor.Suggestions != nil drives a select-list; assert the
-	// widget is the picker adapter (selectListAdapter) not the plain input.
-	if _, ok := w.(*selectListAdapter); !ok {
-		t.Fatalf("assignee editor = %T, want *selectListAdapter", w)
+	if _, ok := w.(*textInputEditAdapter); !ok {
+		t.Fatalf("assignee text editor = %T, want *textInputEditAdapter", w)
 	}
 }
 
-// TestEditTextValue_AssigneeEmptySeedsBlank pins that opening the assignee
-// editor on an UNASSIGNED task starts with an empty buffer, not the display
-// placeholder "Unassigned". Reproduces the bug-tracker smoke defect where
-// typing appended to the placeholder ("Unassignedalexander") and would have
-// persisted the placeholder-prefixed string. "Unassigned" is a render-only
-// affordance; it must never seed the editable buffer.
-func TestEditTextValue_AssigneeEmptySeedsBlank(t *testing.T) {
-	s := store.NewInMemoryStore()
-	tk := newTestViewTiki("TXT003")
-	tk.Set(tikipkg.FieldAssignee, "") // unassigned
-	ctx := FieldRenderContext{FieldName: tikipkg.FieldAssignee, Roles: theme.Roles(), Store: s}
-	w := buildFieldEditor(tikipkg.FieldAssignee, tk, ctx, func(string) {})
-	if w == nil {
-		t.Fatal("assignee editor is nil")
+func TestEditUserValue_CustomUserUsesPicker(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "reviewer", Type: workflow.TypeUser},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
+	tk := tikipkg.New()
+	tk.SetID("USR001")
+	ctx := FieldRenderContext{
+		FieldName: "reviewer",
+		Roles:     theme.Roles(),
+		Store:     userListStore{users: []string{"alice"}},
+	}
+	w := buildFieldEditor("reviewer", tk, ctx, func(string) {})
+	picker, ok := w.(*selectListAdapter)
+	if !ok {
+		t.Fatalf("user editor = %T, want *selectListAdapter", w)
+	}
+	if !picker.AcceptsTextInput() {
+		t.Fatal("user picker must allow free-form typing")
+	}
+}
+
+func TestEditUserValue_CyclesKnownUsers(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "reviewer", Type: workflow.TypeUser},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
+	tk := tikipkg.New()
+	tk.SetID("USR002")
+	var changed string
+	ctx := FieldRenderContext{
+		FieldName: "reviewer",
+		Roles:     theme.Roles(),
+		Store:     userListStore{users: []string{"alice", "bob"}},
+	}
+	w := buildFieldEditor("reviewer", tk, ctx, func(v string) { changed = v })
+	if !w.CycleValue(1) {
+		t.Fatal("CycleValue returned false")
+	}
+	if got := w.GetText(); got != "alice" {
+		t.Fatalf("cycled user = %q, want alice", got)
+	}
+	if changed != "alice" {
+		t.Fatalf("onChange = %q, want alice", changed)
+	}
+}
+
+func TestEditUserValue_AcceptsFreeTyping(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "reviewer", Type: workflow.TypeUser},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
+	tk := tikipkg.New()
+	tk.SetID("USR003")
+	var changed string
+	ctx := FieldRenderContext{
+		FieldName: "reviewer",
+		Roles:     theme.Roles(),
+		Store:     userListStore{users: []string{"alice"}},
+	}
+	w := buildFieldEditor("reviewer", tk, ctx, func(v string) { changed = v })
+	handler := w.InputHandler()
+	if handler == nil {
+		t.Fatal("user editor has no input handler")
+	}
+	handler(tcell.NewEventKey(tcell.KeyRune, 'z', tcell.ModNone), nil)
+	if got := w.GetText(); got != "z" {
+		t.Fatalf("typed user = %q, want z", got)
+	}
+	if changed != "z" {
+		t.Fatalf("onChange = %q, want z", changed)
+	}
+}
+
+func TestEditUserValue_ExistingUnknownSeedsValue(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "reviewer", Type: workflow.TypeUser},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
+	tk := tikipkg.New()
+	tk.SetID("USR004")
+	tk.Set("reviewer", "carol")
+	ctx := FieldRenderContext{
+		FieldName: "reviewer",
+		Roles:     theme.Roles(),
+		Store:     userListStore{users: nil},
+	}
+	w := buildFieldEditor("reviewer", tk, ctx, func(string) {})
+	if got := w.GetText(); got != "carol" {
+		t.Fatalf("existing unknown user seeded %q, want carol", got)
+	}
+}
+
+func TestEditUserValue_StoreErrorStillAllowsTyping(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "reviewer", Type: workflow.TypeUser},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
+	tk := tikipkg.New()
+	tk.SetID("USR005")
+	ctx := FieldRenderContext{
+		FieldName: "reviewer",
+		Roles:     theme.Roles(),
+		Store:     userListStore{err: errors.New("users unavailable")},
+	}
+	w := buildFieldEditor("reviewer", tk, ctx, func(string) {})
+	picker, ok := w.(*selectListAdapter)
+	if !ok {
+		t.Fatalf("user editor = %T, want *selectListAdapter", w)
+	}
+	if !picker.AcceptsTextInput() {
+		t.Fatal("user picker should still allow typing after user lookup failure")
 	}
 	if got := w.GetText(); got != "" {
-		t.Fatalf("empty assignee editor seeded %q, want empty buffer", got)
-	}
-}
-
-// TestEditTextValue_AssigneeExistingSeedsValue pins the positive case: an
-// assigned task opens the editor seeded with the real value (no regression
-// from the empty-seed fix).
-func TestEditTextValue_AssigneeExistingSeedsValue(t *testing.T) {
-	s := store.NewInMemoryStore()
-	tk := newTestViewTiki("TXT004")
-	tk.Set(tikipkg.FieldAssignee, "alexander")
-	ctx := FieldRenderContext{FieldName: tikipkg.FieldAssignee, Roles: theme.Roles(), Store: s}
-	w := buildFieldEditor(tikipkg.FieldAssignee, tk, ctx, func(string) {})
-	if got := w.GetText(); got != "alexander" {
-		t.Fatalf("assigned editor seeded %q, want %q", got, "alexander")
+		t.Fatalf("empty user editor seeded %q, want empty", got)
 	}
 }
 

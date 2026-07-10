@@ -679,13 +679,11 @@ func TestRenderViewModeAnchor_CaptionRendersFieldCaption(t *testing.T) {
 }
 
 // TestTextEmptyPlaceholder_FromDescriptorTrait pins the empty-value
-// placeholder text for text-type fields: assignee→"Unassigned",
-// createdBy→"Unknown", everything else→"─". After the refactor these
-// values come from the FieldDescriptor.EmptyPlaceholder trait rather than
-// a per-name switch; the observable result must stay identical.
+// placeholder text for text-type fields: createdBy→"Unknown", everything
+// else→"─". Assignee no longer has field-name-specific placeholder behavior.
 func TestTextEmptyPlaceholder_FromDescriptorTrait(t *testing.T) {
-	if got := textEmptyPlaceholder(tikipkg.FieldAssignee); got != "Unassigned" {
-		t.Errorf("assignee placeholder = %q, want %q", got, "Unassigned")
+	if got := textEmptyPlaceholder(tikipkg.FieldAssignee); got != "─" {
+		t.Errorf("assignee placeholder = %q, want %q", got, "─")
 	}
 	if got := textEmptyPlaceholder("createdBy"); got != "Unknown" {
 		t.Errorf("createdBy placeholder = %q, want %q", got, "Unknown")

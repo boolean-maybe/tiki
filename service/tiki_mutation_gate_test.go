@@ -279,6 +279,28 @@ func TestFieldValidators_RejectWrongTypeForWorkflowField(t *testing.T) {
 	}
 }
 
+func TestValidateWorkflowFieldValue_UserRequiresString(t *testing.T) {
+	fd := workflow.FieldDef{Name: "reviewer", Type: workflow.TypeUser}
+	tests := []struct {
+		name    string
+		raw     interface{}
+		wantMsg string
+	}{
+		{name: "string accepted", raw: "alice"},
+		{name: "integer rejected", raw: 42, wantMsg: "reviewer field has wrong type (expected string)"},
+		{name: "boolean rejected", raw: true, wantMsg: "reviewer field has wrong type (expected string)"},
+		{name: "list rejected", raw: []string{"alice"}, wantMsg: "reviewer field has wrong type (expected string)"},
+		{name: "map rejected", raw: map[string]string{"name": "alice"}, wantMsg: "reviewer field has wrong type (expected string)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validateWorkflowFieldValue(fd, tt.raw); got != tt.wantMsg {
+				t.Fatalf("validateWorkflowFieldValue(%T) = %q, want %q", tt.raw, got, tt.wantMsg)
+			}
+		})
+	}
+}
+
 func TestFieldValidators_AcceptValidTiki(t *testing.T) {
 	gate, _ := newGateWithStore()
 	RegisterFieldValidators(gate)

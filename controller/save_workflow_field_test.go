@@ -21,6 +21,7 @@ func TestTikiEditSession_SaveWorkflowField(t *testing.T) {
 	teststatuses.Init()
 	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{Name: "note", Type: workflow.TypeString},
+		{Name: "reviewer", Type: workflow.TypeUser},
 		{Name: "estimate", Type: workflow.TypeInt},
 		{Name: "blocked", Type: workflow.TypeBool},
 		{Name: "dueBy", Type: workflow.TypeTimestamp},
@@ -36,6 +37,9 @@ func TestTikiEditSession_SaveWorkflowField(t *testing.T) {
 	}{
 		{"note", "hello", true, "hello"},
 		{"note", "", true, nil},
+		{"reviewer", "alice", true, "alice"},
+		{"reviewer", "Unassigned", true, "Unassigned"},
+		{"reviewer", "", true, nil},
 		{"estimate", "240", true, 240},
 		{"estimate", "-5", true, -5}, // unbounded
 		{"estimate", "x", false, nil},
@@ -83,6 +87,58 @@ func TestTikiEditSession_SaveWorkflowField(t *testing.T) {
 				t.Fatalf("%s stored %v want %v", c.field, v, c.wantStored)
 			}
 		})
+	}
+}
+
+func TestWireEditFieldHandlers_UserPersists(t *testing.T) {
+	teststatuses.Init()
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "reviewer", Type: workflow.TypeUser},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
+	tikiStore := store.NewInMemoryStore()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	nav := newMockNavigationController()
+	tc := NewTikiEditSession(tikiStore, gate, nav, nil)
+
+	tk := tikipkg.New()
+	tk.SetID("TIKIUS")
+	tk.SetTitle("Test")
+	tk.Set(tikipkg.FieldStatus, "ready")
+	if err := tikiStore.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+
+	pluginDef := newTestDetailPlugin([]string{"status", "reviewer"}, nil)
+	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
+	dc.SetSelectedTikiID(tk.ID())
+
+	view := newFakeDetailEditView()
+	view.layout = []string{"status", "reviewer"}
+	dc.BindEditView(view)
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	saver, ok := view.fieldHandlers["reviewer"]
+	if !ok || saver == nil {
+		t.Fatal("reviewer save handler not installed by controller")
+	}
+	saver("alice")
+	if !dc.HandleAction(ActionDetailSave) {
+		t.Fatal("ActionDetailSave returned false")
+	}
+
+	got := tikiStore.GetTiki("TIKIUS")
+	if got == nil {
+		t.Fatal("tiki disappeared from store after save")
+	}
+	if reviewer, _, _ := got.StringField("reviewer"); reviewer != "alice" {
+		t.Fatalf("reviewer persisted as %q, want alice", reviewer)
 	}
 }
 

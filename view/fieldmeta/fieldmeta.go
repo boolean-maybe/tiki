@@ -19,6 +19,7 @@ type SemanticType string
 const (
 	SemanticEnum       SemanticType = "enum"
 	SemanticText       SemanticType = "text"
+	SemanticUser       SemanticType = "user"
 	SemanticInteger    SemanticType = "integer"
 	SemanticBoolean    SemanticType = "boolean"
 	SemanticDate       SemanticType = "date"
@@ -37,6 +38,8 @@ func ForValueType(t workflow.ValueType) SemanticType {
 	switch t {
 	case workflow.TypeEnum:
 		return SemanticEnum
+	case workflow.TypeUser:
+		return SemanticUser
 	case workflow.TypeInt:
 		return SemanticInteger
 	case workflow.TypeBool:
@@ -66,6 +69,7 @@ func ForValueType(t workflow.ValueType) SemanticType {
 var editableSemantics = map[SemanticType]bool{
 	SemanticEnum:       true,
 	SemanticText:       true,
+	SemanticUser:       true,
 	SemanticInteger:    true,
 	SemanticBoolean:    true,
 	SemanticDate:       true,

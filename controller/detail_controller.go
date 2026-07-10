@@ -274,7 +274,7 @@ func (dc *DetailController) updateFieldHint(focused model.EditField) {
 	}
 	switch focused {
 	case model.EditFieldStatus, model.EditFieldType, model.EditFieldPriority,
-		model.EditFieldAssignee, model.EditFieldPoints, model.EditFieldDue:
+		model.EditFieldPoints, model.EditFieldDue:
 		dc.statusline.SetMessage("↑↓ change value", model.MessageLevelInfo, false)
 		return
 	case model.EditFieldRecurrence:
@@ -285,7 +285,7 @@ func (dc *DetailController) updateFieldHint(focused model.EditField) {
 		}
 		return
 	}
-	if wfd, ok := workflow.Field(string(focused)); ok && wfd.Type == workflow.TypeEnum {
+	if wfd, ok := workflow.Field(string(focused)); ok && (wfd.Type == workflow.TypeEnum || wfd.Type == workflow.TypeUser) {
 		dc.statusline.SetMessage("↑↓ change value", model.MessageLevelInfo, false)
 		return
 	}
@@ -329,9 +329,6 @@ func (dc *DetailController) wireEditFieldHandlers(v DetailEditableView) {
 			dc.editSession.SavePoints(n)
 		}
 	})
-	v.SetEditFieldChangeHandler(tikipkg.FieldAssignee, func(display string) {
-		dc.editSession.SaveAssignee(display)
-	})
 	v.SetEditFieldChangeHandler(tikipkg.FieldDue, func(display string) {
 		dc.editSession.SaveDue(display)
 	})
@@ -372,7 +369,6 @@ var builtinEditFieldHandlers = map[string]struct{}{
 	tikipkg.FieldType:       {},
 	tikipkg.FieldPriority:   {},
 	tikipkg.FieldPoints:     {},
-	tikipkg.FieldAssignee:   {},
 	tikipkg.FieldDue:        {},
 	tikipkg.FieldRecurrence: {},
 	tikipkg.FieldTags:       {},

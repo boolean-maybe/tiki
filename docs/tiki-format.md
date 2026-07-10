@@ -145,7 +145,9 @@ points: 3
 
 ### `assignee`
 
-Optional free-form string, typically a username. Default: empty.
+Optional free-form string, typically a username. Default: empty. The bundled workflows declare this field as
+`type: user`, which changes the editor to a suggestion-enabled user picker but does not change the frontmatter
+shape or ruki type.
 
 ```yaml
 assignee: alex

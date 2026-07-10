@@ -430,6 +430,7 @@ func TestInMemoryStore_NewTikiTemplate(t *testing.T) {
 func TestBuildMemoryFieldDefaults_DedupesCollectionDefaults(t *testing.T) {
 	t.Cleanup(teststatuses.Init)
 	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "reviewer", Type: workflow.TypeUser, DefaultValue: "alice"},
 		{Name: "labels", Type: workflow.TypeListString, DefaultValue: []string{"backend", " backend ", "backend"}},
 		{Name: "related", Type: workflow.TypeListRef, DefaultValue: []string{"aaa001", "AAA001", "bbb002"}},
 	}); err != nil {
@@ -437,6 +438,9 @@ func TestBuildMemoryFieldDefaults_DedupesCollectionDefaults(t *testing.T) {
 	}
 
 	defaults := buildMemoryFieldDefaults()
+	if v, ok := defaults["reviewer"]; !ok || v != "alice" {
+		t.Errorf("reviewer = %v, want \"alice\"", v)
+	}
 	labels, ok := defaults["labels"].([]string)
 	if !ok {
 		t.Fatalf("labels type = %T, want []string", defaults["labels"])

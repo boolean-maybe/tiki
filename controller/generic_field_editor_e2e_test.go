@@ -26,6 +26,7 @@ func TestGenericFieldEditors_EndToEndPersistToDisk(t *testing.T) {
 	// other three custom types need declaring here.
 	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{Name: "reportedBy", Type: workflow.TypeString},
+		{Name: "reviewer", Type: workflow.TypeUser},
 		{Name: "dueBy", Type: workflow.TypeTimestamp},
 		{Name: "regression", Type: workflow.TypeBool},
 	}); err != nil {
@@ -51,7 +52,7 @@ func TestGenericFieldEditors_EndToEndPersistToDisk(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	layout := []string{"status", "reportedBy", "dueBy", "regression", "escalations"}
+	layout := []string{"status", "reportedBy", "reviewer", "dueBy", "regression", "escalations"}
 	pluginDef := newTestDetailPlugin(layout, nil)
 	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
 	dc.SetSelectedTikiID(tk.ID())
@@ -67,6 +68,7 @@ func TestGenericFieldEditors_EndToEndPersistToDisk(t *testing.T) {
 	// each custom field must have a handler installed by wireEditFieldHandlers.
 	edits := map[string]string{
 		"reportedBy":  "alice@example.com",
+		"reviewer":    "not-in-suggestions",
 		"dueBy":       "2026-07-10 09:00",
 		"regression":  "true",
 		"escalations": "5",
@@ -94,6 +96,9 @@ func TestGenericFieldEditors_EndToEndPersistToDisk(t *testing.T) {
 
 	if v, _, _ := got.StringField("reportedBy"); v != "alice@example.com" {
 		t.Errorf("reportedBy = %q, want alice@example.com", v)
+	}
+	if v, _, _ := got.StringField("reviewer"); v != "not-in-suggestions" {
+		t.Errorf("reviewer = %q, want not-in-suggestions", v)
 	}
 	if dueBy, _, _ := got.TimeField("dueBy"); value.FormatDateTime(dueBy) != "2026-07-10 09:00" {
 		t.Errorf("dueBy = %q, want 2026-07-10 09:00", value.FormatDateTime(dueBy))
