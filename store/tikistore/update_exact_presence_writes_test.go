@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // TestUpdateTiki_ZeroValueWritesOnlyTheFieldSet pins exact-presence
@@ -171,7 +169,7 @@ func TestUpdateTiki_EmptyListWritesOnlyTheFieldSet(t *testing.T) {
 
 	// Set only dependsOn (empty list).
 	updated := stored.Clone()
-	updated.Set(tikipkg.FieldDependsOn, []string{})
+	updated.Set("dependsOn", []string{})
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}

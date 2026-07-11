@@ -17,7 +17,8 @@ type ReadStore interface {
 	NewTikiTemplate() (*tikipkg.Tiki, error)
 
 	// SearchTikis searches all tikis (including plain docs) with an optional
-	// tiki-native filter. query matches against id, title, and body.
+	// tiki-native filter. query matches id, title, body, and workflow-declared
+	// string-list values.
 	// filter is applied before the text match; nil means no pre-filter.
 	// Results are sorted by title then id.
 	SearchTikis(query string, filter func(*tikipkg.Tiki) bool) []*tikipkg.Tiki
@@ -29,7 +30,7 @@ type ReadStore interface {
 	// GetStats returns statistics for the header (user, branch, etc.)
 	GetStats() []Stat
 
-	// GetAllUsers returns candidate identities for assignee selection.
+	// GetAllUsers returns candidate identities for user-field selection.
 	// Merges the configured identity with git commit authors when git is enabled;
 	// otherwise returns the resolved identity (configured or OS user).
 	GetAllUsers() ([]string, error)

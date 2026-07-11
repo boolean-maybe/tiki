@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"slices"
-	"strconv"
 	"testing"
 	"time"
 
@@ -13,7 +11,6 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
-	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
 func init() {
@@ -127,270 +124,10 @@ func TestTikiEditSession_CancelEditSession(t *testing.T) {
 	}
 }
 
-// Test Field Update Methods
-
-func TestTikiEditSession_SaveStatus(t *testing.T) {
-	tests := []struct {
-		name          string
-		setupTiki     func(*TikiEditSession, store.Store)
-		statusDisplay string
-		wantStatus    string
-		wantSuccess   bool
-	}{
-		{
-			name: "valid status on draft tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			statusDisplay: enumDisplay("status", "ready"),
-			wantStatus:    "ready",
-			wantSuccess:   true,
-		},
-		{
-			name: "valid status on editing tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTiki()
-				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID())
-			},
-			statusDisplay: enumDisplay("status", "inProgress"),
-			wantStatus:    "inProgress",
-			wantSuccess:   true,
-		},
-		{
-			name: "draft takes priority over editing",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTiki()
-				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID())
-				tc.SetDraft(newTestTikiWithID())
-			},
-			statusDisplay: enumDisplay("status", "done"),
-			wantStatus:    "done",
-			wantSuccess:   true,
-		},
-		{
-			name: "invalid status normalizes to default",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			statusDisplay: "InvalidStatus",
-			wantStatus:    "inbox", // NormalizeStatus defaults to inbox
-			wantSuccess:   true,
-		},
-		{
-			name: "no active tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				// Don't set up any tiki
-			},
-			statusDisplay: enumDisplay("status", "ready"),
-			wantSuccess:   false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tikiStore := store.NewInMemoryStore()
-			gate := service.NewTikiMutationGate()
-			gate.SetStore(tikiStore)
-			navController := newMockNavigationController()
-			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
-
-			tt.setupTiki(tc, tikiStore)
-
-			got := tc.SaveStatus(tt.statusDisplay)
-
-			if got != tt.wantSuccess {
-				t.Errorf("SaveStatus() = %v, want %v", got, tt.wantSuccess)
-			}
-
-			if tt.wantSuccess {
-				var activeTiki *tikipkg.Tiki
-				if tc.draftTiki != nil {
-					activeTiki = tc.draftTiki
-				} else if tc.editingTiki != nil {
-					activeTiki = tc.editingTiki
-				}
-				actualStatus, _, _ := activeTiki.StringField(tikipkg.FieldStatus)
-				if actualStatus != tt.wantStatus {
-					t.Errorf("status = %v, want %v", actualStatus, tt.wantStatus)
-				}
-			}
-		})
-	}
-}
-
-func TestTikiEditSession_SaveType(t *testing.T) {
-	tests := []struct {
-		name        string
-		setupTiki   func(*TikiEditSession, store.Store)
-		typeDisplay string
-		wantType    string
-		wantSuccess bool
-	}{
-		{
-			name: "valid type on draft tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			typeDisplay: enumDisplay("type", "bug"),
-			wantType:    "bug",
-			wantSuccess: true,
-		},
-		{
-			name: "valid type on editing tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTiki()
-				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID())
-			},
-			typeDisplay: enumDisplay("type", "spike"),
-			wantType:    "spike",
-			wantSuccess: true,
-		},
-		{
-			name: "invalid type is rejected",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			typeDisplay: "InvalidType",
-			wantType:    "story", // tiki type unchanged from setup
-			wantSuccess: false,
-		},
-		{
-			name: "no active tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				// Don't set up any tiki
-			},
-			typeDisplay: enumDisplay("type", "story"),
-			wantSuccess: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tikiStore := store.NewInMemoryStore()
-			gate := service.NewTikiMutationGate()
-			gate.SetStore(tikiStore)
-			navController := newMockNavigationController()
-			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
-
-			tt.setupTiki(tc, tikiStore)
-
-			got := tc.SaveType(tt.typeDisplay)
-
-			if got != tt.wantSuccess {
-				t.Errorf("SaveType() = %v, want %v", got, tt.wantSuccess)
-			}
-
-			if tt.wantSuccess {
-				var activeTiki *tikipkg.Tiki
-				if tc.draftTiki != nil {
-					activeTiki = tc.draftTiki
-				} else if tc.editingTiki != nil {
-					activeTiki = tc.editingTiki
-				}
-				actualType, _, _ := activeTiki.StringField(tikipkg.FieldType)
-				if actualType != tt.wantType {
-					t.Errorf("type = %v, want %v", actualType, tt.wantType)
-				}
-			}
-		})
-	}
-}
-
-func TestTikiEditSession_SavePriority(t *testing.T) {
-	tests := []struct {
-		name         string
-		setupTiki    func(*TikiEditSession, store.Store)
-		priority     string
-		wantPriority string
-		wantSuccess  bool
-	}{
-		{
-			name: "valid priority on draft tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			priority:     "high",
-			wantPriority: "high",
-			wantSuccess:  true,
-		},
-		{
-			name: "valid priority on editing tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTiki()
-				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID())
-			},
-			priority:     "low",
-			wantPriority: "low",
-			wantSuccess:  true,
-		},
-		{
-			name: "invalid priority - unknown key",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			priority:    "ultra-critical",
-			wantSuccess: false,
-		},
-		{
-			name: "invalid priority - numeric leftover",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			priority:    "10",
-			wantSuccess: false,
-		},
-		{
-			name: "no active tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				// Don't set up any tiki
-			},
-			priority:    "medium",
-			wantSuccess: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tikiStore := store.NewInMemoryStore()
-			gate := service.NewTikiMutationGate()
-			gate.SetStore(tikiStore)
-			navController := newMockNavigationController()
-			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
-
-			tt.setupTiki(tc, tikiStore)
-
-			got := tc.SavePriority(tt.priority)
-
-			if got != tt.wantSuccess {
-				t.Errorf("SavePriority() = %v, want %v", got, tt.wantSuccess)
-			}
-
-			if tt.wantSuccess {
-				var activeTiki *tikipkg.Tiki
-				if tc.draftTiki != nil {
-					activeTiki = tc.draftTiki
-				} else if tc.editingTiki != nil {
-					activeTiki = tc.editingTiki
-				}
-				actualPriority, _, _ := activeTiki.StringField(tikipkg.FieldPriority)
-				if actualPriority != tt.wantPriority {
-					t.Errorf("tiki.Priority = %v, want %v", actualPriority, tt.wantPriority)
-				}
-			}
-		})
-	}
-}
-
-// TestTikiEditSession_SaveWorkflowEnum pins the path that custom workflow
-// enum fields (severity, environment, etc.) take when their SemanticEnum
-// editor commits a value. Without this method, custom enum edits would
-// have no save handler at all and the in-flight values would be dropped.
+// TestTikiEditSession_SaveWorkflowEnum pins the path workflow enum fields take
+// when their SemanticEnum editor commits a value.
 func TestTikiEditSession_SaveWorkflowEnum(t *testing.T) {
-	// Register a custom enum field for the duration of this test.
+	// register an enum field for the duration of this test
 	teststatuses.Init()
 	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{
@@ -402,6 +139,7 @@ func TestTikiEditSession_SaveWorkflowEnum(t *testing.T) {
 				{Value: "high"},
 			},
 		},
+		{Name: "note", Type: workflow.TypeString},
 	}); err != nil {
 		t.Fatalf("register severity: %v", err)
 	}
@@ -417,7 +155,7 @@ func TestTikiEditSession_SaveWorkflowEnum(t *testing.T) {
 		{"valid key", "severity", "high", true, "high"},
 		{"empty deletes", "severity", "", true, ""},
 		{"unknown key rejected", "severity", "bogus", false, ""},
-		{"non-enum field rejected", "points", "high", false, ""},
+		{"non-enum field rejected", "note", "high", false, ""},
 		{"unregistered field rejected", "nonexistent", "any", false, ""},
 	}
 	for _, tt := range tests {
@@ -448,85 +186,6 @@ func TestTikiEditSession_SaveWorkflowEnum(t *testing.T) {
 			stored, _, _ := tc.draftTiki.StringField(tt.field)
 			if stored != tt.wantStored {
 				t.Errorf("draftTiki.%s = %q, want %q", tt.field, stored, tt.wantStored)
-			}
-		})
-	}
-}
-
-func TestTikiEditSession_SavePoints(t *testing.T) {
-	tests := []struct {
-		name        string
-		setupTiki   func(*TikiEditSession, store.Store)
-		points      int
-		wantPoints  int
-		wantSuccess bool
-	}{
-		{
-			name: "valid points on draft tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			points:      7,
-			wantPoints:  7,
-			wantSuccess: true,
-		},
-		{
-			name: "valid points on editing tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTiki()
-				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID())
-			},
-			points:      3,
-			wantPoints:  3,
-			wantSuccess: true,
-		},
-		{
-			name: "invalid points - not in enum",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			points:      5, // not a declared enum value (declared: 11, 7, 3, 1)
-			wantSuccess: false,
-		},
-		{
-			name: "no active tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				// Don't set up any tiki
-			},
-			points:      7,
-			wantSuccess: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tikiStore := store.NewInMemoryStore()
-			gate := service.NewTikiMutationGate()
-			gate.SetStore(tikiStore)
-			navController := newMockNavigationController()
-			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
-
-			tt.setupTiki(tc, tikiStore)
-
-			got := tc.SavePoints(tt.points)
-
-			if got != tt.wantSuccess {
-				t.Errorf("SavePoints() = %v, want %v", got, tt.wantSuccess)
-			}
-
-			if tt.wantSuccess {
-				var activeTiki *tikipkg.Tiki
-				if tc.draftTiki != nil {
-					activeTiki = tc.draftTiki
-				} else if tc.editingTiki != nil {
-					activeTiki = tc.editingTiki
-				}
-				actualPoints, _, _ := activeTiki.StringField(tikipkg.FieldPoints)
-				want := strconv.Itoa(tt.wantPoints)
-				if actualPoints != want {
-					t.Errorf("tiki.Points = %q, want %q", actualPoints, want)
-				}
 			}
 		})
 	}
@@ -905,100 +564,6 @@ func TestTikiEditSession_FocusedField(t *testing.T) {
 	}
 }
 
-func TestTikiEditSession_SaveDue(t *testing.T) {
-	tests := []struct {
-		name        string
-		setupTiki   func(*TikiEditSession, store.Store)
-		dateStr     string
-		wantDue     string // expected Format(DateFormat) or "" for zero
-		wantSuccess bool
-	}{
-		{
-			name: "valid date on draft tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			dateStr:     "2025-06-15",
-			wantDue:     "2025-06-15",
-			wantSuccess: true,
-		},
-		{
-			name: "valid date on editing tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTiki()
-				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID())
-			},
-			dateStr:     "2025-12-31",
-			wantDue:     "2025-12-31",
-			wantSuccess: true,
-		},
-		{
-			name: "empty string clears due date",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				draft := newTestTiki()
-				draft.Set(tikipkg.FieldDue, time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC))
-				tc.SetDraft(draft)
-			},
-			dateStr:     "",
-			wantDue:     "",
-			wantSuccess: true,
-		},
-		{
-			name: "invalid date returns false",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			dateStr:     "not-a-date",
-			wantSuccess: false,
-		},
-		{
-			name: "no active tiki returns false",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				// no tiki set up
-			},
-			dateStr:     "2025-06-15",
-			wantSuccess: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tikiStore := store.NewInMemoryStore()
-			gate := service.NewTikiMutationGate()
-			gate.SetStore(tikiStore)
-			navController := newMockNavigationController()
-			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
-
-			tt.setupTiki(tc, tikiStore)
-
-			got := tc.SaveDue(tt.dateStr)
-
-			if got != tt.wantSuccess {
-				t.Errorf("SaveDue() = %v, want %v", got, tt.wantSuccess)
-			}
-
-			if tt.wantSuccess {
-				var activeTiki *tikipkg.Tiki
-				if tc.draftTiki != nil {
-					activeTiki = tc.draftTiki
-				} else if tc.editingTiki != nil {
-					activeTiki = tc.editingTiki
-				}
-				actualDue, _, _ := activeTiki.TimeField(tikipkg.FieldDue)
-
-				var actualStr string
-				if !actualDue.IsZero() {
-					actualStr = actualDue.Format(value.DateFormat)
-				}
-				if actualStr != tt.wantDue {
-					t.Errorf("tiki.Due = %q, want %q", actualStr, tt.wantDue)
-				}
-			}
-		})
-	}
-}
-
 func TestTikiEditSession_HandleAction(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1034,86 +599,32 @@ func TestTikiEditSession_HandleAction(t *testing.T) {
 	}
 }
 
-func TestTikiEditSession_SaveRecurrence(t *testing.T) {
-	tests := []struct {
-		name           string
-		setupTiki      func(*TikiEditSession, store.Store)
-		cron           string
-		wantRecurrence recurrence.Recurrence
-		wantDueSet     bool
-		wantSuccess    bool
-	}{
-		{
-			name: "valid daily recurrence on draft",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			cron:           string(recurrence.RecurrenceDaily),
-			wantRecurrence: recurrence.RecurrenceDaily,
-			wantDueSet:     true,
-			wantSuccess:    true,
-		},
-		{
-			name: "clear recurrence sets none and clears due",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				draft := newTestTiki()
-				draft.Set(tikipkg.FieldDue, time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC))
-				draft.Set(tikipkg.FieldRecurrence, string(recurrence.RecurrenceDaily))
-				tc.SetDraft(draft)
-			},
-			cron:           string(recurrence.RecurrenceNone),
-			wantRecurrence: recurrence.RecurrenceNone,
-			wantDueSet:     false,
-			wantSuccess:    true,
-		},
-		{
-			name: "invalid recurrence rejected",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			cron:        "invalid-cron",
-			wantSuccess: false,
-		},
-		{
-			name: "no active tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				// no tiki
-			},
-			cron:        string(recurrence.RecurrenceDaily),
-			wantSuccess: false,
-		},
+func TestTikiEditSession_SaveWorkflowRecurrenceDoesNotMutateDateField(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "schedule", Type: workflow.TypeRecurrence},
+		{Name: "deadline", Type: workflow.TypeDate},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
 	}
+	t.Cleanup(teststatuses.Init)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tikiStore := store.NewInMemoryStore()
-			gate := service.NewTikiMutationGate()
-			gate.SetStore(tikiStore)
-			navController := newMockNavigationController()
-			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
+	tikiStore := store.NewInMemoryStore()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	tc := NewTikiEditSession(tikiStore, gate, newMockNavigationController(), nil)
 
-			tt.setupTiki(tc, tikiStore)
+	const dateField = "deadline"
+	original := time.Date(2025, time.June, 15, 0, 0, 0, 0, time.UTC)
+	draft := newTestTiki()
+	draft.Set(dateField, original)
+	tc.SetDraft(draft)
 
-			got := tc.SaveRecurrence(tt.cron)
-			if got != tt.wantSuccess {
-				t.Errorf("SaveRecurrence() = %v, want %v", got, tt.wantSuccess)
-			}
-
-			if tt.wantSuccess && tc.draftTiki != nil {
-				recurrenceStr, _, _ := tc.draftTiki.StringField(tikipkg.FieldRecurrence)
-				actualRecurrence := recurrence.Recurrence(recurrenceStr)
-				if actualRecurrence != tt.wantRecurrence {
-					t.Errorf("Recurrence = %q, want %q", actualRecurrence, tt.wantRecurrence)
-				}
-				dueTime, _, _ := tc.draftTiki.TimeField(tikipkg.FieldDue)
-				if tt.wantDueSet && dueTime.IsZero() {
-					t.Error("expected Due to be set for non-none recurrence")
-				}
-				if !tt.wantDueSet && !dueTime.IsZero() {
-					t.Error("expected Due to be zero for none recurrence")
-				}
-			}
-		})
+	if !tc.SaveWorkflowField("schedule", string(recurrence.RecurrenceDaily)) {
+		t.Fatal("SaveWorkflowField returned false")
+	}
+	got, _, _ := tc.draftTiki.TimeField(dateField)
+	if !got.Equal(original) {
+		t.Fatalf("date field changed to %s, want %s", got, original)
 	}
 }
 
@@ -1200,135 +711,5 @@ func TestTikiEditSession_CommitEditSession_UpdateError(t *testing.T) {
 	err := tc.CommitEditSession()
 	if err == nil {
 		t.Fatal("expected error for empty title in edit session")
-	}
-}
-
-func TestTikiEditSession_SaveType_InvalidType(t *testing.T) {
-	tikiStore := store.NewInMemoryStore()
-	gate := service.NewTikiMutationGate()
-	gate.SetStore(tikiStore)
-	navController := newMockNavigationController()
-	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
-
-	original := newTestTiki()
-	_ = tikiStore.CreateTiki(original)
-	tc.StartEditSession(original.ID())
-
-	// unrecognized display string
-	got := tc.SaveType("Nonexistent Type 🤷")
-	if got {
-		t.Error("SaveType should return false for unrecognized type display")
-	}
-}
-
-func TestTikiEditSession_SaveTags(t *testing.T) {
-	tests := []struct {
-		name        string
-		setupTiki   func(*TikiEditSession, store.Store)
-		tags        []string
-		wantTags    []string
-		wantSuccess bool
-	}{
-		{
-			name: "valid tags on draft tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			tags:        []string{"api", "backend"},
-			wantTags:    []string{"api", "backend"},
-			wantSuccess: true,
-		},
-		{
-			name: "valid tags on editing tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTiki()
-				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID())
-			},
-			tags:        []string{"frontend", "ui"},
-			wantTags:    []string{"frontend", "ui"},
-			wantSuccess: true,
-		},
-		{
-			name: "duplicate tags deduped",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			tags:        []string{"frontend", " frontend ", "frontend", "backend"},
-			wantTags:    []string{"frontend", "backend"},
-			wantSuccess: true,
-		},
-		{
-			name: "empty tags slice",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			tags:        []string{},
-			wantTags:    []string{},
-			wantSuccess: true,
-		},
-		{
-			name: "nil tags",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				tc.SetDraft(newTestTiki())
-			},
-			tags:        nil,
-			wantTags:    []string{},
-			wantSuccess: true,
-		},
-		{
-			name: "draft takes priority over editing",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTiki()
-				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID())
-				tc.SetDraft(newTestTikiWithID())
-			},
-			tags:        []string{"draft-tag"},
-			wantTags:    []string{"draft-tag"},
-			wantSuccess: true,
-		},
-		{
-			name: "no active tiki",
-			setupTiki: func(tc *TikiEditSession, s store.Store) {
-				// no tiki set up
-			},
-			tags:        []string{"orphan"},
-			wantSuccess: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tikiStore := store.NewInMemoryStore()
-			gate := service.NewTikiMutationGate()
-			gate.SetStore(tikiStore)
-			navController := newMockNavigationController()
-			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
-
-			tt.setupTiki(tc, tikiStore)
-
-			got := tc.SaveTags(tt.tags)
-
-			if got != tt.wantSuccess {
-				t.Errorf("SaveTags() = %v, want %v", got, tt.wantSuccess)
-			}
-
-			if tt.wantSuccess {
-				var activeTiki *tikipkg.Tiki
-				if tc.draftTiki != nil {
-					activeTiki = tc.draftTiki
-				} else if tc.editingTiki != nil {
-					activeTiki = tc.editingTiki
-				}
-				actualTags, _, _ := activeTiki.StringSliceField(tikipkg.FieldTags)
-				if actualTags == nil {
-					actualTags = []string{}
-				}
-				if !slices.Equal(actualTags, tt.wantTags) {
-					t.Errorf("tiki.Tags = %v, want %v", actualTags, tt.wantTags)
-				}
-			}
-		})
 	}
 }

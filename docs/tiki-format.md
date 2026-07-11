@@ -93,10 +93,10 @@ Describe what is broken and how to reproduce it.
 
 ### `type`
 
-Optional. Must match a `value` from the `workflow.yaml` `fields:` entry named `type`. When absent, the tiki
-has no type; on explicit creation, the type marked `default: true` (or the first type) is applied.
-Default types ship as `story`, `bug`, `spike`, `epic`; each can have its own label and emoji. Aliases
-are not supported — use the canonical key.
+Optional. The bundled workflows declare `type` as an enum, so its value must match that workflow
+declaration. On explicit creation, the value marked `default: true` is applied. The stock enum values
+include `story`, `bug`, `spike`, and `epic`; each can have its own label and emoji. The field name has no
+built-in behavior: changing its declared type changes validation and editing like any other workflow field.
 
 ```yaml
 type: bug
@@ -104,9 +104,10 @@ type: bug
 
 ### `status`
 
-Optional. Must match a status key defined in your project's `workflow.yaml`. When absent, the tiki
-falls outside any view whose lane filter requires `status` (most board and list views). On explicit
-creation, the status marked `default: true` is applied.
+Optional. The bundled workflows declare `status` as an enum, so its value must match that workflow
+declaration. When absent, the tiki falls outside any view whose lane filter requires `status`. On explicit
+creation, the value marked `default: true` is applied. The field name has no built-in behavior: changing its
+declared type changes validation and editing like any other workflow field.
 
 ```yaml
 status: inProgress
@@ -126,7 +127,7 @@ priority scale. The stock kanban workflow ships with five string values, most to
 | `low` | Low | 🔵 |
 
 The default on explicit creation is `medium`. The value stored in frontmatter is the enum key
-(a string), not a number. Unknown values are logged and replaced with the configured default at load.
+(a string), not a number. Unknown values are retained as stale data for manual repair.
 
 ```yaml
 priority: medium-high

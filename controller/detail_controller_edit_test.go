@@ -38,8 +38,8 @@ type fakeDetailEditView struct {
 
 func TestDetailController_AssigneeUserUsesGenericHandler(t *testing.T) {
 	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
-		{Name: tikipkg.FieldStatus, Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "ready", Default: true}}},
-		{Name: tikipkg.FieldAssignee, Type: workflow.TypeUser},
+		{Name: "status", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "ready", Default: true}}},
+		{Name: "assignee", Type: workflow.TypeUser},
 	})
 	t.Cleanup(teststatuses.Init)
 
@@ -52,30 +52,30 @@ func TestDetailController_AssigneeUserUsesGenericHandler(t *testing.T) {
 	tk := tikipkg.New()
 	tk.SetID("TIKIUA")
 	tk.SetTitle("Test")
-	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set("status", "ready")
 	if err := tikiStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	pluginDef := newTestDetailPlugin([]string{tikipkg.FieldAssignee}, nil)
+	pluginDef := newTestDetailPlugin([]string{"assignee"}, nil)
 	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
 	dc.SetSelectedTikiID(tk.ID())
 
 	view := newFakeDetailEditView()
-	view.layout = []string{tikipkg.FieldAssignee}
+	view.layout = []string{"assignee"}
 	dc.BindEditView(view)
 
 	if !dc.HandleAction(ActionDetailEdit) {
 		t.Fatal("EnterEditMode")
 	}
-	saver, ok := view.fieldHandlers[tikipkg.FieldAssignee]
+	saver, ok := view.fieldHandlers["assignee"]
 	if !ok || saver == nil {
 		t.Fatal("assignee user save handler not installed by generic workflow path")
 	}
 	saver("Unassigned")
 	if got := tc.GetEditingTiki(); got == nil {
 		t.Fatal("editing tiki missing")
-	} else if assignee, _, _ := got.StringField(tikipkg.FieldAssignee); assignee != "Unassigned" {
+	} else if assignee, _, _ := got.StringField("assignee"); assignee != "Unassigned" {
 		t.Fatalf("assignee = %q, want literal Unassigned", assignee)
 	}
 }
@@ -166,9 +166,9 @@ func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView,
 	tk := tikipkg.New()
 	tk.SetID("TIKI200")
 	tk.SetTitle("Test")
-	tk.Set(tikipkg.FieldStatus, "ready")
-	tk.Set(tikipkg.FieldType, "story")
-	tk.Set(tikipkg.FieldPriority, "medium")
+	tk.Set("status", "ready")
+	tk.Set("type", "story")
+	tk.Set("priority", "medium")
 	if err := tikiStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
@@ -198,9 +198,9 @@ func newDetailEditTestRigWithStatusline(t *testing.T) (*DetailController, *fakeD
 	tk := tikipkg.New()
 	tk.SetID("TIKI201")
 	tk.SetTitle("Test")
-	tk.Set(tikipkg.FieldStatus, "ready")
-	tk.Set(tikipkg.FieldType, "story")
-	tk.Set(tikipkg.FieldPriority, "medium")
+	tk.Set("status", "ready")
+	tk.Set("type", "story")
+	tk.Set("priority", "medium")
 	if err := tikiStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestDetailController_CancelEditDropsSession(t *testing.T) {
 		t.Fatal("EnterEditMode")
 	}
 	// Mutate the editing copy so we can verify cancel reverts.
-	tc.SaveStatus(enumDisplay("status", "inProgress"))
+	tc.SaveWorkflowEnum("status", "inProgress")
 
 	if !dc.HandleAction(ActionDetailCancel) {
 		t.Fatal("ActionDetailCancel returned false")
@@ -304,7 +304,7 @@ func TestDetailController_SaveCommitsAndExits(t *testing.T) {
 	if !ok || saver == nil {
 		t.Fatal("status save handler not installed by controller")
 	}
-	saver(enumDisplay("status", "inProgress"))
+	saver("inProgress")
 
 	if !dc.HandleAction(ActionDetailSave) {
 		t.Fatal("ActionDetailSave returned false")
@@ -319,7 +319,7 @@ func TestDetailController_SaveCommitsAndExits(t *testing.T) {
 	if got == nil {
 		t.Fatal("tiki disappeared from store after save")
 	}
-	if v, _, _ := got.StringField(tikipkg.FieldStatus); v != "inProgress" {
+	if v, _, _ := got.StringField("status"); v != "inProgress" {
 		t.Errorf("status not persisted: got %q, want %q", v, "inProgress")
 	}
 }
@@ -341,7 +341,7 @@ func TestDetailController_SaveAndCloseCommitsAndPops(t *testing.T) {
 	if !ok || saver == nil {
 		t.Fatal("status save handler not installed by controller")
 	}
-	saver(enumDisplay("status", "inProgress"))
+	saver("inProgress")
 
 	if !dc.HandleAction(ActionDetailSaveAndClose) {
 		t.Fatal("ActionDetailSaveAndClose returned false")
@@ -359,7 +359,7 @@ func TestDetailController_SaveAndCloseCommitsAndPops(t *testing.T) {
 	if got == nil {
 		t.Fatal("tiki disappeared from store after save & close")
 	}
-	if v, _, _ := got.StringField(tikipkg.FieldStatus); v != "inProgress" {
+	if v, _, _ := got.StringField("status"); v != "inProgress" {
 		t.Errorf("status not persisted: got %q, want %q", v, "inProgress")
 	}
 }
@@ -666,7 +666,7 @@ func TestDetailController_FocusChangeUpdatesStatuslineHint(t *testing.T) {
 		t.Fatal("controller did not wire a field focus-change handler")
 	}
 
-	view.focusChangeHandler(model.EditFieldStatus)
+	view.focusChangeHandler(model.EditField("status"))
 	msg, level, _ := sl.GetMessage()
 	if !strings.Contains(msg, "↑↓ change value") {
 		t.Errorf("status hint = %q, want it to contain %q", msg, "↑↓ change value")
@@ -694,10 +694,73 @@ func TestDetailController_FocusChangeUpdatesStatuslineHint(t *testing.T) {
 	}
 }
 
+func TestDetailController_FocusHintUsesDeclaredTypeForFormerPointsName(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "points", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	sl := model.NewStatuslineConfig()
+	dc := &DetailController{statusline: sl}
+	dc.updateFieldHint(model.EditField("points"))
+	if msg, _, _ := sl.GetMessage(); msg != "" {
+		t.Fatalf("string field named points showed cyclable-value hint %q", msg)
+	}
+}
+
+func TestDetailController_FocusHintUsesDeclaredTypeForFormerPriorityName(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "priority", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	sl := model.NewStatuslineConfig()
+	dc := &DetailController{statusline: sl}
+	dc.updateFieldHint(model.EditField("priority"))
+	if msg, _, _ := sl.GetMessage(); msg != "" {
+		t.Fatalf("string field named priority showed cyclable-value hint %q", msg)
+	}
+}
+
+func TestDetailController_FocusHintUsesDeclaredTypeForFormerTypeName(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "type", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	sl := model.NewStatuslineConfig()
+	dc := &DetailController{statusline: sl}
+	dc.updateFieldHint(model.EditField("type"))
+	if msg, _, _ := sl.GetMessage(); msg != "" {
+		t.Fatalf("string field named type showed cyclable-value hint %q", msg)
+	}
+}
+
+func TestDetailController_FocusHintUsesDeclaredTypeForFormerStatusName(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "status", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	sl := model.NewStatuslineConfig()
+	dc := &DetailController{statusline: sl}
+	dc.updateFieldHint(model.EditField("status"))
+	if msg, _, _ := sl.GetMessage(); msg != "" {
+		t.Fatalf("string field named status showed cyclable-value hint %q", msg)
+	}
+}
+
 // TestDetailController_FocusChangeRecurrenceHint pins the two-mode
 // recurrence hint: "edit pattern" guidance when the part-nav reports
 // pattern-focused, "edit value" guidance when value-focused.
 func TestDetailController_FocusChangeRecurrenceHint(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "schedule", Type: workflow.TypeRecurrence},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
 	dc, view, sl := newDetailEditTestRigWithStatusline(t)
 	rv := &recurrenceFakeView{fakeDetailEditView: view}
 	dc.BindEditView(rv)
@@ -706,13 +769,13 @@ func TestDetailController_FocusChangeRecurrenceHint(t *testing.T) {
 	}
 
 	rv.valueFocused = false
-	rv.focusChangeHandler(model.EditFieldRecurrence)
+	rv.focusChangeHandler(model.EditField("schedule"))
 	if msg, _, _ := sl.GetMessage(); !strings.Contains(msg, "change pattern") {
 		t.Errorf("pattern-focused hint = %q, want it to mention pattern change", msg)
 	}
 
 	rv.valueFocused = true
-	rv.focusChangeHandler(model.EditFieldRecurrence)
+	rv.focusChangeHandler(model.EditField("schedule"))
 	if msg, _, _ := sl.GetMessage(); !strings.Contains(msg, "edit pattern") {
 		t.Errorf("value-focused hint = %q, want it to mention pattern editing", msg)
 	}
@@ -752,16 +815,6 @@ type descSaveFake struct {
 func (d *descSaveFake) SetDescriptionSaveHandler(h func(string)) { d.descSave = h }
 func (d *descSaveFake) SetDescriptionCancelHandler(h func())     { d.descCancel = h }
 
-// tagsSaveFake satisfies the controller's narrow tags-save setter.
-type tagsSaveFake struct {
-	*fakeDetailEditView
-	tagsSave   func(string)
-	tagsCancel func()
-}
-
-func (t *tagsSaveFake) SetTagsSaveHandler(h func(string)) { t.tagsSave = h }
-func (t *tagsSaveFake) SetTagsCancelHandler(h func())     { t.tagsCancel = h }
-
 // TestDetailController_TitleSaveHandlerCommitsAndExits pins the
 // title-save semantics: triggering the wired handler commits the
 // session and exits edit mode (close-on-save).
@@ -799,24 +852,5 @@ func TestDetailController_DescriptionSaveHandlerCommitsAndStays(t *testing.T) {
 	dv.descSave("New body")
 	if !view.IsEditMode() {
 		t.Error("description save should keep the view in edit mode (stay-on-save)")
-	}
-}
-
-// TestDetailController_TagsSaveHandlerCommitsAndStays pins the
-// tags-save semantics in the metadata-grid flow: stay-on-save.
-func TestDetailController_TagsSaveHandlerCommitsAndStays(t *testing.T) {
-	dc, view, _ := newDetailEditTestRigWithStatusline(t)
-	tv := &tagsSaveFake{fakeDetailEditView: view}
-	dc.BindEditView(tv)
-	if tv.tagsSave == nil {
-		t.Fatal("BindEditView did not install a tags save handler")
-	}
-
-	if !dc.HandleAction(ActionDetailEdit) {
-		t.Fatal("EnterEditMode")
-	}
-	tv.tagsSave("alpha beta")
-	if !view.IsEditMode() {
-		t.Error("tags save should keep the view in edit mode (stay-on-save)")
 	}
 }

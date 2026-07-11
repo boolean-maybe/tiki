@@ -386,25 +386,30 @@ func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 	ctx := NewAppContext()
 
 	selectedCount := 0
-	if activeView != nil {
-		if sv, ok := activeView.(SelectableView); ok && sv.GetSelectedID() != "" {
-			selectedCount = 1
-		}
+	// A live SelectableView is authoritative about its own selection: when the
+	// active view can answer, its answer wins and the params fallback below is
+	// skipped entirely. Otherwise a stale TikiID left in the nav params would
+	// contaminate the context — making an empty/filtered board advertise
+	// selection-gated actions as enabled (H/H2).
+	_, activeViewIsSelectable := activeView.(SelectableView)
+	if sv, ok := activeView.(SelectableView); ok && sv.GetSelectedID() != "" {
+		selectedCount = 1
 	}
 
-	if selectedCount == 0 && currentView != nil && IsDetailView(currentView.ViewID) {
+	if !activeViewIsSelectable && selectedCount == 0 && currentView != nil && IsDetailView(currentView.ViewID) {
 		if model.DecodePluginViewParams(currentView.Params).TikiID != "" {
 			selectedCount = 1
 		}
 	}
 
 	// Phase 6B.3/6B.7: plugin views (wiki, detail, board, list) may carry a
-	// selected tiki id via PluginViewParams. If the active view did not
-	// report a selection — e.g. the view does not implement SelectableView
-	// yet, or its selection is set after this gate runs — consult the nav
-	// params as a second source so actions gated on selection:one still
-	// dispatch from views that received a selection via nav passthrough.
-	if selectedCount == 0 && currentView != nil && model.IsPluginViewID(currentView.ViewID) {
+	// selected tiki id via PluginViewParams. Consulted only when the active
+	// view is not a live SelectableView — e.g. the view does not implement
+	// SelectableView yet, or its selection is set after this gate runs — so
+	// actions gated on selection:one still dispatch from views that received a
+	// selection via nav passthrough without overriding a live "nothing
+	// selected" answer.
+	if !activeViewIsSelectable && selectedCount == 0 && currentView != nil && model.IsPluginViewID(currentView.ViewID) {
 		if model.DecodePluginViewParams(currentView.Params).TikiID != "" {
 			selectedCount = 1
 		}
@@ -736,13 +741,6 @@ func TikiEditViewActions() *ActionRegistry {
 
 // DescOnlyEditActions returns actions for description-only edit mode (no field navigation).
 func DescOnlyEditActions() *ActionRegistry {
-	r := NewActionRegistry()
-	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
-	return r
-}
-
-// TagsOnlyEditActions returns actions for tags-only edit mode (no field navigation).
-func TagsOnlyEditActions() *ActionRegistry {
 	r := NewActionRegistry()
 	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	return r

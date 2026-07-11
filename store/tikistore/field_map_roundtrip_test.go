@@ -36,10 +36,10 @@ func TestFieldMapRoundTrip_ExactPresenceAcrossSaveLoad(t *testing.T) {
 	// Body is stored without a trailing newline; the persistence layer
 	// adds one on write and parsing strips it on load.
 	tk.SetBody("body content")
-	tk.Set(tikipkg.FieldStatus, "inbox")
-	tk.Set(tikipkg.FieldPriority, "medium-high")
-	tk.Set(tikipkg.FieldDependsOn, []string{"DEP001"})
-	tk.Set(tikipkg.FieldTags, []string{"alpha", "beta"})
+	tk.Set("status", "inbox")
+	tk.Set("priority", "medium-high")
+	tk.Set("dependsOn", []string{"DEP001"})
+	tk.Set("tags", []string{"alpha", "beta"})
 
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
@@ -71,10 +71,10 @@ func TestFieldMapRoundTrip_ExactPresenceAcrossSaveLoad(t *testing.T) {
 	// from identity. That key is allowed to appear; the schema-known set
 	// must match exactly.
 	wantSchemaPresent := []string{
-		tikipkg.FieldStatus,
-		tikipkg.FieldPriority,
-		tikipkg.FieldDependsOn,
-		tikipkg.FieldTags,
+		"status",
+		"priority",
+		"dependsOn",
+		"tags",
 	}
 	for _, k := range wantSchemaPresent {
 		if !got.Has(k) {
@@ -82,9 +82,9 @@ func TestFieldMapRoundTrip_ExactPresenceAcrossSaveLoad(t *testing.T) {
 		}
 	}
 	allWorkflowKeys := []string{
-		tikipkg.FieldStatus, tikipkg.FieldType, tikipkg.FieldPriority, tikipkg.FieldPoints,
-		tikipkg.FieldTags, tikipkg.FieldDependsOn, tikipkg.FieldDue, tikipkg.FieldRecurrence,
-		tikipkg.FieldAssignee,
+		"status", "type", "priority", "points",
+		"tags", "dependsOn", "due", "recurrence",
+		"assignee",
 	}
 	for _, k := range allWorkflowKeys {
 		shouldBePresent := false
@@ -101,18 +101,18 @@ func TestFieldMapRoundTrip_ExactPresenceAcrossSaveLoad(t *testing.T) {
 	}
 
 	// And the values for the keys we set are intact.
-	if status, _, _ := got.StringField(tikipkg.FieldStatus); status != "inbox" {
+	if status, _, _ := got.StringField("status"); status != "inbox" {
 		t.Errorf("status drift: %q", status)
 	}
-	if pri, _, _ := got.StringField(tikipkg.FieldPriority); pri != "medium-high" {
+	if pri, _, _ := got.StringField("priority"); pri != "medium-high" {
 		t.Errorf("priority drift: %q", pri)
 	}
-	deps, _, _ := got.StringSliceField(tikipkg.FieldDependsOn)
+	deps, _, _ := got.StringSliceField("dependsOn")
 	sort.Strings(deps)
 	if !reflect.DeepEqual(deps, []string{"DEP001"}) {
 		t.Errorf("dependsOn drift: %v", deps)
 	}
-	tags, _, _ := got.StringSliceField(tikipkg.FieldTags)
+	tags, _, _ := got.StringSliceField("tags")
 	sort.Strings(tags)
 	if !reflect.DeepEqual(tags, []string{"alpha", "beta"}) {
 		t.Errorf("tags drift: %v", tags)

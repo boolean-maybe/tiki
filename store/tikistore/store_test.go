@@ -32,8 +32,8 @@ func TestSearchTikis_MatchesID(t *testing.T) {
 		tk := tikipkg.New()
 		tk.SetID(id)
 		tk.SetTitle(title)
-		tk.Set(tikipkg.FieldStatus, status)
-		tk.Set(tikipkg.FieldPriority, priority)
+		tk.Set("status", status)
+		tk.Set("priority", priority)
 		return tk
 	}
 	store := &TikiStore{
@@ -58,8 +58,8 @@ func TestSearchTikis_MatchesBody(t *testing.T) {
 		tk.SetID(id)
 		tk.SetTitle(title)
 		tk.SetBody(body)
-		tk.Set(tikipkg.FieldStatus, status)
-		tk.Set(tikipkg.FieldPriority, priority)
+		tk.Set("status", status)
+		tk.Set("priority", priority)
 		return tk
 	}
 	// Description maps to Body in tiki model.
@@ -85,25 +85,36 @@ func TestSearchTikis_MatchesBody(t *testing.T) {
 	}
 }
 
-// TestSearchTikis_MatchesTags verifies the disk-backed store's SearchTikis
-// also queries the tags slice — not just id/title/body — so a tag-only
-// query surfaces tikis whose other text fields don't mention the term.
-func TestSearchTikis_MatchesTags(t *testing.T) {
-	mk := func(id, title, body string, tags []string) *tikipkg.Tiki {
+func TestSearchTikis_MatchesStringListFields(t *testing.T) {
+	fields := teststatuses.CanonicalFields()
+	for i := range fields {
+		if fields[i].Name == "tags" {
+			fields[i].Type = workflow.TypeString
+			fields[i].DefaultValue = nil
+		}
+	}
+	fields = append(fields, workflow.FieldDef{Name: "labels", Type: workflow.TypeListString})
+	config.ResetWorkflowFieldsForTest(fields)
+	t.Cleanup(teststatuses.Init)
+
+	mk := func(id, title, body string, labels []string) *tikipkg.Tiki {
 		tk := tikipkg.New()
 		tk.SetID(id)
 		tk.SetTitle(title)
 		tk.SetBody(body)
-		if tags != nil {
-			tk.Set(tikipkg.FieldTags, tags)
+		if labels != nil {
+			tk.Set("labels", labels)
 		}
 		return tk
 	}
+	formerName := mk("TAG004", "Former name", "no match", nil)
+	formerName.Set("tags", []string{"legacy-only"})
 	store := &TikiStore{
 		tikis: makeTikiMap(
 			mk("TAG001", "Unrelated Title", "Unrelated body", []string{"backend", "perf"}),
 			mk("TAG002", "Different Title", "Different body", []string{"frontend"}),
-			mk("TAG003", "Untagged", "no tag", nil),
+			mk("TAG003", "No labels", "no match", nil),
+			formerName,
 		),
 	}
 
@@ -113,17 +124,20 @@ func TestSearchTikis_MatchesTags(t *testing.T) {
 		for i, r := range results {
 			ids[i] = r.ID()
 		}
-		t.Fatalf("tag-only query: got %v, want [TAG001]", ids)
+		t.Fatalf("string-list-only query: got %v, want [TAG001]", ids)
 	}
 
-	// Case-insensitive substring match on a tag also surfaces the tiki.
+	// Case-insensitive substring matching applies to list values.
 	if results := store.SearchTikis("FRONT", nil); len(results) != 1 || results[0].ID() != "TAG002" {
-		t.Errorf("case-insensitive tag substring did not match: got %d results", len(results))
+		t.Errorf("case-insensitive list substring did not match: got %d results", len(results))
 	}
 
-	// A query that misses every tag, title, body, and id returns nothing.
+	// A query that misses every list value, title, body, and id returns nothing.
 	if results := store.SearchTikis("nomatch", nil); len(results) != 0 {
 		t.Errorf("non-matching query returned results: %v", results)
+	}
+	if results := store.SearchTikis("legacy-only", nil); len(results) != 0 {
+		t.Errorf("undeclared former field name returned results: %v", results)
 	}
 }
 
@@ -247,7 +261,7 @@ Tiki description`,
 					t.Fatal("loadTikiFile() returned nil tiki")
 				}
 
-				dependsOn, present, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
+				dependsOn, present, _ := tk.StringSliceField("dependsOn")
 				if !present {
 					dependsOn = []string{}
 				}
@@ -434,7 +448,7 @@ Tiki description`,
 				}
 
 				// Verify tags
-				tags, present, _ := tk.StringSliceField(tikipkg.FieldTags)
+				tags, present, _ := tk.StringSliceField("tags")
 				if !present {
 					tags = []string{}
 				}
@@ -446,11 +460,11 @@ Tiki description`,
 				if tk.Title() != "Test Tiki" {
 					t.Errorf("Title = %q, expected %q", tk.Title(), "Test Tiki")
 				}
-				typeStr, _, _ := tk.StringField(tikipkg.FieldType)
+				typeStr, _, _ := tk.StringField("type")
 				if typeStr != "story" {
 					t.Errorf("type = %q, expected %q", typeStr, "story")
 				}
-				statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
+				statusStr, _, _ := tk.StringField("status")
 				if statusStr != "inbox" {
 					t.Errorf("status = %q, expected %q", statusStr, "inbox")
 				}
@@ -583,7 +597,7 @@ Tiki description`,
 				return
 			}
 
-			due, _, _ := tk.TimeField(tikipkg.FieldDue)
+			due, _, _ := tk.TimeField("due")
 			if tt.expectZero {
 				if !due.IsZero() {
 					t.Errorf("expected zero due time, got = %v", due)
@@ -693,7 +707,7 @@ Tiki description`,
 				return
 			}
 
-			recStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
+			recStr, _, _ := tk.StringField("recurrence")
 			if recurrence.Recurrence(recStr) != tt.expectValue {
 				t.Errorf("recurrence got = %q, expected %q", recStr, tt.expectValue)
 			}
@@ -736,7 +750,7 @@ func TestSaveTiki_Recurrence(t *testing.T) {
 			tk.Set("priority", "medium")
 			tk.SetBody("Test description")
 			if tt.recurrence != recurrence.RecurrenceNone {
-				tk.Set(tikipkg.FieldRecurrence, string(tt.recurrence))
+				tk.Set("recurrence", string(tt.recurrence))
 			}
 
 			if err := store.CreateTiki(tk); err != nil {
@@ -764,7 +778,7 @@ func TestSaveTiki_Recurrence(t *testing.T) {
 				t.Fatal("GetTiki() returned nil")
 				return
 			}
-			recStr, _, _ := loaded.StringField(tikipkg.FieldRecurrence)
+			recStr, _, _ := loaded.StringField("recurrence")
 			if recurrence.Recurrence(recStr) != tt.recurrence {
 				t.Errorf("round-trip failed: saved %q, loaded %q", tt.recurrence, recStr)
 			}
@@ -852,7 +866,7 @@ func TestSearchTikis_WithFilterFunc(t *testing.T) {
 		tk := tikipkg.New()
 		tk.SetID(id)
 		tk.SetTitle(title)
-		tk.Set(tikipkg.FieldPriority, priority)
+		tk.Set("priority", priority)
 		return tk
 	}
 	buildStore := func() *TikiStore {
@@ -958,7 +972,7 @@ func TestSaveTiki_Due(t *testing.T) {
 			tk.Set("priority", "medium")
 			tk.SetBody("Test description")
 			if !dueTime.IsZero() {
-				tk.Set(tikipkg.FieldDue, dueTime)
+				tk.Set("due", dueTime)
 			}
 
 			// Save tiki
@@ -987,7 +1001,7 @@ func TestSaveTiki_Due(t *testing.T) {
 			if loadedTk == nil {
 				t.Fatal("GetTiki() returned nil")
 			}
-			due, _, _ := loadedTk.TimeField(tikipkg.FieldDue)
+			due, _, _ := loadedTk.TimeField("due")
 			if !due.Equal(dueTime) {
 				t.Errorf("round-trip failed: saved %v, loaded %v", dueTime, due)
 			}
@@ -1018,9 +1032,9 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 	original := tikipkg.New()
 	original.SetID("CUSTOM")
 	original.SetTitle("Custom field test")
-	original.Set(tikipkg.FieldStatus, "ready")
-	original.Set(tikipkg.FieldType, "story")
-	original.Set(tikipkg.FieldPriority, "medium-high")
+	original.Set("status", "ready")
+	original.Set("type", "story")
+	original.Set("priority", "medium-high")
 	original.Set("severity", "high")
 	original.Set("score", 42)
 	original.Set("active", true)
@@ -1060,7 +1074,7 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 	if loaded.Title() != "Custom field test" {
 		t.Errorf("title = %q, want %q", loaded.Title(), "Custom field test")
 	}
-	priority, _, _ := loaded.StringField(tikipkg.FieldPriority)
+	priority, _, _ := loaded.StringField("priority")
 	if priority != "medium-high" {
 		t.Errorf("priority = %q, want %q", priority, "medium-high")
 	}
@@ -1185,9 +1199,9 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 			original := tikipkg.New()
 			original.SetID("AMBIG1")
 			original.SetTitle("Ambiguous round-trip")
-			original.Set(tikipkg.FieldStatus, "ready")
-			original.Set(tikipkg.FieldType, "story")
-			original.Set(tikipkg.FieldPriority, "medium-high")
+			original.Set("status", "ready")
+			original.Set("type", "story")
+			original.Set("priority", "medium-high")
 			for k, v := range tt.fields {
 				original.Set(k, v)
 			}
@@ -1231,8 +1245,8 @@ func TestSaveTiki_TimestampFieldKeepsTimeComponent(t *testing.T) {
 	original := tikipkg.New()
 	original.SetID("TS0001")
 	original.SetTitle("timestamp roundtrip")
-	original.Set(tikipkg.FieldStatus, "ready")
-	original.Set(tikipkg.FieldType, "story")
+	original.Set("status", "ready")
+	original.Set("type", "story")
 	original.Set("dueBy", want)
 
 	if err := store.saveTiki(original); err != nil {
@@ -1600,11 +1614,11 @@ func TestSaveTiki_DedupesBuiltInCollections(t *testing.T) {
 	input := tikipkg.New()
 	input.SetID("SET001")
 	input.SetTitle("dedupe built-ins")
-	input.Set(tikipkg.FieldType, "story")
-	input.Set(tikipkg.FieldStatus, "inbox")
-	input.Set(tikipkg.FieldPriority, "medium")
-	input.Set(tikipkg.FieldTags, []string{"frontend", "backend", "frontend", " backend "})
-	input.Set(tikipkg.FieldDependsOn, []string{"aaa001", "AAA001", " BBB002 "})
+	input.Set("type", "story")
+	input.Set("status", "inbox")
+	input.Set("priority", "medium")
+	input.Set("tags", []string{"frontend", "backend", "frontend", " backend "})
+	input.Set("dependsOn", []string{"aaa001", "AAA001", " BBB002 "})
 	input.SetBody("body")
 
 	if err := store.saveTiki(input); err != nil {
@@ -1616,11 +1630,11 @@ func TestSaveTiki_DedupesBuiltInCollections(t *testing.T) {
 		t.Fatalf("loadTikiFile: %v", err)
 	}
 
-	tags, _, _ := loaded.StringSliceField(tikipkg.FieldTags)
+	tags, _, _ := loaded.StringSliceField("tags")
 	if !reflect.DeepEqual(tags, []string{"backend", "frontend"}) {
 		t.Errorf("loaded tags = %v, want [backend frontend]", tags)
 	}
-	dependsOn, _, _ := loaded.StringSliceField(tikipkg.FieldDependsOn)
+	dependsOn, _, _ := loaded.StringSliceField("dependsOn")
 	if !reflect.DeepEqual(dependsOn, []string{"AAA001", "BBB002"}) {
 		t.Errorf("loaded dependsOn = %v, want [AAA001 BBB002]", dependsOn)
 	}
@@ -1646,9 +1660,9 @@ func TestSaveTiki_DedupesCustomListFields(t *testing.T) {
 	input := tikipkg.New()
 	input.SetID("SET002")
 	input.SetTitle("dedupe custom")
-	input.Set(tikipkg.FieldType, "story")
-	input.Set(tikipkg.FieldStatus, "inbox")
-	input.Set(tikipkg.FieldPriority, "medium")
+	input.Set("type", "story")
+	input.Set("status", "inbox")
+	input.Set("priority", "medium")
 	input.Set("labels", []string{"backend", "backend", " frontend ", ""})
 	input.Set("related", []string{"aaa001", "AAA001", "bbb002"})
 

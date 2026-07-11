@@ -17,8 +17,9 @@ type TikiReadStore interface {
 	NewTikiTemplate() (*tiki.Tiki, error)
 
 	// SearchTikis searches all tikis with an optional tiki-native filter.
-	// query matches against id, title, and body. filter is applied before
-	// the text match; nil means no pre-filter. Results sorted by title then id.
+	// query matches id, title, body, and workflow-declared string-list values.
+	// filter is applied before the text match; nil means no pre-filter. Results
+	// are sorted by title then id.
 	SearchTikis(query string, filter func(*tiki.Tiki) bool) []*tiki.Tiki
 }
 

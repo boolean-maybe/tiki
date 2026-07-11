@@ -14,25 +14,25 @@ type ValueType int
 
 const (
 	TypeString     ValueType = iota
-	TypeInt                  // numeric (priority, points)
-	TypeDate                 // midnight-UTC date (e.g. due)
+	TypeInt                  // numeric
+	TypeDate                 // midnight-UTC date
 	TypeTimestamp            // full timestamp (e.g. createdAt, updatedAt)
 	TypeDuration             // reserved for future use
 	TypeBool                 // reserved for future use
 	TypeID                   // bare document identifier (^[A-Z0-9]{6}$)
 	TypeRef                  // reference to another document ID
 	TypeRecurrence           // structured cron-based recurrence pattern
-	TypeListString           // []string (e.g. tags)
-	TypeListRef              // []string of document ID references (e.g. dependsOn)
+	TypeListString           // []string of free-form values
+	TypeListRef              // []string of document ID references
 	TypeEnum                 // enum field with EnumValues metadata
 	TypeUser                 // string with user-picker editor semantics
 )
 
 // IsList reports whether the type is one of the list-valued types
 // (TypeListString or TypeListRef). Both store a []string; the distinction is
-// whether the elements are free strings (tags) or document-ID references
-// (dependsOn). Several renderers/measurers/validators branch on list-ness, so
-// the predicate lives here rather than being re-spelled at each site.
+// whether the elements are free strings or document-ID references. Several
+// renderers/measurers/validators branch on list-ness, so the predicate lives
+// here rather than being re-spelled at each site.
 func (t ValueType) IsList() bool {
 	return t == TypeListString || t == TypeListRef
 }

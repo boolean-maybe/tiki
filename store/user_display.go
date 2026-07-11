@@ -10,7 +10,7 @@ package store
 //
 // This helper exists so every caller converges on the same projection rule.
 // Earlier duplicate sites that only projected `name` silently ignored
-// email-only identity configurations, which broke `assignee = user()` in
+// email-only identity configurations, which broke `user()` assignments in
 // plugin actions and triggers even when `TIKI_IDENTITY_EMAIL` was set.
 func CurrentUserDisplay(s ReadStore) (string, error) {
 	name, email, err := s.GetCurrentUser()

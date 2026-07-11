@@ -47,7 +47,7 @@ func TestGenericFieldEditors_EndToEndPersistToDisk(t *testing.T) {
 	tk := tikipkg.New()
 	tk.SetID("BUG001")
 	tk.SetTitle("Login fails")
-	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set("status", "ready")
 	if err := tikiStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}

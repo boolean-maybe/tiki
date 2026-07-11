@@ -1,8 +1,8 @@
 # Customization
 
-tiki is highly customizable. `workflow.yaml` lets you define your workflow statuses, types, custom fields, and
-the **views** that shape how documents are displayed and how you interact with them. Statuses define the
-lifecycle stages tasks move through; views decide what you see on each screen (board lanes, list filters,
+tiki is highly customizable. `workflow.yaml` lets you define fields and the **views** that shape how
+documents are displayed and how you interact with them. An enum field can represent lifecycle stages,
+categories, or any other finite domain. Views decide what you see on each screen (board lanes, list filters,
 wiki pages, or a configured tiki detail view) and which keyboard actions are available. This section covers
 both.
 
@@ -26,9 +26,9 @@ description: |
 
 ## Statuses
 
-Workflow statuses are defined in `workflow.yaml` as a `fields:` entry named `status` with `type: enum`.
-Every project must define status values here — there is no hardcoded fallback. See
-[Custom statuses and types](custom-status-type.md). The default `workflow.yaml` ships with:
+A workflow can model lifecycle stages using an enum field. The bundled workflows call that field `status`,
+but the name has no built-in behavior. See [Custom statuses and types](custom-status-type.md). The default
+workflow ships with:
 
 ```yaml
 fields:
@@ -62,9 +62,9 @@ and actions in view definitions must reference valid `value` keys.
 
 ## Types
 
-Task types are defined in `workflow.yaml` as a `fields:` entry named `type` with `type: enum`. A missing
-`type` field is an error. See [Custom statuses and types](custom-status-type.md) for the full validation
-rules. The default `workflow.yaml` ships with:
+A workflow can model task categories using another enum field. The bundled workflows call that field `type`,
+but the name has no built-in behavior. See [Custom statuses and types](custom-status-type.md) for the full
+validation rules. The default workflow ships with:
 
 ```yaml
 fields:
@@ -100,7 +100,7 @@ Creation defaults are derived from `workflow.yaml fields:`. Every field that dec
 contributes one frontmatter key on capture:
 
 - Enum fields apply the value marked `default: true` (in the stock workflow, `status: inbox`, `type: story`).
-- Non-enum fields apply their declared `default:` value (e.g. `points: 1`,
+- Non-enum fields apply their declared `default:` value (e.g. `estimate: 1`,
   `tags: ["idea"]`).
 - Fields with no declared default are absent from the captured frontmatter — the tiki only carries
   what the workflow asked for.
@@ -289,10 +289,10 @@ leftmost (core) fields survive longest and rightmost (optional) content drops fi
 [workflow-format.md](../workflow-format.md) for the full cell vocabulary and the shedding rule.
 
 Any field declared in `workflow.yaml fields:` — plus the audit fields `createdBy`, `createdAt`,
-`updatedAt` — may appear in `layout:`. Fields with typed editors (`status`, `type`, and `priority`
-today) are fully editable in place on a detail view; all other accepted fields render as a generic
-read-only `Label: value` row. Project-specific fields like `severity`, `sprint`, or `blocked`
-therefore work in `layout:` without any code change.
+`updatedAt` — may appear in `layout:`. Fields whose declared semantic type has an implemented editor
+are fully editable in place on a detail view. Unsupported and read-only types still render but are
+skipped during edit traversal. Project-specific fields like `severity`, `sprint`, or `blocked`
+therefore work in `layout:` without name-specific code.
 
 Validation rules — workflow load fails when:
 
@@ -337,10 +337,9 @@ view. `Tab` and `Shift-Tab` traverse the editable layout fields in column-major 
 column top-to-bottom first, then on to the next column left-to-right. Read-only fields render but
 are skipped during traversal. Save and cancel preserve the current edit-session behavior.
 
-Fields whose semantic type has only a stub editor (everything other than `status`, `type`, and
-`priority` today) render in edit mode but are skipped during traversal — pressing Tab walks past
-them. This is intentional: a stub editor that swallowed focus would be confusing without a real
-input widget behind it.
+Fields whose semantic type has only a stub editor render in edit mode but are skipped during
+traversal — pressing Tab walks past them. This is intentional: a stub editor that swallowed focus
+would be confusing without a real input widget behind it.
 
 #### Project-specific fields in detail views
 
@@ -649,19 +648,10 @@ update where id = id() set assignee=user()
 
 #### Supported fields
 
-- `id` - document identifier (bare 6-char uppercase, e.g. `"M7N2XK"`)
-- `title` - task title text
-- `type` - task type (must match a key defined in `workflow.yaml` types)
-- `status` - workflow status (must match a key defined in `workflow.yaml` statuses)
-- `assignee` - assigned user
-- `priority` - workflow enum (e.g. `"high"`, `"medium-high"`, `"medium"`, `"medium-low"`, `"low"` in the bundled kanban; declared in `workflow.yaml`)
-- `points` - story points estimate
-- `tags` - list of tags
-- `dependsOn` - list of document ids this document depends on
-- `due` - due date (YYYY-MM-DD format)
-- `recurrence` - recurrence pattern (cron format)
-- `createdAt` - creation timestamp
-- `updatedAt` - last update timestamp
+- `id` — document identifier (bare 6-character uppercase value, e.g. `"M7N2XK"`)
+- `title` — document title
+- every field declared in `workflow.yaml fields:` — behavior and validation follow its declared type
+- audit fields such as `createdAt` and `updatedAt` are available for reads but not assignments
 
 #### Conditions
 

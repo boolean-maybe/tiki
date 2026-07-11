@@ -56,8 +56,7 @@ Supported by type:
 | Type | `=` / `!=` | Ordering operators |
 |---|---|---|
 | `string` | yes | no |
-| `status` | yes | no |
-| `type` | yes | no |
+| `enum` | yes | no |
 | `id` | yes | no |
 | `ref` | yes | no |
 | `int` | yes | yes |
@@ -104,7 +103,7 @@ The `in` operator has two modes depending on the right-hand side:
 **Substring check** — when the right side is a `string` field:
 
 - checks whether the left side is a substring of the right side
-- both sides must be `string` type (not `status`, `type`, `id`, or `ref`)
+- both sides must be `string` type (not enum, `id`, or `ref`)
 
 Examples:
 
@@ -196,7 +195,7 @@ select where updatedAt - createdAt > 1day
 Invalid examples:
 
 ```sql
-create title="x" points=1 + "a"
+create title="x" estimate=1 + "a"
 select where due = 2026-03-25 + 2026-03-20
 create title="x" dependsOn=dependsOn + tags
 ```
@@ -297,8 +296,9 @@ Runtime notes:
 - `exists(...)` is a non-interactive boolean builtin. Its subquery body is validated recursively.
 - `has(<field>)` is the presence predicate. It returns `true` when the current tiki has an explicit value
   for the named field and `false` when the field is absent. This is the only way to distinguish
-  "absent" from "present with zero value": `where points = 0` only matches tikis whose points was
-  explicitly set to `0`, while `where has(points)` matches any tiki that declares points at all.
+  "absent" from "present with zero value": for an integer field named `estimate`, `where estimate = 0`
+  only matches tikis whose estimate was explicitly set to `0`, while `where has(estimate)` matches
+  any tiki that declares estimate at all.
   A tiki with only `id` and `title` reports every other field as absent, so `select where has(status)`
   is the canonical filter for "show only status-bearing tikis". The argument must be a bare or qualified
   field reference — `has("status")` with a string literal is rejected. Qualifier resolution mirrors

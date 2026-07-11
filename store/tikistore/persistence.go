@@ -143,22 +143,7 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 		tk.MarkStaleForPersistence(k)
 	}
 
-	// Apply post-load clamping on the Tiki's Fields map. Only runs when
-	// at least one workflow-declared field is present; tikis without any
-	// workflow fields keep their zero values intact.
-	//
-	// NOTE: We intentionally do NOT inject a default "type" here even for
-	// files that omit it. The tiki Fields map must faithfully reflect
-	// what is on disk (exact-presence); applying a default type would
-	// leak "type" into the frontmatter for files that never had it.
-	// Defaults for display and query are resolved at the read sites that
-	// need them (e.g. workflow.Field("type").EnumDefault()) rather than
-	// being baked into the loaded tiki.
-	// priority and points are now workflow enums; out-of-domain values are
-	// caught by workflow.IsValidEnum in coercion paths. The legacy numeric
-	// clamps that lived here were removed when these fields became TypeEnum.
-
-	// Compute UpdatedAt as max(file_mtime, last_git_commit_time)
+	// compute UpdatedAt as max(file_mtime, last_git_commit_time)
 	tk.SetUpdatedAt(info.ModTime())
 	if lastCommitMap != nil {
 		relPath := relPathForLookup(s.dir, path)
@@ -196,8 +181,6 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 			}
 		}
 	}
-
-	s.upgrader.UpgradeTiki(tk)
 
 	return tk, nil
 }

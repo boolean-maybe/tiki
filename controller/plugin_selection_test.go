@@ -15,6 +15,21 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
+func TestBuildDetailViewParams_EditCarriesGenericFocus(t *testing.T) {
+	action := &plugin.PluginAction{
+		Mode:  plugin.DetailModeEdit,
+		Focus: "labels",
+	}
+
+	params, ok := buildDetailViewParams(action, []string{"ABC123"}, nil, nil)
+	if !ok {
+		t.Fatal("buildDetailViewParams returned false")
+	}
+	if params.Focus != model.EditField("labels") {
+		t.Fatalf("focus = %q, want labels", params.Focus)
+	}
+}
+
 // seedTiki creates a workflow tiki with the given id/title/status/priority and
 // adds it to the store. priority is now a workflow-enum key — callers that
 // previously passed an int rank should pass the canonical key (e.g. "high").
@@ -87,8 +102,8 @@ func newNavHarness(columns []int, counts []int) *navHarness {
 			tk := tikipkg.New()
 			tk.SetID(fmt.Sprintf("T-%d-%d", lane, i))
 			tk.SetTitle("Tiki")
-			tk.Set(tikipkg.FieldStatus, "ready")
-			tk.Set(tikipkg.FieldType, "story")
+			tk.Set("status", "ready")
+			tk.Set("type", "story")
 			tikis[i] = tk
 		}
 		byLane[lane] = tikis
@@ -1182,6 +1197,34 @@ func TestPluginController_GetFilteredTikisForLane_WithSearchNarrowing(t *testing
 	}
 	if tikis[0].ID() != "0000T1" {
 		t.Errorf("expected T-1, got %s", tikis[0].ID())
+	}
+}
+
+func TestPluginController_SearchNarrowingPreservesDeclaredOrder(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Alpha", "ready", 3)
+	seedTiki(t, tikiStore, "0000T2", "Beta", "ready", 3)
+
+	readyFilter := mustParseStmt(t, `select where status = "ready" order by title desc`)
+	pluginDef := &plugin.WorkflowPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSearchResults(tikiStore.GetAllTikis(), "all")
+
+	schema := rukiRuntime.NewSchema()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+
+	tikis := pc.GetFilteredTikisForLane(0)
+	if len(tikis) != 2 {
+		t.Fatalf("expected 2 tikis with search narrowing, got %d", len(tikis))
+	}
+	if tikis[0].Title() != "Beta" {
+		t.Fatalf("search narrowing changed declared order; first title = %q, want Beta", tikis[0].Title())
 	}
 }
 

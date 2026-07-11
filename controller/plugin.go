@@ -359,11 +359,14 @@ func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
 // buildDetailViewParams encodes the per-mode dispatch contract shared by
 // PluginController.handleViewAction and DetailController.dispatchViewAction.
 // For mode: new it synthesizes a fresh draft from the store; for the other
-// four modes it threads the carried selection (if any) and the appropriate
+// modes it threads the carried selection (if any) and the appropriate
 // focus field. Returns false when a mode requires a single selection and
 // none was provided, or when draft synthesis fails.
 func buildDetailViewParams(pa *plugin.PluginAction, ids []string, s store.Store, exec *PluginExecutor) (model.PluginViewParams, bool) {
-	pvp := model.PluginViewParams{Mode: pa.Mode}
+	pvp := model.PluginViewParams{
+		Mode:  pa.Mode,
+		Focus: model.EditField(pa.Focus),
+	}
 	switch pa.Mode {
 	case plugin.DetailModeNew:
 		draft, err := newModeDraft(pa, s, exec)
@@ -379,12 +382,6 @@ func buildDetailViewParams(pa *plugin.PluginAction, ids []string, s store.Store,
 		}
 		pvp.TikiID = ids[0]
 		pvp.Focus = model.EditFieldDescription
-	case plugin.DetailModeEditTags:
-		if len(ids) != 1 {
-			return model.PluginViewParams{}, false
-		}
-		pvp.TikiID = ids[0]
-		pvp.Focus = model.EditFieldTags
 	default:
 		// "", view, edit
 		if len(ids) == 1 {
@@ -488,7 +485,7 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 		return "", nil, false
 	}
 	candidateTikis := tikipkg.UnwrapDocs(candidateDocs)
-	sortTikisByPriorityTitle(candidateTikis)
+	sortTikisByTitle(candidateTikis)
 	return pa.Label, candidateTikis, true
 }
 
@@ -619,12 +616,10 @@ func (pc *PluginController) GetFilteredTikisForLane(lane int) []*tikipkg.Tiki {
 			searchTikiMap[tk.ID()] = true
 		}
 		filtered = filterTikisBySearch(filtered, searchTikiMap)
-		// search narrowing disrupts order; re-sort
-		needsSort = true
 	}
 
 	if needsSort {
-		sortTikisByPriorityTitle(filtered)
+		sortTikisByTitle(filtered)
 	}
 	return filtered
 }

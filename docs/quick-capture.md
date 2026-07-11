@@ -11,7 +11,7 @@ in `workflow.yaml fields:` that carries a default contributes one frontmatter ke
 
 - Enum fields apply the value marked `default: true` (typically `status: backlog`, `type: story`,
   `priority: medium`).
-- Non-enum fields apply their declared `default:` value (e.g. `points: 1`, `tags: ["idea"]`).
+- Non-enum fields apply their declared `default:` value (e.g. `estimate: 1`, `tags: ["idea"]`).
 - Fields with no declared default are absent from the captured frontmatter — the tiki only carries
   what the workflow asked for.
 

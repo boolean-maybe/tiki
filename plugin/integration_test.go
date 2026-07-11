@@ -19,10 +19,10 @@ func newWFTiki(id, status string, tags []string) *tikipkg.Tiki {
 	tk := tikipkg.New()
 	tk.SetID(id)
 	if status != "" {
-		tk.Set(tikipkg.FieldStatus, status)
+		tk.Set("status", status)
 	}
 	if len(tags) > 0 {
-		tk.Set(tikipkg.FieldTags, tags)
+		tk.Set("tags", tags)
 	}
 	return tk
 }

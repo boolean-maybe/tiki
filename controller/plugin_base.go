@@ -9,7 +9,6 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // pluginBase holds the shared fields and methods common to plugin controllers.
@@ -390,18 +389,15 @@ func filterTikisBySearch(tikis []*tikipkg.Tiki, searchMap map[string]bool) []*ti
 	return filtered
 }
 
-// sortTikisByPriorityTitle sorts tikis by priority rank (lower rank =
-// declared first = higher urgency), then title (ascending). Absent priority
-// sorts after all declared values so plain documents drop to the bottom of
-// urgency-ordered lists.
-func sortTikisByPriorityTitle(tikis []*tikipkg.Tiki) {
+// sortTikisByTitle sorts tikis by title, then ID for deterministic ordering.
+// Workflow fields do not influence the default order; views that need a
+// field-specific order declare it with `order by`.
+func sortTikisByTitle(tikis []*tikipkg.Tiki) {
 	n := len(tikis)
 	for i := 1; i < n; i++ {
 		for j := i; j > 0; j-- {
-			pi := tikiPriorityForSort(tikis[j])
-			pj := tikiPriorityForSort(tikis[j-1])
 			ti, tj := strings.ToLower(tikis[j].Title()), strings.ToLower(tikis[j-1].Title())
-			if pi < pj || (pi == pj && ti < tj) || (pi == pj && ti == tj && tikis[j].ID() < tikis[j-1].ID()) {
+			if ti < tj || (ti == tj && tikis[j].ID() < tikis[j-1].ID()) {
 				tikis[j], tikis[j-1] = tikis[j-1], tikis[j]
 			} else {
 				break
@@ -409,33 +405,3 @@ func sortTikisByPriorityTitle(tikis []*tikipkg.Tiki) {
 		}
 	}
 }
-
-// tikiPriorityForSort returns a sort rank for the tiki's priority value,
-// reading it as a workflow-enum key. Lower rank = earlier in declaration =
-// higher urgency. Absent or unrecognized values return MaxInt so they sort
-// after all declared keys (consistent with the previous int-based "0 sorts
-// last" semantics now that priority is a string enum).
-func tikiPriorityForSort(tk *tikipkg.Tiki) int {
-	if tk == nil {
-		return absentPriorityRank
-	}
-	key, _, _ := tk.StringField(tikipkg.FieldPriority)
-	if key == "" {
-		return absentPriorityRank
-	}
-	fd, ok := workflow.Field(tikipkg.FieldPriority)
-	if !ok {
-		return absentPriorityRank
-	}
-	for i, k := range fd.AllowedValues() {
-		if k == key {
-			return i
-		}
-	}
-	return absentPriorityRank
-}
-
-// absentPriorityRank sorts absent / unknown priorities after all declared
-// values. Using a large sentinel rather than math.MaxInt keeps the imports
-// lean; the value just needs to exceed any realistic enum cardinality.
-const absentPriorityRank = 1 << 30

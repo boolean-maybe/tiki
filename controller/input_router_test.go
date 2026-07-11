@@ -25,7 +25,7 @@ type adapterEmbeddingInputField struct {
 	*tview.InputField
 }
 
-// adapterEmbeddingTextArea mirrors view/tikidetail.tagsEditAdapter.
+// adapterEmbeddingTextArea mirrors the detail view's string-list adapter.
 type adapterEmbeddingTextArea struct {
 	*tview.TextArea
 }

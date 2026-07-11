@@ -31,8 +31,7 @@ import (
 // The type and its constants are aliases into the tview-free fieldmeta leaf, so
 // the editability tables there and the renderer/editor registry here key off
 // exactly the same values. SemanticEnum is the unified renderer/editor for any
-// TypeEnum field — status, type, priority, and any user-declared enums in
-// workflow.yaml all route through it.
+// TypeEnum field declared in workflow.yaml.
 type SemanticType = fieldmeta.SemanticType
 
 const (
@@ -66,9 +65,8 @@ type FieldRenderer func(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitiv
 //
 // CycleValue advances the widget's value by `direction` steps (typically +1
 // for Down/next, -1 for Up/prev). Returns true when the cycle was applied
-// (e.g. moved to a new option, incremented an integer), false when the
-// widget refuses (e.g. due editor in read-only mode when recurrence is set,
-// or a non-cyclable widget like the tags textarea). Used by both views to
+// (e.g. moved to a new option, incremented an integer), false for a
+// non-cyclable widget. Used by both views to
 // route Up/Down keypresses through a single dispatcher rather than typed
 // per-widget switch tables.
 type FieldEditorWidget interface {
@@ -79,8 +77,8 @@ type FieldEditorWidget interface {
 
 // FieldEditor builds an in-place editor widget for a tiki's current value.
 // onChange fires with the editor's new typed value rendered as a string.
-// Each factory owns the typed→string conversion (e.g. strconv.Itoa for
-// points, RecurrenceEdit.GetValue() for recurrence) so the receiver can
+// Each factory owns the typed→string conversion (for example, an integer
+// adapter formats its value in decimal) so the receiver can
 // parse the string back to the typed value at the receive boundary.
 type FieldEditor func(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget
 
@@ -88,7 +86,7 @@ type FieldEditor func(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(st
 // column width. Single-row types return 1; list types return 1 + wrapped
 // content rows. The grid solver clamps the result against the anchor's
 // declared row span.
-type FieldHeightFn func(tk *tikipkg.Tiki, width int) int
+type FieldHeightFn func(name string, tk *tikipkg.Tiki, width int) int
 
 // FieldEmptyFn reports whether tk holds no value for the named field. It is the
 // typed emptiness predicate (date→IsZero, list→len==0, string→==""), keyed off
@@ -142,8 +140,8 @@ type FieldDescriptor struct {
 	// EmptyPlaceholder is the text shown when the field has no value. Empty
 	// string means the default "─". Enum renderers treat it as a marker that
 	// is styled with the muted role at render time (see renderEnumValue);
-	// text renderers emit it verbatim. This replaces the per-field-name
-	// switches that previously special-cased assignee/createdBy/type.
+	// text renderers emit it verbatim. This replaces per-field-name
+	// placeholder switches.
 	EmptyPlaceholder string
 }
 
@@ -168,19 +166,15 @@ func LookupType(t SemanticType) (TypeUI, bool) {
 	return ui, ok
 }
 
-// FieldHeight resolves descriptor → type → HeightFn for a field. Single-row
-// types and unknown fields return 1, ensuring an empty list-field still
-// reserves a row for its "(none)" placeholder.
+// FieldHeight resolves workflow type → HeightFn for a field. Single-row types
+// and unknown fields return 1, ensuring an empty list field still reserves a
+// row for its placeholder.
 func FieldHeight(name string, tk *tikipkg.Tiki, width int) int {
-	fd, ok := LookupField(name)
-	if !ok {
-		return 1
-	}
-	ui, ok := LookupType(fd.Semantic)
+	ui, ok := resolvedTypeUI(name)
 	if !ok || ui.HeightFn == nil {
 		return 1
 	}
-	return ui.HeightFn(tk, width)
+	return ui.HeightFn(name, tk, width)
 }
 
 // MeasureFieldValue returns the visible content width (in cells) of a field's
@@ -190,10 +184,10 @@ func FieldHeight(name string, tk *tikipkg.Tiki, width int) int {
 // not count toward the width. Unknown fields measure 0 (the solver floors at 1).
 //
 // The two list types measure differently because they render differently:
-//   - stringList (e.g. tags) renders as a word-wrapping column, so its useful
+//   - stringList renders as a word-wrapping column, so its useful
 //     width is the longest single token — the comma-joined length would
 //     massively over-reserve and wrongly squeeze neighbours.
-//   - tikiIdList (e.g. dependsOn) renders one non-wrapping "ID title" row per
+//   - tikiIdList renders one non-wrapping "ID title" row per
 //     id, so its useful width is the widest such row. Measuring only the id
 //     token here under-reserved the column and the rendered title clipped
 //     against the box frame — the measure must see what tikiIDListColumn draws.
@@ -412,7 +406,7 @@ func MeasureAnchor(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext
 		// a single-row composite draws through the truncating value view, which
 		// reserves one right-edge cell (width-1). Add it back so the solver
 		// reserves content+1 — mirroring scalarCellWidth / the literal +1 — else
-		// a composite that exactly fills its column clips (e.g. the Detail Status
+		// a composite that exactly fills its column clips (e.g. a detail enum
 		// cell "In Progress ⚙️" rendered "In Progress …").
 		return tview.TaggedStringWidth(buildCompositeText(a, tk, ctx)) + scalarBreathingCell
 	case gridlayout.AnchorLiteral:
@@ -452,81 +446,6 @@ func editFocusMarkerReserve(name string, ctx FieldRenderContext) int {
 
 // registerBuiltinFields wires the workflow-declared fields into the registry.
 func registerBuiltinFields() {
-	fieldRegistry[tikipkg.FieldStatus] = FieldDescriptor{
-		Name:            tikipkg.FieldStatus,
-		Label:           "Status",
-		Semantic:        SemanticEnum,
-		EditField:       model.EditFieldStatus,
-		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldStatus); return v },
-		EditTraversable: true,
-	}
-	fieldRegistry[tikipkg.FieldType] = FieldDescriptor{
-		Name:            tikipkg.FieldType,
-		Label:           "Type",
-		Semantic:        SemanticEnum,
-		EditField:       model.EditFieldType,
-		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldType); return v },
-		EditTraversable: true,
-		// muted styling is applied at render time from ctx.Roles (renderEnumValue);
-		// the descriptor holds only the literal marker so registration stays
-		// theme-independent (registerBuiltinFields runs in init(), before SetTheme).
-		EmptyPlaceholder: "(none)",
-	}
-	fieldRegistry[tikipkg.FieldPriority] = FieldDescriptor{
-		Name:            tikipkg.FieldPriority,
-		Label:           "Priority",
-		Semantic:        SemanticEnum,
-		EditField:       model.EditFieldPriority,
-		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldPriority); return v },
-		EditTraversable: true,
-	}
-	fieldRegistry[tikipkg.FieldPoints] = FieldDescriptor{
-		Name:            tikipkg.FieldPoints,
-		Label:           "Points",
-		Semantic:        SemanticEnum,
-		EditField:       model.EditFieldPoints,
-		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldPoints); return v },
-		EditTraversable: true,
-	}
-	fieldRegistry[tikipkg.FieldAssignee] = FieldDescriptor{
-		Name:            tikipkg.FieldAssignee,
-		Label:           "Assignee",
-		Semantic:        SemanticText,
-		EditField:       model.EditFieldAssignee,
-		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldAssignee); return v },
-		EditTraversable: true,
-	}
-	fieldRegistry[tikipkg.FieldDue] = FieldDescriptor{
-		Name:            tikipkg.FieldDue,
-		Label:           "Due",
-		Semantic:        SemanticDate,
-		EditField:       model.EditFieldDue,
-		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.TimeField(tikipkg.FieldDue); return v },
-		EditTraversable: true,
-	}
-	fieldRegistry[tikipkg.FieldRecurrence] = FieldDescriptor{
-		Name:            tikipkg.FieldRecurrence,
-		Label:           "Recurrence",
-		Semantic:        SemanticRecurrence,
-		EditField:       model.EditFieldRecurrence,
-		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldRecurrence); return v },
-		EditTraversable: true,
-	}
-	fieldRegistry[tikipkg.FieldTags] = FieldDescriptor{
-		Name:            tikipkg.FieldTags,
-		Label:           "Tags",
-		Semantic:        SemanticStringList,
-		EditField:       model.EditFieldTags,
-		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringSliceField(tikipkg.FieldTags); return v },
-		EditTraversable: true,
-	}
-	fieldRegistry[tikipkg.FieldDependsOn] = FieldDescriptor{
-		Name:            tikipkg.FieldDependsOn,
-		Label:           "Depends On",
-		Semantic:        SemanticTikiIDList,
-		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn); return v },
-		EditTraversable: true,
-	}
 	fieldRegistry["createdBy"] = FieldDescriptor{
 		Name:             "createdBy",
 		Label:            "Author",
@@ -600,7 +519,7 @@ func registerBuiltinTypes() {
 	}
 	typeRegistry[SemanticDate] = TypeUI{
 		Render:           renderDateValue,
-		Edit:             editDueValue,
+		Edit:             editDateValue,
 		HeightFn:         singleRowHeight,
 		IsEmpty:          timeFieldEmpty,
 		EmptyPlaceholder: "None",
@@ -636,7 +555,7 @@ func registerBuiltinTypes() {
 	}
 	typeRegistry[SemanticStringList] = TypeUI{
 		Render:           renderStringListValue,
-		Edit:             editTagsValue,
+		Edit:             editStringListValue,
 		HeightFn:         stringListHeight,
 		IsEmpty:          listFieldEmpty,
 		EmptyPlaceholder: "(none)",
@@ -749,41 +668,40 @@ func emptyPlaceholder(name string, semantic SemanticType) string {
 }
 
 // singleRowHeight is the HeightFn for fixed one-line fields.
-func singleRowHeight(_ *tikipkg.Tiki, _ int) int { return 1 }
+func singleRowHeight(_ string, _ *tikipkg.Tiki, _ int) int { return 1 }
 
 // stringListHeight uses WordList wrap to compute the wrapped row count. The
 // list-value column carries no padding, so the wrap width is the column width
-// as-is. Returns 1 for empty tags so the "(none)" placeholder still gets a row.
-func stringListHeight(tk *tikipkg.Tiki, width int) int {
-	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
-	if len(tags) == 0 {
+// as-is. Returns 1 for an empty list so the placeholder still gets a row.
+func stringListHeight(name string, tk *tikipkg.Tiki, width int) int {
+	values, _, _ := tk.StringSliceField(name)
+	if len(values) == 0 {
 		return 1
 	}
 	inner := width
 	if inner < 1 {
 		inner = 1
 	}
-	wrapped := component.NewWordList(tags).WrapWords(inner)
+	wrapped := component.NewWordList(values).WrapWords(inner)
 	if len(wrapped) == 0 {
 		return 1
 	}
 	return len(wrapped)
 }
 
-// tikiIDListHeight returns the dependency row count, capped at
-// TikiListMetadataMaxRows. Counts every declared dependency (resolved or
-// not) because the renderer emits one row per id even when unresolved
-// (placeholder display).
-func tikiIDListHeight(tk *tikipkg.Tiki, _ int) int {
-	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
-	if len(deps) == 0 {
+// tikiIDListHeight returns the reference row count, capped at
+// TikiListMetadataMaxRows. It counts unresolved references because the renderer
+// emits a placeholder row for each ID.
+func tikiIDListHeight(name string, tk *tikipkg.Tiki, _ int) int {
+	references, _, _ := tk.StringSliceField(name)
+	if len(references) == 0 {
 		return 1
 	}
-	depRows := len(deps)
-	if depRows > config.TikiListMetadataMaxRows {
-		depRows = config.TikiListMetadataMaxRows
+	rows := len(references)
+	if rows > config.TikiListMetadataMaxRows {
+		rows = config.TikiListMetadataMaxRows
 	}
-	return depRows
+	return rows
 }
 
 // listFieldCountText returns the item count of a list-typed field as a string
@@ -806,16 +724,26 @@ func listFieldCountText(name string, tk *tikipkg.Tiki) string {
 // any other value. Load-time validation guarantees the field is list-typed.
 //
 // Workflow-declared TypeEnum fields are routed to the SemanticEnum renderer
-// even when they don't have a built-in FieldDescriptor — so user-declared
-// enums (e.g. severity in bug-tracker.yaml) get the same display-with-emoji
-// rendering and focus-aware coloring as the canonical status/type/priority.
+// even when they don't have a FieldDescriptor, so every enum gets the same
+// display-with-emoji rendering and focus-aware coloring.
 func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if ctx.Display == gridlayout.DisplayCount {
 		return valueOnlyLine(listFieldCountText(name, tk), ctx.Roles)
 	}
-	if wfd, ok := workflow.Field(name); ok && wfd.Type == workflow.TypeUser {
+	if wfd, ok := workflow.Field(name); ok {
 		ctx.FieldName = wfd.Name
-		return renderUserValue(tk, ctx)
+		switch wfd.Type {
+		case workflow.TypeUser:
+			return renderUserValue(tk, ctx)
+		case workflow.TypeDate:
+			return renderDateValue(tk, ctx)
+		case workflow.TypeRecurrence:
+			return renderRecurrenceValue(tk, ctx)
+		case workflow.TypeListString:
+			return renderStringListValue(tk, ctx)
+		case workflow.TypeListRef:
+			return renderTikiIDListValue(tk, ctx)
+		}
 	}
 	if fd, ok := LookupField(name); ok {
 		ui, ok := LookupType(fd.Semantic)
@@ -869,8 +797,8 @@ func fieldRawValue(name string, tk *tikipkg.Tiki) (any, bool) {
 func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRenderContext) string {
 	// a `.count` cell has a well-defined value (0) even when the field is
 	// absent, so it must be resolved before the absent-key dash guard below —
-	// otherwise a project with no dependsOn key renders "— tasks" instead of
-	// "0 tasks". Validated list-only at load, so this is safe for any DisplayCount.
+	// otherwise an absent list field renders a dash instead of zero. Validated
+	// list-only at load, so this is safe for any DisplayCount.
 	if ctx.Display == gridlayout.DisplayCount {
 		return listFieldCountText(fd.Name, tk)
 	}
@@ -1037,12 +965,8 @@ func boolFieldString(tk *tikipkg.Tiki, name string) string {
 }
 
 func renderDateValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	fd, ok := LookupField(ctx.FieldName)
-	if !ok {
-		return placeholderRow("(unknown)")
-	}
-	t, _, _ := tk.TimeField(fd.Name)
-	value := emptyPlaceholder(fd.Name, SemanticDate)
+	t, _, _ := tk.TimeField(ctx.FieldName)
+	value := emptyPlaceholder(ctx.FieldName, SemanticDate)
 	if !t.IsZero() {
 		value = t.Format("2006-01-02")
 	}
@@ -1070,7 +994,7 @@ func textEmptyPlaceholder(name string) string {
 }
 
 func renderRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
+	recurrenceStr, _, _ := tk.StringField(ctx.FieldName)
 	display := recurrence.RecurrenceDisplay(recurrence.Recurrence(recurrenceStr))
 	return valueOnlyLine(display, ctx.Roles)
 }
@@ -1112,16 +1036,12 @@ func widestRecurrenceWidth() int {
 }
 
 // renderEnumValue is the generic read-only renderer for any TypeEnum field.
-// It replaces the per-field renderStatus/renderType/renderPriority helpers:
+// It replaces the former per-field enum renderers:
 // look up the workflow descriptor, format the current value via EnumLabel
 // (preferring the human-readable label over the compact visual), and apply
 // the same focus-aware dim/full color treatment as the legacy renderers.
 //
-// Works for both built-in fields (status/type/priority — which have a
-// FieldDescriptor in the static registry) and workflow-declared custom
-// enums (severity, environment, etc. — which only exist in the workflow
-// catalog). Static descriptor wins for label/EditField identity; falls
-// back to the field name and EditFieldNone for catalog-only fields.
+// The workflow field name is also its edit-focus identity.
 func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	fd, hasFD := LookupField(ctx.FieldName)
 	wfd, hasWFD := workflow.Field(ctx.FieldName)
@@ -1129,10 +1049,7 @@ func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 		return placeholderRow("(unknown)")
 	}
 	name := ctx.FieldName
-	var editField model.EditField // zero value = unset, never matches a real field
-	if hasFD {
-		editField = fd.EditField
-	}
+	editField := model.EditField(name)
 
 	value, _, _ := tk.StringField(name)
 	display := emptyPlaceholder(name, SemanticEnum)
@@ -1171,11 +1088,8 @@ func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 // canonical key (not the display string) on submit so downstream save handlers
 // don't need to round-trip display↔key conversion.
 //
-// Works for both built-in fields (status/type/priority — registered in the
-// static field registry) and workflow-declared custom enums (severity,
-// environment, etc. — present only in the workflow catalog). The workflow
-// FieldDef is the authoritative source for allowed values and display
-// formatting in either case.
+// The workflow FieldDef is the authoritative source for allowed values and
+// display formatting.
 func editEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
 	wfd, ok := workflow.Field(ctx.FieldName)
 	if !ok || wfd.Type != workflow.TypeEnum {
@@ -1211,8 +1125,8 @@ func editEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 
 // renderStringListValue renders a string-list field's value as a word-wrapped
 // column. The field is read by ctx.FieldName so any stringList field renders
-// correctly — not just the canonical tags field. Empty → "(none)" placeholder
-// so the grid's height contract (always ≥ 1 row) holds.
+// correctly. Empty → "(none)" placeholder so the grid's height contract
+// (always ≥ 1 row) holds.
 func renderStringListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	values, _, _ := tk.StringSliceField(ctx.FieldName)
 	if len(values) == 0 {
@@ -1223,10 +1137,9 @@ func renderStringListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primi
 
 // renderTikiIDListValue renders a tiki-id-list field's value as a column of
 // "ID title" rows. The field is read by ctx.FieldName so any tikiIdList field
-// renders correctly — not just the canonical dependsOn field. Each declared ID
-// is resolved against the store; unresolved IDs render as a placeholder row so
-// the rendered row count matches the height contract. Empty → "(none)"; no
-// store → comma-joined IDs as a safe fallback.
+// renders correctly. Each declared ID is resolved against the store; unresolved
+// IDs render as a placeholder row so the rendered row count matches the height
+// contract. Empty → "(none)"; no store → comma-joined IDs as a safe fallback.
 func renderTikiIDListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	ids, _, _ := tk.StringSliceField(ctx.FieldName)
 	if len(ids) == 0 {
@@ -1354,10 +1267,10 @@ func editBooleanValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(st
 	return &boolEditAdapter{selectListAdapter: selectListAdapter{EditSelectList: editor}}
 }
 
-// editDueValue builds the date editor. The widget's onChange fires with
+// editDateValue builds a date editor. The widget's onChange fires with
 // the validated formatted string after each accepted change.
-func editDueValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
-	due, _, _ := tk.TimeField(tikipkg.FieldDue)
+func editDateValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	date, _, _ := tk.TimeField(ctx.FieldName)
 	editor := component.NewDateEdit()
 	editor.SetLabel(getFocusMarker(ctx.Roles))
 	editor.SetChangeHandler(func(s string) {
@@ -1366,17 +1279,11 @@ func editDueValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string
 		}
 	})
 	var initial string
-	if !due.IsZero() {
-		initial = due.Format(value.DateFormat)
+	if !date.IsZero() {
+		initial = date.Format(value.DateFormat)
 	}
 	editor.SetInitialValue(initial)
-	a := &dateEditAdapter{DateEdit: editor}
-	// Read-only when the tiki has a non-empty recurrence: due is auto-computed.
-	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
-	if recurrenceStr != "" && recurrence.Recurrence(recurrenceStr) != recurrence.RecurrenceNone {
-		a.readOnly = true
-	}
-	return a
+	return &dateEditAdapter{DateEdit: editor}
 }
 
 // editDateTimeValue builds the segmented datetime editor. It reads the field's
@@ -1401,7 +1308,7 @@ func editDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(s
 // assembles a canonical cron expression from the freq/value parts; the
 // adapter exposes that as GetText() so the registry boundary stays uniform.
 func editRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
-	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
+	recurrenceStr, _, _ := tk.StringField(ctx.FieldName)
 	editor := component.NewRecurrenceEdit()
 	editor.SetLabel(getFocusMarker(ctx.Roles))
 	editor.SetChangeHandler(func(_ string) {
@@ -1413,24 +1320,24 @@ func editRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func
 	return &recurrenceEditAdapter{RecurrenceEdit: editor}
 }
 
-// editTagsValue builds the tags textarea editor. Tags are whitespace-joined
+// editStringListValue builds a string-list textarea editor. Values are whitespace-joined
 // for transport so a single string round-trips through onChange/GetText.
-func editTagsValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+func editStringListValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
 	textArea := tview.NewTextArea()
 	textArea.SetBorder(false)
-	// no horizontal padding: the tags value cell is sized by the solver to the
+	// no horizontal padding: the list value cell is sized by the solver to the
 	// read-only WordList footprint (no padding — see wordListColumn), so a padded
 	// editor would have an inner width 2 cells narrower than the column the solver
 	// reserved and wrap a seed value mid-word ("idea" → "id"/"ea") the moment focus
-	// landed on tags. The editor's footprint must match its measured width.
+	// landed on the field. The editor's footprint must match its measured width.
 	textArea.SetBorderPadding(0, 0, 0, 0)
-	textArea.SetPlaceholder("space-separated tags")
+	textArea.SetPlaceholder("space-separated values")
 	textArea.SetPlaceholderStyle(tcell.StyleDefault.Foreground(ctx.Roles.TextMuted().TCell()))
 
-	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
-	textArea.SetText(strings.Join(tags, " "), false)
+	values, _, _ := tk.StringSliceField(ctx.FieldName)
+	textArea.SetText(strings.Join(values, " "), false)
 
-	a := &tagsEditAdapter{TextArea: textArea, onChange: onChange}
+	a := &stringListEditAdapter{TextArea: textArea, onChange: onChange}
 	textArea.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyCtrlS {
 			if a.onChange != nil {
@@ -1517,18 +1424,12 @@ func (a *selectListAdapter) CycleValue(direction int) bool {
 	return true
 }
 
-// dateEditAdapter handles read-only suppression: when recurrence is set on
-// the underlying tiki, due is auto-computed and CycleValue refuses to
-// advance the date.
+// dateEditAdapter wraps DateEdit to satisfy FieldEditorWidget.
 type dateEditAdapter struct {
 	*component.DateEdit
-	readOnly bool
 }
 
 func (a *dateEditAdapter) CycleValue(direction int) bool {
-	if a.readOnly {
-		return false
-	}
 	key := tcell.KeyDown
 	if direction < 0 {
 		key = tcell.KeyUp
@@ -1542,9 +1443,7 @@ func (a *dateEditAdapter) GetText() string {
 	return a.GetCurrentText()
 }
 
-// dateTimeEditAdapter wraps DateTimeEdit to satisfy FieldEditorWidget. Unlike
-// the date adapter there is no read-only mode: recurrence-driven auto-compute
-// applies to due (a date field), not to generic datetime fields.
+// dateTimeEditAdapter wraps DateTimeEdit to satisfy FieldEditorWidget.
 type dateTimeEditAdapter struct {
 	*component.DateTimeEdit
 }
@@ -1585,17 +1484,17 @@ func (a *recurrenceEditAdapter) GetText() string {
 	return a.GetValue()
 }
 
-// tagsEditAdapter wraps tview.TextArea — non-cyclable, so CycleValue
+// stringListEditAdapter wraps tview.TextArea — non-cyclable, so CycleValue
 // always returns false.
-type tagsEditAdapter struct {
+type stringListEditAdapter struct {
 	*tview.TextArea
 	onChange func(string)
 }
 
-func (a *tagsEditAdapter) CycleValue(int) bool { return false }
+func (a *stringListEditAdapter) CycleValue(int) bool { return false }
 
-// GetText returns the textarea content (whitespace-joined tags).
-func (a *tagsEditAdapter) GetText() string {
+// GetText returns the textarea content.
+func (a *stringListEditAdapter) GetText() string {
 	return a.TextArea.GetText()
 }
 
@@ -1638,7 +1537,7 @@ func (a *titleEditAdapter) GetText() string {
 
 // descriptionEditAdapter wraps tview.TextArea for the inline description
 // editor surfaced when Tab lands on the description pseudo-field. Mirrors
-// tagsEditAdapter — non-cyclable, GetText returns the textarea content.
+// stringListEditAdapter — non-cyclable, GetText returns the textarea content.
 type descriptionEditAdapter struct {
 	*tview.TextArea
 }

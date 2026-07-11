@@ -5,9 +5,9 @@
 //
 //	layout: |
 //	  title                  | --       | title:fr | --      | --
-//	  <text.label>"Status:"  | status   | tags:fr  | tags:30 | depends:25
+//	  <text.label>"Category:" | category | labels:fr | labels:30 | refs:25
 //	  <text.label>"Type:"    | type     | _        | ^       | ^
-//	  <text.label>"Priority:"| priority | _        | _       | _
+//	  <text.label>"Category:"| category | _        | _       | _
 //
 // Cell vocabulary:
 //

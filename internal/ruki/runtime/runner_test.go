@@ -17,13 +17,13 @@ import (
 func newRunnerTiki(id, title, status, priority, assignee string) *tikipkg.Tiki {
 	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID(id); t.SetTitle(title); return t }()
 	if status != "" {
-		tk.Set(tikipkg.FieldStatus, status)
+		tk.Set("status", status)
 	}
 	if priority != "" {
-		tk.Set(tikipkg.FieldPriority, priority)
+		tk.Set("priority", priority)
 	}
 	if assignee != "" {
-		tk.Set(tikipkg.FieldAssignee, assignee)
+		tk.Set("assignee", assignee)
 	}
 	return tk
 }
@@ -257,8 +257,8 @@ func TestRunQueryUpdateListArithmeticE2E(t *testing.T) {
 	s := setupRunnerTest(t)
 	// set up a tiki with tags
 	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("TIKI-TAG001"); t.SetTitle("Tagged"); return t }()
-	tk.Set(tikipkg.FieldStatus, "ready")
-	tk.Set(tikipkg.FieldTags, []string{"old"})
+	tk.Set("status", "ready")
+	tk.Set("tags", []string{"old"})
 	_ = s.CreateTiki(tk)
 
 	var buf bytes.Buffer
@@ -268,7 +268,7 @@ func TestRunQueryUpdateListArithmeticE2E(t *testing.T) {
 	}
 
 	updated := s.GetTiki("TIKI-TAG001")
-	tags, _, _ := updated.StringSliceField(tikipkg.FieldTags)
+	tags, _, _ := updated.StringSliceField("tags")
 	if len(tags) != 2 || tags[0] != "old" || tags[1] != "new" {
 		t.Errorf("expected tags [old new], got %v", tags)
 	}
@@ -403,7 +403,7 @@ func TestRunQueryCreatePersists(t *testing.T) {
 	if len(found.ID()) != 6 {
 		t.Errorf("ID = %q, want 6-character bare ID", found.ID())
 	}
-	priority, _, _ := found.StringField(tikipkg.FieldPriority)
+	priority, _, _ := found.StringField("priority")
 	if priority != "high" {
 		t.Errorf("priority = %q, want %q", priority, "high")
 	}
@@ -448,12 +448,12 @@ func TestRunQueryCreateTemplateDefaults(t *testing.T) {
 		return
 	}
 	// InMemoryStore template has tags=["idea"], so result should be ["idea", "extra"]
-	tags, _, _ := found.StringSliceField(tikipkg.FieldTags)
+	tags, _, _ := found.StringSliceField("tags")
 	if len(tags) != 2 || tags[0] != "idea" || tags[1] != "extra" {
 		t.Errorf("tags = %v, want [idea extra]", tags)
 	}
 	// priority should be template default ("medium" enum key)
-	priority, _, _ := found.StringField(tikipkg.FieldPriority)
+	priority, _, _ := found.StringField("priority")
 	if priority != "medium" {
 		t.Errorf("priority = %q, want %q (template default)", priority, "medium")
 	}

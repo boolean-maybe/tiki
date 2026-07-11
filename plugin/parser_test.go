@@ -1640,11 +1640,6 @@ actions:
     kind: view
     view: Detail
     mode: edit-desc
-  - key: Ctrl-T
-    label: Edit tags
-    kind: view
-    view: Detail
-    mode: edit-tags
 `
 	plugins, actions, errs := loadPluginsFromYAML(yamlSrc, schema)
 	if len(errs) > 0 {
@@ -1653,12 +1648,12 @@ actions:
 	if len(plugins) != 1 {
 		t.Fatalf("got %d plugins, want 1", len(plugins))
 	}
-	if len(actions) != 5 {
-		t.Fatalf("got %d actions, want 5", len(actions))
+	if len(actions) != 4 {
+		t.Fatalf("got %d actions, want 4", len(actions))
 	}
 	wantModes := []DetailMode{
 		DetailModeView, DetailModeEdit, DetailModeNew,
-		DetailModeEditDesc, DetailModeEditTags,
+		DetailModeEditDesc,
 	}
 	for i, want := range wantModes {
 		if got := actions[i].Mode; got != want {
@@ -1716,13 +1711,101 @@ actions:
 	}
 	found := false
 	for _, err := range errs {
-		if strings.Contains(err, "mode must be one of view, edit, new, edit-desc, edit-tags") {
+		if strings.Contains(err, "mode must be one of view, edit, new, edit-desc") {
 			found = true
 			break
 		}
 	}
 	if !found {
 		t.Errorf("unexpected errors: %v", errs)
+	}
+}
+
+func TestParseViewAction_EditTagsModeRejected(t *testing.T) {
+	yamlSrc := `
+version: "2"
+views:
+  - name: Detail
+    key: d
+    kind: detail
+    layout: status
+actions:
+  - key: e
+    label: Edit
+    kind: view
+    view: Detail
+    mode: edit-tags
+`
+	_, _, errs := loadPluginsFromYAML(yamlSrc, testSchema())
+	if len(errs) == 0 {
+		t.Fatal("expected parse error for field-specific mode")
+	}
+}
+
+func TestParseViewAction_EditModeCarriesGenericFocus(t *testing.T) {
+	yamlSrc := `
+version: "2"
+views:
+  - name: Detail
+    key: d
+    kind: detail
+    layout: tags
+actions:
+  - key: e
+    label: Edit field
+    kind: view
+    view: Detail
+    mode: edit
+    focus: tags
+`
+	_, actions, errs := loadPluginsFromYAML(yamlSrc, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if len(actions) != 1 {
+		t.Fatalf("got %d actions, want 1", len(actions))
+	}
+
+	if actions[0].Focus != "tags" {
+		t.Fatalf("parsed action focus = %q, want tags", actions[0].Focus)
+	}
+}
+
+func TestParseViewAction_FocusRequiresEditMode(t *testing.T) {
+	yamlSrc := `
+version: "2"
+views:
+  - name: Detail
+    key: d
+    kind: detail
+    layout: tags
+actions:
+  - key: e
+    label: Open field
+    kind: view
+    view: Detail
+    mode: view
+    focus: tags
+`
+	_, _, errs := loadPluginsFromYAML(yamlSrc, testSchema())
+	if len(errs) == 0 || !strings.Contains(errs[0], "focus is only valid with mode: edit") {
+		t.Fatalf("errors = %v, want focus/mode validation error", errs)
+	}
+}
+
+func TestParseRukiAction_FocusRejected(t *testing.T) {
+	yamlSrc := `
+version: "2"
+actions:
+  - key: e
+    label: Run
+    kind: ruki
+    action: select
+    focus: tags
+`
+	_, _, errs := loadPluginsFromYAML(yamlSrc, testSchema())
+	if len(errs) == 0 || !strings.Contains(errs[0], "focus: only valid on kind: view actions") {
+		t.Fatalf("errors = %v, want focus/kind validation error", errs)
 	}
 }
 

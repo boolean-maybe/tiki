@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/document"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // GetTiki retrieves a tiki by ID. Returns nil when not found.
@@ -67,7 +68,7 @@ func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 		tk.SetID(normalizeTikiID(tk.ID()))
 	}
 
-	if err := s.validateDependsOnLocked(tk); err != nil {
+	if err := s.validateTikiIDListFieldsLocked(tk); err != nil {
 		return err
 	}
 
@@ -103,8 +104,7 @@ func (s *TikiStore) GetAllTikis() []*tikipkg.Tiki {
 
 // UpdateTiki updates an existing tiki and saves it. The incoming tiki's field
 // set is authoritative (exact presence): fields absent in tk are not carried
-// forward from the stored tiki, so a native or ruki caller that deletes a
-// field (e.g. due, assignee) sees that deletion land on disk.
+// forward from the stored tiki, so deleted fields stay deleted on disk.
 //
 // Tiki-shaped callers that need carry-forward semantics (i.e. a partial Tiki
 // that only sets a few fields) go through UpdateTiki, which performs the
@@ -139,7 +139,7 @@ func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 		tk.LoadedMtime = old.LoadedMtime
 	}
 
-	if err := s.validateDependsOnLocked(tk); err != nil {
+	if err := s.validateTikiIDListFieldsLocked(tk); err != nil {
 		return err
 	}
 
@@ -193,21 +193,24 @@ func (s *TikiStore) deleteTikiLocked(id string) bool {
 	return true
 }
 
-// validateDependsOnLocked checks that all dependsOn IDs reference existing
-// documents in the store. References do not need to be workflow-capable —
-// any loaded document (plain or workflow) is a valid target per Phase 5
-// semantics. IDs must be bare (^[A-Z0-9]{6}$); legacy TIKI-prefixed IDs are
-// rejected.
-// Caller must hold s.mu lock.
-func (s *TikiStore) validateDependsOnLocked(tk *tikipkg.Tiki) error {
-	deps, _, _ := tk.StringSliceField("dependsOn")
-	for _, depID := range deps {
-		normalized := normalizeTikiID(depID)
-		if !idfmt.IsValidID(normalized) {
-			return fmt.Errorf("dependsOn reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", normalized, idfmt.IDLength)
+// validateTikiIDListFieldsLocked checks that references in every workflow-
+// declared tikiIdList field resolve to loaded documents. References may target
+// plain or workflow documents. Caller must hold s.mu lock.
+func (s *TikiStore) validateTikiIDListFieldsLocked(tk *tikipkg.Tiki) error {
+	for _, field := range workflow.WorkflowFields() {
+		if field.Type != workflow.TypeListRef {
+			continue
 		}
-		if _, exists := s.tikis[normalized]; !exists {
-			return fmt.Errorf("dependsOn references non-existent document: %s", normalized)
+		references, _, _ := tk.StringSliceField(field.Name)
+		for _, referenceID := range references {
+			normalized := normalizeTikiID(referenceID)
+			if !idfmt.IsValidID(normalized) {
+				return fmt.Errorf("%s reference %q is not a bare document id (expected %d uppercase alphanumeric chars)",
+					field.Name, normalized, idfmt.IDLength)
+			}
+			if _, exists := s.tikis[normalized]; !exists {
+				return fmt.Errorf("%s references non-existent document: %s", field.Name, normalized)
+			}
 		}
 	}
 	return nil

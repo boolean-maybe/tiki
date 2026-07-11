@@ -7,7 +7,6 @@ import (
 
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/testutil"
-	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -77,7 +76,7 @@ func TestPluginView_MoveTikiAppliesLaneAction(t *testing.T) {
 		return
 	}
 	status, _, _ := updated.StringField("status")
-	tags, _, _ := updated.StringSliceField(tikipkg.FieldTags)
+	tags, _, _ := updated.StringSliceField("tags")
 	if status != "done" {
 		t.Fatalf("expected status done, got %v", status)
 	}
@@ -96,7 +95,7 @@ func TestPluginView_MoveTikiAppliesLaneAction(t *testing.T) {
 		return
 	}
 	status2, _, _ := updated.StringField("status")
-	tags2, _, _ := updated.StringSliceField(tikipkg.FieldTags)
+	tags2, _, _ := updated.StringSliceField("tags")
 	if status2 != "backlog" {
 		t.Fatalf("expected status backlog, got %v", status2)
 	}

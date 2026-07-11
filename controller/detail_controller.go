@@ -2,7 +2,6 @@ package controller
 
 import (
 	"log/slog"
-	"strconv"
 	"strings"
 
 	"github.com/boolean-maybe/ruki"
@@ -62,7 +61,7 @@ type DetailEditableView interface {
 	Layout() []string
 	// FlushFocusedEditor pushes the currently focused editor's value
 	// through its onChange handler. Required before commit because some
-	// editors (notably the tags textarea) only emit on Ctrl+S, and the
+	// buffered textarea editors only emit on Ctrl+S, and the
 	// app-level input router consumes Ctrl+S to dispatch ActionDetailSave
 	// before the focused widget sees it. Without an explicit flush, the
 	// edit-in-progress would be discarded silently.
@@ -154,14 +153,14 @@ type FieldFocusChangeNotifier interface {
 	SetFieldFocusChangeHandler(func(model.EditField))
 }
 
-// titleSaveSetter, descriptionSaveSetter, and tagsSaveSetter are narrow
-// view-side hooks invoked by BindEditView to install the field-specific
+// titleSaveSetter and descriptionSaveSetter are narrow view-side hooks invoked
+// by BindEditView to install the field-specific
 // save / cancel callbacks. The configurable detail view (and any future
 // view) implements only the setters its field set actually exposes —
 // fakes need no opt-in for fields they don't exercise.
 //
 // The save semantics differ by field: title commits-and-closes, while
-// description and tags commit-and-stay so the user can keep editing
+// description commits-and-stays so the user can keep editing
 // after the textarea-style Ctrl-S without the view popping away.
 type titleSaveSetter interface {
 	SetTitleSaveHandler(func(string))
@@ -171,11 +170,6 @@ type titleSaveSetter interface {
 type descriptionSaveSetter interface {
 	SetDescriptionSaveHandler(func(string))
 	SetDescriptionCancelHandler(func())
-}
-
-type tagsSaveSetter interface {
-	SetTagsSaveHandler(func(string))
-	SetTagsCancelHandler(func())
 }
 
 // BindEditView attaches the detail view so the controller can drive
@@ -212,9 +206,9 @@ func (dc *DetailController) BindEditView(v DetailEditableView) {
 }
 
 // wireFieldSaveHandlers installs commit callbacks on the view's
-// title / description / tags editors when the view exposes them.
+// title and description editors when the view exposes them.
 // Title commits-and-closes (Enter on a single-line input ends the edit).
-// Description and tags commit-and-stay so a Ctrl-S inside the textarea
+// description commits-and-stays so a Ctrl-S inside the textarea
 // persists without popping the view.
 func (dc *DetailController) wireFieldSaveHandlers(v DetailEditableView) {
 	if t, ok := v.(titleSaveSetter); ok {
@@ -225,16 +219,12 @@ func (dc *DetailController) wireFieldSaveHandlers(v DetailEditableView) {
 		d.SetDescriptionSaveHandler(func(string) { dc.commitEditNoClose() })
 		d.SetDescriptionCancelHandler(func() { _ = dc.cancelEdit() })
 	}
-	if t, ok := v.(tagsSaveSetter); ok {
-		t.SetTagsSaveHandler(func(string) { dc.commitEditNoClose() })
-		t.SetTagsCancelHandler(func() { _ = dc.cancelEdit() })
-	}
 }
 
 // commitEditNoClose persists the in-flight edit session and immediately
 // re-opens a fresh session against the same tiki, leaving the view in
-// edit mode. Used for description / tags saves where the user typically
-// keeps editing after Ctrl-S.
+// edit mode. Used for description saves where the user typically keeps editing
+// after Ctrl-S.
 func (dc *DetailController) commitEditNoClose() {
 	if dc.editView == nil || dc.editSession == nil {
 		return
@@ -272,22 +262,19 @@ func (dc *DetailController) updateFieldHint(focused model.EditField) {
 	if dc.statusline == nil {
 		return
 	}
-	switch focused {
-	case model.EditFieldStatus, model.EditFieldType, model.EditFieldPriority,
-		model.EditFieldPoints, model.EditFieldDue:
-		dc.statusline.SetMessage("↑↓ change value", model.MessageLevelInfo, false)
-		return
-	case model.EditFieldRecurrence:
-		if nav, ok := dc.editView.(RecurrencePartNavigable); ok && nav.IsRecurrenceValueFocused() {
-			dc.statusline.SetMessage("← edit pattern  ↑↓ change value", model.MessageLevelInfo, false)
-		} else {
-			dc.statusline.SetMessage("↑↓ change pattern  → edit value", model.MessageLevelInfo, false)
+	if wfd, ok := workflow.Field(string(focused)); ok {
+		switch wfd.Type {
+		case workflow.TypeRecurrence:
+			if nav, ok := dc.editView.(RecurrencePartNavigable); ok && nav.IsRecurrenceValueFocused() {
+				dc.statusline.SetMessage("← edit pattern  ↑↓ change value", model.MessageLevelInfo, false)
+			} else {
+				dc.statusline.SetMessage("↑↓ change pattern  → edit value", model.MessageLevelInfo, false)
+			}
+			return
+		case workflow.TypeEnum, workflow.TypeUser, workflow.TypeDate:
+			dc.statusline.SetMessage("↑↓ change value", model.MessageLevelInfo, false)
+			return
 		}
-		return
-	}
-	if wfd, ok := workflow.Field(string(focused)); ok && (wfd.Type == workflow.TypeEnum || wfd.Type == workflow.TypeUser) {
-		dc.statusline.SetMessage("↑↓ change value", model.MessageLevelInfo, false)
-		return
 	}
 	dc.statusline.ClearMessage()
 }
@@ -311,36 +298,9 @@ func (dc *DetailController) wireEditFieldHandlers(v DetailEditableView) {
 	v.SetEditFieldChangeHandler("description", func(text string) {
 		dc.editSession.SaveDescription(text)
 	})
-	v.SetEditFieldChangeHandler(tikipkg.FieldStatus, func(display string) {
-		dc.editSession.SaveStatus(display)
-	})
-	v.SetEditFieldChangeHandler(tikipkg.FieldType, func(display string) {
-		dc.editSession.SaveType(display)
-	})
-	v.SetEditFieldChangeHandler(tikipkg.FieldPriority, func(canonicalKey string) {
-		// SemanticEnum editor emits canonical keys directly; no display→key
-		// conversion needed at the controller boundary.
-		dc.editSession.SavePriority(canonicalKey)
-	})
-	v.SetEditFieldChangeHandler(tikipkg.FieldPoints, func(display string) {
-		// IntEditSelect enforces digits-only input; the err branch is a
-		// defensive guard rather than a user-visible error path.
-		if n, err := strconv.Atoi(display); err == nil {
-			dc.editSession.SavePoints(n)
-		}
-	})
-	v.SetEditFieldChangeHandler(tikipkg.FieldDue, func(display string) {
-		dc.editSession.SaveDue(display)
-	})
-	v.SetEditFieldChangeHandler(tikipkg.FieldRecurrence, func(display string) {
-		dc.editSession.SaveRecurrence(display)
-	})
-	v.SetEditFieldChangeHandler(tikipkg.FieldTags, func(display string) {
-		dc.editSession.SaveTags(strings.Fields(display))
-	})
 	// Wire the generic save handler for every workflow-declared field in this
-	// view's layout that has an editor but no built-in handler above. This
-	// covers custom enums AND custom text/integer/boolean/datetime fields —
+	// view's layout that has an editor but no reserved-field handler above. This
+	// covers enum, text, integer, boolean, date, and datetime fields —
 	// previously only enums were wired, so a custom datetime rendered editable
 	// but its edits were silently dropped on commit (no handler). Gate on
 	// fieldmeta.FieldHasEditor — the same predicate the view uses for
@@ -360,18 +320,11 @@ func (dc *DetailController) wireEditFieldHandlers(v DetailEditableView) {
 }
 
 // builtinEditFieldHandlers names the fields whose save handlers are wired
-// directly above in wireEditFieldHandlers. The custom-enum loop skips
-// these so it doesn't double-register or shadow the typed Save* methods.
+// directly above in wireEditFieldHandlers. The generic loop skips these so it
+// doesn't double-register or shadow the reserved-field Save* methods.
 var builtinEditFieldHandlers = map[string]struct{}{
-	"title":                 {},
-	"description":           {},
-	tikipkg.FieldStatus:     {},
-	tikipkg.FieldType:       {},
-	tikipkg.FieldPriority:   {},
-	tikipkg.FieldPoints:     {},
-	tikipkg.FieldDue:        {},
-	tikipkg.FieldRecurrence: {},
-	tikipkg.FieldTags:       {},
+	"title":       {},
+	"description": {},
 }
 
 // HandleAction routes plugin actions: the fullscreen toggle, edit-mode
@@ -454,7 +407,7 @@ func (dc *DetailController) enterEditModeWithFocus(focusField model.EditField) b
 // ApplyDetailMode runs the per-mode setup carried in PluginViewParams.
 // Called by the view factory after BindEditView on a freshly built
 // DetailController that has just been pushed onto the nav stack. For plain
-// view (empty / DetailModeView) it is a no-op; the other four modes either
+// view (empty / DetailModeView) it is a no-op; the other modes either
 // enter edit mode with a specific focus, install a restricted action
 // registry, or thread an already-created draft into the edit session.
 func (dc *DetailController) ApplyDetailMode(mode plugin.DetailMode, focus model.EditField, draft *tikipkg.Tiki) bool {
@@ -486,9 +439,6 @@ func (dc *DetailController) ApplyDetailMode(mode plugin.DetailMode, focus model.
 	case plugin.DetailModeEditDesc:
 		dc.editView.SetEditModeRegistry(DescOnlyEditActions())
 		return dc.enterEditModeWithFocus(model.EditFieldDescription)
-	case plugin.DetailModeEditTags:
-		dc.editView.SetEditModeRegistry(TagsOnlyEditActions())
-		return dc.enterEditModeWithFocus(model.EditFieldTags)
 	}
 	return false
 }
@@ -518,8 +468,8 @@ func (dc *DetailController) commitEdit() bool {
 	}
 	// Flush the focused editor before commit. The Ctrl+S path goes through
 	// the app-level input router (which doesn't re-dispatch the event to
-	// the focused widget), so editors that only emit on Ctrl+S — like the
-	// tags textarea — would otherwise lose their unsaved input.
+	// the focused widget), so buffered textarea editors would otherwise lose
+	// their unsaved input.
 	dc.editView.FlushFocusedEditor()
 	if err := dc.editSession.CommitEditSession(); err != nil {
 		if dc.statusline != nil {

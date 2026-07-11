@@ -639,6 +639,9 @@ func parseRukiAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, key t
 	if cfg.Mode != "" {
 		return PluginAction{}, fmt.Errorf("action %d (key %q): mode: only valid on kind: view actions", idx, cfg.Key)
 	}
+	if cfg.Focus != "" {
+		return PluginAction{}, fmt.Errorf("action %d (key %q): focus: only valid on kind: view actions", idx, cfg.Key)
+	}
 
 	var (
 		stmt         *ruki.ValidatedStatement
@@ -712,8 +715,7 @@ func parseRukiAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, key t
 // action config. The optional `mode:` field selects a detail-view entry point
 // when the target view is `kind: detail`; accepted values are `view` (read-only,
 // the default when `mode:` is omitted), `edit` (edit mode), `new` (create a new
-// tiki), `edit-desc` (edit description), and `edit-tags` (edit tags). Any other
-// value is rejected.
+// tiki), and `edit-desc` (edit description). Any other value is rejected.
 //
 // The optional `choose:` field carries a bare ruki "select [where <cond>]"
 // that produces the candidate set for a QuickSelect picker; the chosen tiki
@@ -722,7 +724,7 @@ func parseRukiAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, key t
 // field lists are rejected — `choose:` is strictly a candidate filter.
 //
 // Parse errors:
-//   - "mode must be one of view, edit, new, edit-desc, edit-tags (got %q)" when
+//   - "mode must be one of view, edit, new, edit-desc (got %q)" when
 //     the value is not in the closed vocabulary.
 //   - "mode: only valid when targeting a kind: detail view" when `mode:` is set
 //     but the target view is not `kind: detail`.
@@ -736,6 +738,8 @@ func parseRukiAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, key t
 //   - "`choose:` cannot be combined with `require: [\"selection:one\"]`" — a
 //     choose-bearing action produces its own selection via QuickSelect, so
 //     pre-requiring a cursor selection on the source view is contradictory.
+//   - "focus is only valid with mode: edit" when `focus:` is combined with any
+//     other mode.
 func parseViewAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, viewNames map[string]ViewKind, sourceIsDetailView bool, key tcell.Key, r rune, mod tcell.ModMask, keyStr string) (PluginAction, error) {
 	if cfg.View == "" {
 		return PluginAction{}, fmt.Errorf("action %d (key %q): kind: view requires `view:` (target view name)", idx, cfg.Key)
@@ -760,10 +764,10 @@ func parseViewAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, viewN
 	} else {
 		switch DetailMode(modeStr) {
 		case DetailModeView, DetailModeEdit, DetailModeNew,
-			DetailModeEditDesc, DetailModeEditTags:
+			DetailModeEditDesc:
 			mode = DetailMode(modeStr)
 		default:
-			return PluginAction{}, fmt.Errorf("action %d (key %q): mode must be one of view, edit, new, edit-desc, edit-tags (got %q)",
+			return PluginAction{}, fmt.Errorf("action %d (key %q): mode must be one of view, edit, new, edit-desc (got %q)",
 				idx, cfg.Key, modeStr)
 		}
 		if targetKind != KindDetail {
@@ -774,6 +778,12 @@ func parseViewAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, viewN
 			return PluginAction{}, fmt.Errorf("action %d (key %q): mode: new not valid on a detail view's own actions",
 				idx, cfg.Key)
 		}
+	}
+
+	focus := strings.TrimSpace(cfg.Focus)
+	if focus != "" && mode != DetailModeEdit {
+		return PluginAction{}, fmt.Errorf(
+			"action %d (key %q): focus is only valid with mode: edit", idx, cfg.Key)
 	}
 
 	// an optional `action:` on a kind: view action is the seed for mode: new —
@@ -842,6 +852,7 @@ func parseViewAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, viewN
 		Kind:         ActionKindView,
 		TargetView:   cfg.View,
 		Mode:         mode,
+		Focus:        focus,
 		CreateSeed:   createSeed,
 		ShowInHeader: showInHeader,
 		HasChoose:    hasChoose,
@@ -853,8 +864,7 @@ func parseViewAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, viewN
 // parseChooseField parses the value of a `choose:` YAML field on a kind: view
 // action. The value must be a bare ruki "select [where <cond>]" — pipes,
 // `order by`, `limit`, and explicit field lists are rejected so the candidate
-// filter stays unambiguous (downstream sorts uniformly via
-// sortTikisByPriorityTitle).
+// filter stays unambiguous; downstream sorts uniformly by title.
 func parseChooseField(src string, idx int, cfgKey string, parser *ruki.Parser) (*ruki.SubQuery, error) {
 	stmt, err := parser.ParseAndValidateStatement(src, ruki.ExecutorRuntimePlugin)
 	if err != nil {

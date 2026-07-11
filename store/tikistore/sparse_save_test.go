@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // TestUpdateTiki_BodyEditPreservesExactFieldPresence pins the exact-
@@ -67,7 +65,7 @@ func TestUpdateTiki_BodyEditPreservesExactFieldPresence(t *testing.T) {
 	if tk2 == nil {
 		t.Fatal("GetTiki after reload: nil")
 	}
-	if _, has := tk2.Fields[tikipkg.FieldStatus]; !has {
+	if _, has := tk2.Fields["status"]; !has {
 		t.Error("status missing after reload")
 	}
 	for _, k := range []string{"type", "priority", "points", "tags", "dependsOn", "assignee", "recurrence", "due"} {
@@ -104,7 +102,7 @@ func TestUpdateTiki_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey(t *test
 		t.Fatal("GetTiki: nil")
 	}
 	updated := loaded.Clone()
-	updated.Set(tikipkg.FieldPriority, "high")
+	updated.Set("priority", "high")
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}

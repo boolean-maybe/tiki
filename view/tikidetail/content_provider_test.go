@@ -56,7 +56,6 @@ func TestTikiDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 	tk.SetBody("some description")
 	tk.Set("status", "ready")
 	tk.Set("type", "story")
-	tk.Set("priority", "medium-high")
 	_ = s.CreateTiki(tk)
 
 	provider := newTikiDescriptionProvider(s, nil)
@@ -71,9 +70,6 @@ func TestTikiDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 		}
 		if !strings.Contains(content, "some description") {
 			t.Errorf("expected description in content, got: %s", content)
-		}
-		if !strings.Contains(content, "medium-high") {
-			t.Errorf("expected priority in content, got: %s", content)
 		}
 	})
 
@@ -135,14 +131,12 @@ func TestTikiDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 }
 
 func TestFormatTikiAsMarkdown(t *testing.T) {
-	t.Run("with all fields", func(t *testing.T) {
+	t.Run("with body", func(t *testing.T) {
 		tk := tikipkg.New()
 		tk.SetID("ABC123")
 		tk.SetTitle("My Tiki")
 		tk.SetBody("detailed desc")
-		tk.Set(tikipkg.FieldStatus, "inProgress")
-		tk.Set(tikipkg.FieldType, "bug")
-		tk.Set(tikipkg.FieldPriority, "high")
+		tk.Set("status", "inProgress")
 
 		md := formatTikiAsMarkdown(tk)
 		if !strings.HasPrefix(md, "# My Tiki\n") {
@@ -151,24 +145,8 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 		if !strings.Contains(md, "ABC123") {
 			t.Error("expected tiki ID in output")
 		}
-		if !strings.Contains(md, "high") {
-			t.Error("expected priority in output")
-		}
 		if !strings.Contains(md, "detailed desc") {
 			t.Error("expected description in output")
-		}
-	})
-
-	t.Run("no priority", func(t *testing.T) {
-		tk := tikipkg.New()
-		tk.SetID("ABC123")
-		tk.SetTitle("No Prio")
-		tk.Set(tikipkg.FieldStatus, "ready")
-		tk.Set(tikipkg.FieldType, "story")
-
-		md := formatTikiAsMarkdown(tk)
-		if strings.Contains(md, "P0") {
-			t.Error("should not show P0 for zero priority")
 		}
 	})
 
@@ -176,8 +154,7 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 		tk := tikipkg.New()
 		tk.SetID("ABC123")
 		tk.SetTitle("No Desc")
-		tk.Set(tikipkg.FieldStatus, "ready")
-		tk.Set(tikipkg.FieldType, "story")
+		tk.Set("status", "ready")
 
 		md := formatTikiAsMarkdown(tk)
 		// should end after the metadata line
@@ -186,4 +163,40 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 			t.Errorf("expected 3 lines for no-description tiki, got %d: %q", len(lines), md)
 		}
 	})
+}
+
+func TestFormatTikiAsMarkdownDoesNotRecognizePriorityFieldName(t *testing.T) {
+	tk := tikipkg.New()
+	tk.SetID("ABC123")
+	tk.SetTitle("My Tiki")
+	tk.Set("priority", "PRIORITY_MARKER")
+
+	md := formatTikiAsMarkdown(tk)
+	if strings.Contains(md, "PRIORITY_MARKER") {
+		t.Fatalf("workflow field named priority leaked into fixed markdown header: %q", md)
+	}
+}
+
+func TestFormatTikiAsMarkdownDoesNotRecognizeTypeFieldName(t *testing.T) {
+	tk := tikipkg.New()
+	tk.SetID("ABC123")
+	tk.SetTitle("My Tiki")
+	tk.Set("type", "TYPE_MARKER")
+
+	md := formatTikiAsMarkdown(tk)
+	if strings.Contains(md, "TYPE_MARKER") {
+		t.Fatalf("workflow field named type leaked into fixed markdown header: %q", md)
+	}
+}
+
+func TestFormatTikiAsMarkdownDoesNotRecognizeStatusFieldName(t *testing.T) {
+	tk := tikipkg.New()
+	tk.SetID("ABC123")
+	tk.SetTitle("My Tiki")
+	tk.Set("status", "STATUS_MARKER")
+
+	md := formatTikiAsMarkdown(tk)
+	if strings.Contains(md, "STATUS_MARKER") {
+		t.Fatalf("workflow field named status leaked into fixed markdown header: %q", md)
+	}
 }

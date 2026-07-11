@@ -276,7 +276,7 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 		return true, ctrl.HandleAction(ActionDetailSave)
 	case tcell.KeyEnter:
 		// Enter commits and closes on single-line fields. In a multi-line
-		// TextArea (description, tags) it keeps its native newline meaning:
+		// TextArea (description or a string-list field) it keeps its native newline meaning:
 		// stop=true prevents the edit-mode registry (which binds Enter to
 		// ActionDetailSaveAndClose for the footer) from firing, handled=false
 		// lets tview deliver the key to the focused widget's InputHandler.
@@ -305,7 +305,7 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 	}
 
 	// When a free-form text editor holds focus — title InputField,
-	// description/tags TextArea, the free-typing assignee EditSelectList, or an
+	// description/string-list TextArea, a free-typing select list, or an
 	// adapter wrapping one — typing keys must reach the widget rather than the
 	// global action registry. Without this, single-letter globals like 'r'
 	// (Refresh), 'q' (Quit), 'F1'..'F4' shadow the keystroke and the user
@@ -329,7 +329,7 @@ func isTextInputFocused(app *tview.Application) bool {
 
 // isTextAreaFocused reports whether the focused primitive is specifically a
 // multi-line tview.TextArea (directly or via an embedding adapter such as
-// descriptionEditAdapter / tagsEditAdapter). Used to keep Enter as a newline
+// text-area editor adapters). Used to keep Enter as a newline
 // in textareas while it commits-and-closes on single-line fields.
 func isTextAreaFocused(app *tview.Application) bool {
 	return focusMatches(app, isTextArea)
@@ -337,7 +337,7 @@ func isTextAreaFocused(app *tview.Application) bool {
 
 // textInputCapable is a marker for widgets that capture free-form typing but
 // are neither *tview.InputField nor *tview.TextArea — e.g. component.EditSelectList
-// in free-typing mode (the assignee editor). Such a widget embeds an InputField
+// in free-typing mode. Such a widget embeds an InputField
 // but only IT knows whether typing is enabled, so it must declare the capability
 // rather than have the router infer it from struct shape via reflection.
 type textInputCapable interface {

@@ -184,20 +184,6 @@ type TitleEditableView interface {
 	SetFocusSetter(setter func(p tview.Primitive))
 }
 
-// TagsEditableView is a view that supports tags editing functionality
-type TagsEditableView interface {
-	View
-
-	// ShowTagsEditor displays the tags text area and returns the primitive to focus
-	ShowTagsEditor() tview.Primitive
-
-	// SetTagsSaveHandler sets the callback for when tags are saved
-	SetTagsSaveHandler(handler func(string))
-
-	// SetTagsCancelHandler sets the callback for when tags editing is cancelled
-	SetTagsCancelHandler(handler func())
-}
-
 // FieldFocusableView is a view that supports field-level focus in edit mode
 type FieldFocusableView interface {
 	View
@@ -229,32 +215,6 @@ type ValueCyclableView interface {
 	CycleFieldValueDown() bool
 }
 
-// StatusEditableView is a view that supports status editing functionality
-type StatusEditableView interface {
-	View
-
-	// SetStatusSaveHandler sets the callback for when status is saved
-	SetStatusSaveHandler(handler func(string))
-}
-
-// TypeEditableView is a view that supports type editing functionality
-type TypeEditableView interface {
-	View
-
-	// SetTypeSaveHandler sets the callback for when type is saved
-	SetTypeSaveHandler(handler func(string))
-}
-
-// PriorityEditableView is a view that supports priority editing functionality.
-// The handler receives the canonical enum key emitted by the priority editor;
-// empty string means "delete the priority field" (absence semantic).
-type PriorityEditableView interface {
-	View
-
-	// SetPrioritySaveHandler sets the callback for when priority is saved.
-	SetPrioritySaveHandler(handler func(string))
-}
-
 // WorkflowEnumEditableView is a view that supports editing workflow-declared
 // custom enum fields (severity, environment, etc. — anything declared as
 // `type: enum` in workflow.yaml that doesn't have a built-in Save* handler).
@@ -266,30 +226,6 @@ type WorkflowEnumEditableView interface {
 	// SetWorkflowEnumSaveHandler sets the callback used for any custom
 	// enum field's save path.
 	SetWorkflowEnumSaveHandler(handler func(name, canonicalKey string))
-}
-
-// PointsEditableView is a view that supports story points editing functionality
-type PointsEditableView interface {
-	View
-
-	// SetPointsSaveHandler sets the callback for when story points is saved
-	SetPointsSaveHandler(handler func(int))
-}
-
-// DueEditableView is a view that supports due date editing functionality
-type DueEditableView interface {
-	View
-
-	// SetDueSaveHandler sets the callback for when due date is saved
-	SetDueSaveHandler(handler func(string))
-}
-
-// RecurrenceEditableView is a view that supports recurrence editing functionality
-type RecurrenceEditableView interface {
-	View
-
-	// SetRecurrenceSaveHandler sets the callback for when recurrence is saved
-	SetRecurrenceSaveHandler(handler func(string))
 }
 
 // RecurrencePartNavigable is a view that supports Left/Right navigation between

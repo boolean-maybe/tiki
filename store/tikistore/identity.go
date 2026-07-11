@@ -54,9 +54,9 @@ func (r *identityResolver) currentUser() (name string, email string, err error) 
 	return "", "", nil
 }
 
-// allUsers returns a deduplicated list of candidate assignee identities.
+// allUsers returns a deduplicated list of candidate user-field identities.
 // In git mode, merges the configured identity with git's author list. If git
-// AllUsers fails (e.g. no commits yet), we log and fall through so assignee
+// AllUsers fails (e.g. no commits yet), we log and fall through so user
 // selection still works in a fresh repo with only a configured identity.
 // In no-git mode, returns the resolved identity (configured or OS).
 func (r *identityResolver) allUsers() ([]string, error) {
@@ -85,7 +85,7 @@ func fromConfig() (name string, email string) {
 
 // configuredIdentityString returns the single display string for the configured
 // identity — name if set, otherwise email, otherwise empty. Shared by allUsers
-// so "email only" configs still appear in the assignee picker.
+// so "email only" configs still appear in user-field pickers.
 func configuredIdentityString() string {
 	name, email := fromConfig()
 	if name != "" {

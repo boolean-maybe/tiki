@@ -101,23 +101,29 @@ func TestBuildFieldEditor_WorkflowEnumProducesEditor(t *testing.T) {
 
 // TestRenderTextValue_EscapesTviewMarkup pins that user-controlled string
 // values pass through tview.Escape before landing in a SetDynamicColors
-// TextView. Without escaping, an assignee containing "[red]" would be
-// parsed as a tview color tag and either disappear or recolor the rest
-// of the line.
+// TextView. Without escaping, a value containing "[red]" would be parsed as a
+// tview color tag and either disappear or recolor the rest of the line.
 func TestRenderTextValue_EscapesTviewMarkup(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "note", Type: workflow.TypeString},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
 	s := store.NewInMemoryStore()
 	tk := newTestViewTiki("TIKI098")
-	tk.Set(tikipkg.FieldAssignee, "[red]admin[white]")
+	tk.Set("note", "[red]admin[white]")
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	colors := theme.Roles()
-	ctx := FieldRenderContext{Mode: RenderModeView, Roles: colors, FieldName: tikipkg.FieldAssignee}
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: colors}
 
 	// Read raw bytes (stripTags=false) so the tview.Escape marker is
 	// visible; with stripTags=true a parsed-and-discarded color tag would
 	// look identical to a successfully-escaped one.
-	rawOut := extractTextView(renderTextValue(tk, ctx), false)
+	rawOut := extractTextView(renderConfiguredField("note", tk, ctx), false)
 	if !strings.Contains(rawOut, "[red[]") {
 		t.Errorf("expected escaped [red] marker in raw output, got: %q", rawOut)
 	}
@@ -125,7 +131,7 @@ func TestRenderTextValue_EscapesTviewMarkup(t *testing.T) {
 	// And the visible-text path: with tags stripped we still see "admin",
 	// and the literal "[red]" survives because it was escaped (tview no
 	// longer parses it as a color tag, so it doesn't strip it either).
-	visibleOut := extractTextView(renderTextValue(tk, ctx), true)
+	visibleOut := extractTextView(renderConfiguredField("note", tk, ctx), true)
 	if !strings.Contains(visibleOut, "admin") {
 		t.Errorf("expected literal value to survive escape, got: %q", visibleOut)
 	}
@@ -275,7 +281,7 @@ func TestRenderEnumValue_FocusMarkerOnlyWhenFieldMatches(t *testing.T) {
 	const marker = "► "
 
 	t.Run("no focus marker in view mode", func(t *testing.T) {
-		ctx := FieldRenderContext{Mode: RenderModeView, Roles: colors, FieldName: tikipkg.FieldStatus}
+		ctx := FieldRenderContext{Mode: RenderModeView, Roles: colors, FieldName: "status"}
 		out := extractTextView(renderEnumValue(tk, ctx), true)
 		if strings.Contains(out, marker) {
 			t.Errorf("view mode painted focus marker: %q", out)
@@ -283,23 +289,23 @@ func TestRenderEnumValue_FocusMarkerOnlyWhenFieldMatches(t *testing.T) {
 	})
 
 	t.Run("no focus marker in edit mode when other field is focused", func(t *testing.T) {
-		// Status row, but type is the focused field — must not paint marker.
+		// status row, but another field is focused — must not paint marker
 		ctx := FieldRenderContext{
 			Mode: RenderModeEdit, Roles: colors,
-			FieldName:    tikipkg.FieldStatus,
-			FocusedField: model.EditFieldType,
+			FieldName:    "status",
+			FocusedField: model.EditField("other"),
 		}
 		out := extractTextView(renderEnumValue(tk, ctx), true)
 		if strings.Contains(out, marker) {
-			t.Errorf("status row painted focus marker while type was focused: %q", out)
+			t.Errorf("status row painted focus marker while another field was focused: %q", out)
 		}
 	})
 
 	t.Run("focus marker present when this field is focused", func(t *testing.T) {
 		ctx := FieldRenderContext{
 			Mode: RenderModeEdit, Roles: colors,
-			FieldName:    tikipkg.FieldStatus,
-			FocusedField: model.EditFieldStatus,
+			FieldName:    "status",
+			FocusedField: model.EditField("status"),
 		}
 		out := extractTextView(renderEnumValue(tk, ctx), true)
 		if !strings.Contains(out, marker) {
@@ -356,7 +362,7 @@ func TestConfigurableDetailView_RendersDependsOnColumn(t *testing.T) {
 	dep2.SetID("BBBBBB")
 	dep2.SetTitle("second dep")
 	parent := newTestViewTiki("PARENT")
-	parent.Set(tikipkg.FieldDependsOn, []string{"AAAAAA", "BBBBBB"})
+	parent.Set("dependsOn", []string{"AAAAAA", "BBBBBB"})
 	for _, tk := range []*tikipkg.Tiki{dep1, dep2, parent} {
 		if err := s.CreateTiki(tk); err != nil {
 			t.Fatalf("CreateTiki(%s): %v", tk.ID(), err)
@@ -467,13 +473,11 @@ func TestConfigurableDetailView_WorkflowFieldFallsBackToGenericRow(t *testing.T)
 	// observable behavior — non-nil is the contract here.
 }
 
-// TestFieldRegistry_LookupKnownFields verifies the workflow-declared fields
+// TestFieldRegistry_LookupKnownFields verifies descriptor-backed fields
 // installed by registerBuiltinFields are visible.
 func TestFieldRegistry_LookupKnownFields(t *testing.T) {
 	for _, name := range []string{
-		tikipkg.FieldStatus,
-		tikipkg.FieldType,
-		tikipkg.FieldPriority,
+		"title",
 	} {
 		t.Run(name, func(t *testing.T) {
 			fd, ok := LookupField(name)
@@ -567,7 +571,7 @@ func TestConfigurableDetailView_HidesEmptyListFieldAndCaption(t *testing.T) {
 	// deps? marks the field hide-when-empty; its .caption pairs by name and
 	// hides with it.
 	spec, err := gridlayout.ParseGrid([][]string{
-		{`<text.label>deps.caption`, "deps?"},
+		{`<text.label>deps.caption`, "deps?:30"},
 	})
 	if err != nil {
 		t.Fatalf("parse layout: %v", err)
@@ -609,6 +613,9 @@ func TestConfigurableDetailView_HidesEmptyListFieldAndCaption(t *testing.T) {
 	if !strings.Contains(fullOut, "AAAAAA") {
 		t.Errorf("non-empty deps should show dep id, got:\n%s", fullOut)
 	}
+	if !strings.Contains(fullOut, "a dep") {
+		t.Errorf("non-empty deps should resolve dep title, got:\n%s", fullOut)
+	}
 }
 
 // TestConfigurableDetailView_HiddenEmptyListFieldNotEditTraversable guards the
@@ -644,7 +651,7 @@ func TestConfigurableDetailView_HiddenEmptyListFieldNotEditTraversable(t *testin
 	// non-empty tags -> shown -> traversable as a sanity baseline.
 	sFull := store.NewInMemoryStore()
 	full := newTestViewTiki("FULLTG")
-	full.Set(tikipkg.FieldTags, []string{"frontend"})
+	full.Set("tags", []string{"frontend"})
 	if err := sFull.CreateTiki(full); err != nil {
 		t.Fatalf("create full: %v", err)
 	}
@@ -680,42 +687,16 @@ func TestRenderViewModeAnchor_CaptionRendersFieldCaption(t *testing.T) {
 
 // TestTextEmptyPlaceholder_FromDescriptorTrait pins the empty-value
 // placeholder text for text-type fields: createdBy→"Unknown", everything
-// else→"─". Assignee no longer has field-name-specific placeholder behavior.
+// else→"─".
 func TestTextEmptyPlaceholder_FromDescriptorTrait(t *testing.T) {
-	if got := textEmptyPlaceholder(tikipkg.FieldAssignee); got != "─" {
-		t.Errorf("assignee placeholder = %q, want %q", got, "─")
-	}
 	if got := textEmptyPlaceholder("createdBy"); got != "Unknown" {
 		t.Errorf("createdBy placeholder = %q, want %q", got, "Unknown")
 	}
-	if got := textEmptyPlaceholder(tikipkg.FieldStatus); got != "─" {
+	if got := textEmptyPlaceholder("status"); got != "─" {
 		t.Errorf("default placeholder = %q, want %q", got, "─")
 	}
 	if got := textEmptyPlaceholder("does-not-exist"); got != "─" {
 		t.Errorf("unknown-field placeholder = %q, want %q", got, "─")
-	}
-}
-
-// TestRenderEnumValue_EmptyTypeMutedNone pins that rendering a tiki with an
-// empty `type` field produces the muted "(none)" placeholder. This is the
-// type field's empty-value presentation; after the refactor it is driven by
-// the descriptor's EmptyPlaceholder trait (resolved to muted at render time
-// via ctx.Roles.TextMuted) instead of a `name == FieldType` switch. The
-// rendered bytes must be identical to today's output.
-func TestRenderEnumValue_EmptyTypeMutedNone(t *testing.T) {
-	s := store.NewInMemoryStore()
-	tk := newTestViewTiki("TIKI099")
-	tk.Set(tikipkg.FieldType, "") // empty type → muted "(none)"
-	if err := s.CreateTiki(tk); err != nil {
-		t.Fatalf("CreateTiki: %v", err)
-	}
-	colors := theme.Roles()
-	ctx := FieldRenderContext{Mode: RenderModeView, Roles: colors, FieldName: tikipkg.FieldType}
-
-	want := colors.TextMuted().Tag() + "(none)[-]"
-	rawOut := extractTextView(renderEnumValue(tk, ctx), false)
-	if !strings.Contains(rawOut, want) {
-		t.Errorf("empty-type render = %q, want it to contain muted placeholder %q", rawOut, want)
 	}
 }
 

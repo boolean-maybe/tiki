@@ -52,19 +52,35 @@ func TestEditTextValue_PlainInputForCatalogText(t *testing.T) {
 
 func TestEditTextValue_AssigneeTextUsesPlainInput(t *testing.T) {
 	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
-		{Name: tikipkg.FieldAssignee, Type: workflow.TypeString},
+		{Name: "assignee", Type: workflow.TypeString},
 	})
 	t.Cleanup(teststatuses.Init)
 
 	s := store.NewInMemoryStore()
 	tk := newTestViewTiki("TXT002")
-	ctx := FieldRenderContext{FieldName: tikipkg.FieldAssignee, Roles: theme.Roles(), Store: s}
-	w := buildFieldEditor(tikipkg.FieldAssignee, tk, ctx, func(string) {})
+	ctx := FieldRenderContext{FieldName: "assignee", Roles: theme.Roles(), Store: s}
+	w := buildFieldEditor("assignee", tk, ctx, func(string) {})
 	if w == nil {
 		t.Fatal("assignee editor is nil")
 	}
 	if _, ok := w.(*textInputEditAdapter); !ok {
 		t.Fatalf("assignee text editor = %T, want *textInputEditAdapter", w)
+	}
+}
+
+func TestFormerUserFieldNameUsesStringPlaceholder(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "assignee", Type: workflow.TypeString},
+		{Name: "note", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tk := tikipkg.New()
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
+	formerName := drawPrimitive(t, renderConfiguredField("assignee", tk, ctx), 10, 1)
+	genericName := drawPrimitive(t, renderConfiguredField("note", tk, ctx), 10, 1)
+	if formerName != genericName {
+		t.Fatalf("empty string placeholders differ: assignee=%q note=%q", formerName, genericName)
 	}
 }
 

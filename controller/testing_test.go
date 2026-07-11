@@ -7,9 +7,9 @@ import (
 	"github.com/rivo/tview"
 )
 
-// Test utilities for controller unit tests
+// test utilities for controller unit tests
 
-// newMockNavigationController creates a new mock navigation controller
+// newMockNavigationController creates a new mock navigation controller.
 func newMockNavigationController() *NavigationController {
 	return &NavigationController{
 		app:      nil, // unit tests don't need the tview.Application
@@ -30,17 +30,17 @@ func (m *mockSelectableView) OnBlur()                            {}
 func (m *mockSelectableView) GetSelectedID() string              { return m.selectedID }
 func (m *mockSelectableView) SetSelectedID(_ string)             {}
 
-// Test fixtures
+// test fixtures
 
 // newTestTiki creates a workflow tiki with default test values.
 func newTestTiki() *tikipkg.Tiki {
 	tk := tikipkg.New()
 	tk.SetID("000001")
 	tk.SetTitle("Test Tiki")
-	tk.Set(tikipkg.FieldStatus, "ready")
-	tk.Set(tikipkg.FieldType, "story")
-	tk.Set(tikipkg.FieldPriority, "medium")
-	tk.Set(tikipkg.FieldPoints, 5)
+	tk.Set("status", "ready")
+	tk.Set("type", "story")
+	tk.Set("priority", "medium")
+	tk.Set("points", 5)
 	return tk
 }
 

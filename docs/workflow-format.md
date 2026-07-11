@@ -268,10 +268,8 @@ Validation rules for `layout:` on `kind: detail`:
 - Per-view `actions:` are allowed and surface alongside the built-in detail actions.
 - `require:` is honored as the navigation gate (typically `["selection:one"]`).
 
-The detail view recognizes any field declared in `workflow.yaml fields:` plus the kanban-style
-well-known names (`status`, `type`, `priority`, `points`, `assignee`, `due`, `recurrence`, `tags`,
-`dependsOn`). Of those, `status`, `type`, and `priority` are fully editable in place; the rest render
-read-only today and will gain richer editors in a future iteration.
+The detail view recognizes any field declared in `workflow.yaml fields:` plus the supported audit fields.
+Rendering, editing, sizing, and saving are selected from each field's declared type rather than its name.
 
 Anti-pattern examples (each fails workflow load):
 
@@ -332,11 +330,10 @@ A `kind: view` action that targets a `kind: detail` view may declare a `mode:` f
 detail view opens. The vocabulary is closed:
 
 - `view` — open the detail view in read-only display mode. This is the default when `mode:` is omitted.
-- `edit` — open the detail view in edit mode, focused on the first metadata field declared in the
-  workflow's `metadata:` list.
+- `edit` — open the detail view in edit mode, focused on the first editable layout field. Set `focus:` to a
+  workflow field name to choose a different initial field.
 - `new` — create a fresh draft tiki and open the detail view in edit mode focused on Title.
 - `edit-desc` — open the detail view in edit mode focused on the Description textarea.
-- `edit-tags` — open the detail view in edit mode focused on the Tags textarea.
 
 Validation rules, enforced at workflow-load time:
 
@@ -347,9 +344,10 @@ Validation rules, enforced at workflow-load time:
 - `mode: new` is rejected on a detail view's own `actions:` list — a detail view is already viewing a tiki,
   so creating a new one from there is not a self-action. The error is
   `mode: new not valid on a detail view's own actions`.
-- An unrecognized value fails with `mode must be one of view, edit, new, edit-desc, edit-tags (got "X")`.
+- `focus:` is only valid with `mode: edit`.
+- An unrecognized value fails with `mode must be one of view, edit, new, edit-desc (got "X")`.
 
-The bundled kanban workflow uses all five modes from its top-level `actions:` list:
+The bundled workflows use these modes from their top-level `actions:` lists:
 
 ```yaml
 actions:
@@ -379,7 +377,8 @@ actions:
     label: "Edit tags"
     kind: view
     view: Detail
-    mode: edit-tags
+    mode: edit
+    focus: tags
     require: ["selection:one"]
 ```
 
@@ -433,7 +432,8 @@ Users upgrading will see one of these messages; each names the legacy field and 
 - `document: (ID-based resolution) is not yet implemented — use path: with a relative filepath`
 - `view kind "board" requires a non-empty layout: field` — missing/empty `layout:` on a board, list, or detail view
 - `layout: only valid on kind: board, list, or detail` — set on a wiki view
-- ``layout cannot include "description"`` (or `body`/`id`) — identity/body fields are always rendered by the detail view chrome
+- ``layout cannot include "description"`` (or `body`/`id`) — identity/body fields are always rendered by the
+  detail view chrome
 - `layout field "X" is not a workflow-declared field` — typo, or the field is not in `workflow.yaml fields:`
 - `layout: row N has M cells, expected K` — the grid has a ragged row
 - ``layout: row N, col M: orphan '--'`` — no anchor to the left of the column-span marker
@@ -549,6 +549,7 @@ actions:
 - may appear once per action
 - mutually exclusive with `input()` in the same action
 - lane filters and lane actions cannot use `choose()` or `input()`
+- picker candidates use title/ID order; workflow field names never affect the default order
 
 See [Choose-backed actions](customization/customization.md#choose-backed-actions).
 

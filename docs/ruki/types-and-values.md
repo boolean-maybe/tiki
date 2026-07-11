@@ -7,7 +7,7 @@
 - [Field catalog](#field-catalog)
 - [Literals](#literals)
 - [The empty literal](#the-empty-literal)
-- [Enum normalization](#enum-normalization)
+- [Enum fields](#enum-fields)
 - [List constraints](#list-constraints)
 - [Type notes](#type-notes)
 
@@ -23,7 +23,7 @@ the values, expressions, built-in functions, and tiki fields you use.
 | Type | Meaning |
 |---|---|
 | `string` | plain string values |
-| `int` | integer values such as `points` |
+| `int` | integer values |
 | `date` | day-level date values |
 | `timestamp` | timestamp values such as `createdAt` and `updatedAt` |
 | `duration` | duration literals and date or timestamp differences |
@@ -33,8 +33,7 @@ the values, expressions, built-in functions, and tiki fields you use.
 | `recurrence` | recurrence value |
 | `list<string>` | list of strings |
 | `list<ref>` | list of references |
-| `status` | workflow status enum |
-| `type` | workflow tiki-type enum |
+| `enum` | workflow-declared enum |
 
 ## Field catalog
 
@@ -48,15 +47,15 @@ the same catalog at load time. From `ruki`'s perspective, all fields behave iden
 | `id` | `id` |
 | `title` | `string` |
 | `description` | `string` |
-| `status` | `status` |
-| `type` | `type` |
+| `status` | enum (declared in `workflow.yaml`) |
+| `type` | enum (declared in `workflow.yaml`) |
 | `tags` | `list<string>` |
 | `dependsOn` | `list<ref>` |
 | `due` | `date` |
 | `recurrence` | `recurrence` |
 | `assignee` | `string` |
 | `priority` | enum (declared in `workflow.yaml`) |
-| `points` | `int` |
+| `points` | enum (declared in `workflow.yaml`) |
 | `createdBy` | `string` |
 | `createdAt` | `timestamp` |
 | `updatedAt` | `timestamp` |
@@ -93,8 +92,8 @@ Recurrence values have no bare literal form. Construct them with the `daily()`, 
 
 Qualified and unqualified references are not literals, but they participate in type inference:
 
-- `status` resolves through the schema
-- `old.status` or `new.status` resolve through the same schema, then pass qualifier checks
+- `category` resolves through the schema
+- `old.category` or `new.category` resolve through the same schema, then pass qualifier checks
 
 ## The empty literal
 
@@ -104,10 +103,9 @@ Implemented behavior:
 
 - `empty` can be assigned to most field types — the assignment deletes the key from frontmatter so
   subsequent loads see the field as absent
-- `title`, `status`, `type`, and `priority` reject `empty` assignment. The empty literal has no defined
-  coercion to those types, so the runtime rejects `set <field> = empty` as a hard error. These fields
-  can still be **absent** on sparse tikis — what is rejected is the explicit `empty` assignment, not
-  absence itself. To clear them, omit the field at create time or remove it from the file directly.
+- `title` and enum fields reject `empty` assignment. The empty literal has no defined coercion to those
+  types, so the runtime rejects `set <field> = empty` as a hard error. Enum fields can still be **absent**
+  on sparse tikis — what is rejected is the explicit `empty` assignment, not absence itself.
 - `empty` can be compared against any typed expression
 - `is empty` and `is not empty` are allowed for any expression type
 
@@ -120,35 +118,22 @@ select where assignee = empty                 -- matches absent or zero-valued a
 select where due is empty                     -- same, with the is-empty predicate
 ```
 
-## Enum normalization
+## Enum fields
 
-`status` and `type` are special:
+Every `type: enum` workflow field uses the same semantic type:
 
-- they have dedicated semantic types
-- they accept validated string literals
+- string literals are validated against that field's declared values
 - comparisons against enum fields are stricter than generic string comparisons
-
-`status`
-
-- normalized through the injected schema
-- production normalization lowercases, trims, and converts `-` and space to `_`
-- recognized values depend on the `fields:` entry named `status` in `workflow.yaml`
-
-`type`
-
-- validated through the injected schema against the `fields:` entry named `type` in `workflow.yaml`
-- production normalization lowercases, trims, and removes separators
-- the bundled kanban workflow ships with `story`, `bug`, `spike`, and `project`
-- type keys must be canonical (matching normalized form); aliases are not supported
-- unknown type values are rejected — no silent fallback
+- each enum field has an independent value domain
+- unknown values are rejected on writes; stale values loaded from disk remain visible for manual repair
 
 Examples:
 
 ```sql
-select where status = "done"
-select where type = "bug"
-create title="x" status="done"
-create title="x" type="feature"
+select where category = "done"
+select where severity = "high"
+create title="x" category="done"
+create title="x" severity="high"
 ```
 
 ## List constraints
@@ -188,11 +173,11 @@ select where status in ["done", 1]
 
 ## Type notes
 
-- `string`, `status`, `type`, `id`, and `ref` are treated as string-like in some comparison and concatenation
+- `string`, enum, `id`, and `ref` are treated as string-like in some comparison and concatenation
   paths, but they are not interchangeable everywhere.
 - Membership checks are stricter than general comparison compatibility. For `in` and `not in` with list
   collections, only exact type matches count, except that `id` and `ref` are treated as compatible with each
   other. When the right side is a `string` field, `in` performs a substring check — both sides must be
-  `string` type (not `status`, `type`, `id`, or `ref`).
-- Enum fields reject non-literal field references in assignments such as `status=title` or `type=title`.
-- The exact accepted `status` and `type` values depend on the enum values declared for those fields in `workflow.yaml`.
+  `string` type (not enum, `id`, or `ref`).
+- Enum fields reject non-literal field references in assignments such as `category=title`.
+- Each enum field accepts only the values declared for that field in `workflow.yaml`.

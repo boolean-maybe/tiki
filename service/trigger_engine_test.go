@@ -65,13 +65,13 @@ func parseTriggerEntry(t *testing.T, desc, input string) triggerEntry {
 func newTiki(id, title, status, typ string, priorityRank int) *tikipkg.Tiki {
 	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID(id); t.SetTitle(title); return t }()
 	if status != "" {
-		tk.Set(tikipkg.FieldStatus, status)
+		tk.Set("status", status)
 	}
 	if typ != "" {
-		tk.Set(tikipkg.FieldType, typ)
+		tk.Set("type", typ)
 	}
 	if key := priorityRankToKey(priorityRank); key != "" {
-		tk.Set(tikipkg.FieldPriority, key)
+		tk.Set("priority", key)
 	}
 	return tk
 }
@@ -114,16 +114,16 @@ func TestTriggerEngine_BeforeCreateDenyAggregate(t *testing.T) {
 		`before create where count(select where assignee = new.assignee) >= 3 deny "tiki cap reached"`)
 
 	existing1 := newTiki("CAP001", "e1", "ready", "story", 3)
-	existing1.Set(tikipkg.FieldAssignee, "alice")
+	existing1.Set("assignee", "alice")
 	existing2 := newTiki("CAP002", "e2", "ready", "story", 3)
-	existing2.Set(tikipkg.FieldAssignee, "alice")
+	existing2.Set("assignee", "alice")
 	gate, _ := newGateWithStoreAndTikis(existing1, existing2)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	newTiki := newTiki("CAP003", "e3", "ready", "story", 3)
-	newTiki.Set(tikipkg.FieldAssignee, "alice")
+	newTiki.Set("assignee", "alice")
 	err := gate.CreateTiki(context.Background(), newTiki)
 	if err == nil {
 		t.Fatal("expected tiki cap denial, got nil")
@@ -138,14 +138,14 @@ func TestTriggerEngine_BeforeCreateAllowUnderAggregate(t *testing.T) {
 		`before create where count(select where assignee = new.assignee) >= 3 deny "tiki cap reached"`)
 
 	existing := newTiki("CAP001", "e1", "ready", "story", 3)
-	existing.Set(tikipkg.FieldAssignee, "alice")
+	existing.Set("assignee", "alice")
 	gate, _ := newGateWithStoreAndTikis(existing)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	newTiki := newTiki("CAP002", "e2", "ready", "story", 3)
-	newTiki.Set(tikipkg.FieldAssignee, "alice")
+	newTiki.Set("assignee", "alice")
 	if err := gate.CreateTiki(context.Background(), newTiki); err != nil {
 		t.Fatalf("unexpected denial: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestTriggerEngine_BeforeDeny(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	updated := main.Clone()
-	updated.Set(tikipkg.FieldStatus, "done")
+	updated.Set("status", "done")
 	err := gate.UpdateTiki(context.Background(), updated)
 	if err == nil {
 		t.Fatal("expected denial, got nil")
@@ -184,7 +184,7 @@ func TestTriggerEngine_BeforeDenyNoMatch(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
-	updated.Set(tikipkg.FieldStatus, "inProgress")
+	updated.Set("status", "inProgress")
 	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("unexpected denial: %v", err)
 	}
@@ -196,18 +196,18 @@ func TestTriggerEngine_BeforeDenyWIPLimit(t *testing.T) {
 		`before update where new.status = "inProgress" and count(select where assignee = new.assignee and status = "inProgress") >= 3 deny "WIP limit reached"`)
 
 	existing1 := newTiki("WIP001", "a1", "inProgress", "story", 3)
-	existing1.Set(tikipkg.FieldAssignee, "alice")
+	existing1.Set("assignee", "alice")
 	existing2 := newTiki("WIP002", "a2", "inProgress", "story", 3)
-	existing2.Set(tikipkg.FieldAssignee, "alice")
+	existing2.Set("assignee", "alice")
 	target := newTiki("WIP003", "a3", "ready", "story", 3)
-	target.Set(tikipkg.FieldAssignee, "alice")
+	target.Set("assignee", "alice")
 	gate, _ := newGateWithStoreAndTikis(existing1, existing2, target)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := target.Clone()
-	updated.Set(tikipkg.FieldStatus, "inProgress")
+	updated.Set("status", "inProgress")
 	err := gate.UpdateTiki(context.Background(), updated)
 	if err == nil {
 		t.Fatal("expected WIP limit denial, got nil")
@@ -222,16 +222,16 @@ func TestTriggerEngine_BeforeAllowUnderWIPLimit(t *testing.T) {
 		`before update where new.status = "inProgress" and count(select where assignee = new.assignee and status = "inProgress") >= 3 deny "WIP limit reached"`)
 
 	existing := newTiki("WIP001", "a1", "inProgress", "story", 3)
-	existing.Set(tikipkg.FieldAssignee, "alice")
+	existing.Set("assignee", "alice")
 	target := newTiki("WIP002", "a2", "ready", "story", 3)
-	target.Set(tikipkg.FieldAssignee, "alice")
+	target.Set("assignee", "alice")
 	gate, _ := newGateWithStoreAndTikis(existing, target)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := target.Clone()
-	updated.Set(tikipkg.FieldStatus, "inProgress")
+	updated.Set("status", "inProgress")
 	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("unexpected denial: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestTriggerEngine_AfterUpdateCascade(t *testing.T) {
 		t.Fatal("tiki not found")
 		return
 	}
-	assignee, _, _ := persisted.StringField(tikipkg.FieldAssignee)
+	assignee, _, _ := persisted.StringField("assignee")
 	if assignee != "autobot" {
 		t.Fatalf("expected assignee=autobot, got %q", assignee)
 	}
@@ -277,7 +277,7 @@ func TestTriggerEngine_AfterTriggerNoMatchSkipped(t *testing.T) {
 	}
 
 	persisted := s.GetTiki("LOWPRI")
-	assignee, _, _ := persisted.StringField(tikipkg.FieldAssignee)
+	assignee, _, _ := persisted.StringField("assignee")
 	if assignee != "" {
 		t.Fatalf("expected empty assignee, got %q", assignee)
 	}
@@ -289,7 +289,7 @@ func TestTriggerEngine_AfterDeleteCleanupDeps(t *testing.T) {
 
 	dep := newTiki("DEP001", "dep", "done", "story", 3)
 	downstream := newTiki("DOWN01", "downstream", "ready", "story", 3)
-	downstream.Set(tikipkg.FieldDependsOn, []string{"DEP001", "OTHER1"})
+	downstream.Set("dependsOn", []string{"DEP001", "OTHER1"})
 	other := newTiki("OTHER1", "other", "done", "story", 3)
 	gate, s := newGateWithStoreAndTikis(dep, downstream, other)
 
@@ -305,7 +305,7 @@ func TestTriggerEngine_AfterDeleteCleanupDeps(t *testing.T) {
 		t.Fatal("downstream tiki missing")
 		return
 	}
-	deps, _, _ := persisted.StringSliceField(tikipkg.FieldDependsOn)
+	deps, _, _ := persisted.StringSliceField("dependsOn")
 	if len(deps) != 1 || deps[0] != "OTHER1" {
 		t.Fatalf("expected dependsOn=[OTHER1], got %v", deps)
 	}
@@ -316,14 +316,14 @@ func TestTriggerEngine_AfterCascadePartialFailureSurfaced(t *testing.T) {
 		`after create where new.priority = "high" update where assignee = new.assignee and id != new.id set priority="high"`)
 
 	peer1 := newTiki("PEER01", "peer1", "ready", "story", 5)
-	peer1.Set(tikipkg.FieldAssignee, "alice")
+	peer1.Set("assignee", "alice")
 	peer2 := newTiki("PEER02", "peer2", "ready", "story", 5)
-	peer2.Set(tikipkg.FieldAssignee, "alice")
+	peer2.Set("assignee", "alice")
 	gate, s := newGateWithStoreAndTikis(peer1, peer2)
 
 	// register a validator that blocks updates to PEER02 specifically
 	gate.OnUpdate(func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *Rejection {
-		p, _, _ := new.StringField(tikipkg.FieldPriority)
+		p, _, _ := new.StringField("priority")
 		if new.ID() == "PEER02" && p == "high" {
 			return &Rejection{Reason: "peer2 blocked"}
 		}
@@ -334,19 +334,19 @@ func TestTriggerEngine_AfterCascadePartialFailureSurfaced(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	trigger := newTiki("TRIG01", "trigger", "ready", "story", 1)
-	trigger.Set(tikipkg.FieldAssignee, "alice")
+	trigger.Set("assignee", "alice")
 	if err := gate.CreateTiki(context.Background(), trigger); err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
 
 	p1 := s.GetTiki("PEER01")
-	p1pri, _, _ := p1.StringField(tikipkg.FieldPriority)
+	p1pri, _, _ := p1.StringField("priority")
 	if p1pri != "high" {
 		t.Errorf("peer1 priority = %q, want high (cascade should succeed)", p1pri)
 	}
 
 	p2 := s.GetTiki("PEER02")
-	p2pri, _, _ := p2.StringField(tikipkg.FieldPriority)
+	p2pri, _, _ := p2.StringField("priority")
 	if p2pri != "low" {
 		t.Errorf("peer2 priority = %q, want low (cascade should have been blocked)", p2pri)
 	}
@@ -365,7 +365,7 @@ func TestTriggerEngine_RecursionLimit(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
-	updated.Set(tikipkg.FieldStatus, "inProgress")
+	updated.Set("status", "inProgress")
 	err := gate.UpdateTiki(context.Background(), updated)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -410,7 +410,7 @@ func TestTriggerEngine_RunCommand(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
-	updated.Set(tikipkg.FieldStatus, "done")
+	updated.Set("status", "done")
 	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -428,7 +428,7 @@ func TestTriggerEngine_RunCommandFailure(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
-	updated.Set(tikipkg.FieldStatus, "done")
+	updated.Set("status", "done")
 	// run() failure is logged, not propagated — mutation should succeed
 	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("unexpected error (run failure should be swallowed): %v", err)
@@ -450,7 +450,7 @@ func TestTriggerEngine_RunCommandTimeout(t *testing.T) {
 	defer cancel()
 
 	updated := tk.Clone()
-	updated.Set(tikipkg.FieldStatus, "done")
+	updated.Set("status", "done")
 
 	start := time.Now()
 	if err := gate.UpdateTiki(ctx, updated); err != nil {
@@ -470,7 +470,7 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 	const recurrenceDaily = "0 0 * * *"
 
 	tk := newTiki("REC001", "Daily standup", "inProgress", "story", 3)
-	tk.Set(tikipkg.FieldRecurrence, recurrenceDaily)
+	tk.Set("recurrence", recurrenceDaily)
 	gate, s := newGateWithStoreAndTikis(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
@@ -478,7 +478,7 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 
 	before := time.Now()
 	updated := tk.Clone()
-	updated.Set(tikipkg.FieldStatus, "done")
+	updated.Set("status", "done")
 	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("update failed: %v", err)
 	}
@@ -503,7 +503,7 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 	if created.Title() != "Daily standup" {
 		t.Fatalf("expected title 'Daily standup', got %q", created.Title())
 	}
-	dueVal, ok, _ := created.TimeField(tikipkg.FieldDue)
+	dueVal, ok, _ := created.TimeField("due")
 	if !ok || dueVal.IsZero() {
 		t.Fatal("expected non-zero due date from next_date(old.recurrence)")
 	}
@@ -578,7 +578,7 @@ func TestTriggerEngine_AfterDeleteCascadeCreate(t *testing.T) {
 	for _, at := range allTikis {
 		if strings.Contains(at.Title(), "archived: delete me") {
 			found = true
-			status, _, _ := at.StringField(tikipkg.FieldStatus)
+			status, _, _ := at.StringField("status")
 			if status != "done" {
 				t.Errorf("expected status done, got %q", status)
 			}
@@ -703,7 +703,7 @@ func TestTriggerEngine_BeforeGuardEvalError(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
-	updated.Set(tikipkg.FieldStatus, "inProgress")
+	updated.Set("status", "inProgress")
 	err := gate.UpdateTiki(context.Background(), updated)
 	if err == nil {
 		t.Fatal("expected rejection when guard eval fails")
@@ -729,7 +729,7 @@ func TestTriggerEngine_AfterGuardEvalError(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
-	updated.Set(tikipkg.FieldStatus, "inProgress")
+	updated.Set("status", "inProgress")
 	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("unexpected error (guard eval error should be logged, not propagated): %v", err)
 	}
@@ -752,13 +752,13 @@ func TestTriggerEngine_ExecActionError(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
-	updated.Set(tikipkg.FieldStatus, "inProgress")
+	updated.Set("status", "inProgress")
 	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("unexpected error (after-hook errors should be logged, not propagated): %v", err)
 	}
 
 	persisted := s.GetTiki("ERR002")
-	status, _, _ := persisted.StringField(tikipkg.FieldStatus)
+	status, _, _ := persisted.StringField("status")
 	if status != "inProgress" {
 		t.Errorf("expected status inProgress, got %q", status)
 	}
@@ -773,7 +773,7 @@ func TestTriggerEngine_AfterDeleteCascadeDelete(t *testing.T) {
 
 	parent := newTiki("PAR001", "parent", "done", "story", 3)
 	child := newTiki("CHI001", "child", "ready", "story", 3)
-	child.Set(tikipkg.FieldDependsOn, []string{"PAR001"})
+	child.Set("dependsOn", []string{"PAR001"})
 	unrelated := newTiki("UNR001", "unrelated", "ready", "story", 3)
 	gate, s := newGateWithStoreAndTikis(parent, child, unrelated)
 
@@ -849,7 +849,7 @@ func TestLoadAndRegisterTriggers_WithValidTriggers(t *testing.T) {
 	}
 
 	updated := tk.Clone()
-	updated.Set(tikipkg.FieldStatus, "done")
+	updated.Set("status", "done")
 	err = gate.UpdateTiki(context.Background(), updated)
 	if err == nil || !strings.Contains(err.Error(), "no") {
 		t.Fatalf("expected 'no' denial from trigger, got: %v", err)
@@ -975,7 +975,7 @@ func TestTriggerEngine_PersistDeleteError(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
-	updated.Set(tikipkg.FieldStatus, "done")
+	updated.Set("status", "done")
 	// after-hook errors are logged, not propagated
 	_ = gate.UpdateTiki(context.Background(), updated)
 }
@@ -1025,7 +1025,7 @@ func TestTriggerEngine_ExecRunEvalError(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
-	updated.Set(tikipkg.FieldStatus, "done")
+	updated.Set("status", "done")
 	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("unexpected error (run eval error should be logged): %v", err)
 	}
@@ -1312,7 +1312,7 @@ func TestTriggerEngine_ExecuteTimeTrigger_PersistError(t *testing.T) {
 		t.Fatal("tiki should still exist")
 		return
 	}
-	status, _, _ := persisted.StringField(tikipkg.FieldStatus)
+	status, _, _ := persisted.StringField("status")
 	if status != "ready" {
 		t.Errorf("status should be unchanged, got %q", status)
 	}

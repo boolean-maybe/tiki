@@ -111,7 +111,7 @@ func (pe *PluginExecutor) BuildCreateDraft(stmt *ruki.ValidatedStatement) (*tiki
 }
 
 // EvalChooseFilter evaluates an action's choose subquery against the current
-// store state, returning the candidate tikis sorted by priority/title. Errors
+// store state, returning the candidate tikis sorted by title. Errors
 // surface to the statusline so the caller can simply abort dispatch on
 // ok=false.
 //
@@ -137,7 +137,7 @@ func (pe *PluginExecutor) EvalChooseFilter(pa *plugin.PluginAction, input ruki.E
 		return nil, false
 	}
 	candidates := tikipkg.UnwrapDocs(candidateDocs)
-	sortTikisByPriorityTitle(candidates)
+	sortTikisByTitle(candidates)
 	return candidates, true
 }
 

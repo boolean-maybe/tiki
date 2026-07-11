@@ -91,7 +91,7 @@ fields:
     type: tikiIdList
 
 actions:
-  # mode: closed vocabulary view|edit|new|edit-desc|edit-tags — see CLAUDE.md "Detail view layout".
+  # mode: closed vocabulary view|edit|new|edit-desc — see CLAUDE.md "Detail view layout".
   - key: Enter
     label: Open
     kind: view
@@ -118,7 +118,8 @@ actions:
     label: "Edit tags"
     kind: view
     view: Detail
-    mode: edit-tags
+    mode: edit
+    focus: tags
     require: ["selection:one"]
   - key: "a"
     label: "Assign to me"

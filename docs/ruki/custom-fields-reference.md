@@ -16,9 +16,9 @@
 
 ## Overview
 
-Custom fields extend tiki's built-in field catalog with user-defined fields declared in `workflow.yaml`. This
-reference covers the precise rules for how custom fields are loaded, validated, persisted, and queried — the
-behavioral contract behind the [Custom Fields](../customization/custom-fields.md) user guide.
+Workflow fields extend tiki's system field catalog with fields declared in `workflow.yaml`. This reference
+covers the precise rules for how they are loaded, validated, persisted, and queried — the behavioral contract
+behind the [Custom Fields](../customization/custom-fields.md) user guide.
 
 ## Registration and loading
 
@@ -26,8 +26,8 @@ Custom field definitions come from the single highest-priority `workflow.yaml` (
 [Configuration: Precedence](../config.md#precedence)). A missing `fields:` section means no custom fields are
 registered.
 
-Fields are sorted by name for deterministic ordering and registered into the field catalog alongside built-in
-fields. Once registered, custom fields are available for ruki parsing, validation, and execution.
+Fields are sorted by name for deterministic ordering and registered into the field catalog alongside system
+fields. Once registered, workflow fields are available for ruki parsing, validation, and execution.
 
 Registration happens during bootstrap before any task or template loading occurs.
 
@@ -38,10 +38,11 @@ Field names must:
 - match the ruki identifier pattern (letters, digits, underscores; must start with a letter)
 - not collide with ruki reserved keywords (`select`, `update`, `where`, `and`, `or`, `not`, `in`, `is`,
   `empty`, `order`, `by`, `asc`, `desc`, `set`, `create`, `delete`, `limit`, etc.)
-- not collide with built-in field names, case-insensitively (`title`, `status`, `priority`, `tags`, `dependsOn`, etc.)
+- not collide with reserved system field names, case-insensitively (`id`, `title`, `description`,
+  `createdBy`, `createdAt`, `updatedAt`, `filepath`, or the `body` alias)
 - not be `true` or `false` (reserved boolean literals)
 
-Collision checks are case-insensitive: `Status` and `STATUS` both collide with the built-in `status`.
+Collision checks against system fields are case-insensitive: `Title` and `TITLE` both collide with `title`.
 
 ## Type coercion rules
 
@@ -73,12 +74,14 @@ Enum comparison is case-insensitive: `category = "Backend"` matches a stored `"b
 
 ## Validation rules
 
-Custom fields follow the same validation pipeline as built-in fields:
+Workflow fields follow one validation pipeline:
 
 - **type compatibility**: assignments and comparisons are type-checked (e.g. you cannot assign a string to an
   integer field, or compare an enum field with an integer literal)
 - **enum value validation**: string literals assigned to or compared against an enum field must be in that
   field's allowed values
+- **reference validation**: every `tikiIdList` entry must be a bare ID that resolves to an existing loaded
+  document
 - **ordering**: custom fields of orderable types (`text`, `user`, `integer`, `boolean`, `datetime`, `enum`)
   can appear in `order by` clauses; list types (`stringList`, `tikiIdList`) are not orderable
 

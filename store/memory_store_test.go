@@ -7,6 +7,7 @@ import (
 	"time"
 
 	collectionutil "github.com/boolean-maybe/ruki/collections"
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
@@ -19,13 +20,13 @@ func newWorkflowTiki(id, title, status string, tags, dependsOn []string) *tikipk
 	tk.SetID(id)
 	tk.SetTitle(title)
 	if status != "" {
-		tk.Set(tikipkg.FieldStatus, status)
+		tk.Set("status", status)
 	}
 	if len(tags) > 0 {
-		tk.Set(tikipkg.FieldTags, collectionutil.NormalizeStringSet(tags))
+		tk.Set("tags", collectionutil.NormalizeStringSet(tags))
 	}
 	if len(dependsOn) > 0 {
-		tk.Set(tikipkg.FieldDependsOn, collectionutil.NormalizeRefSet(dependsOn))
+		tk.Set("dependsOn", collectionutil.NormalizeRefSet(dependsOn))
 	}
 	return tk
 }
@@ -47,8 +48,8 @@ func TestInMemoryStore_CreateTiki(t *testing.T) {
 			tk := tikipkg.New()
 			tk.SetID(tt.inputID)
 			tk.SetTitle("Test")
-			tk.Set(tikipkg.FieldType, "story")
-			tk.Set(tikipkg.FieldStatus, workflowEnumDefault("status"))
+			tk.Set("type", "story")
+			tk.Set("status", workflowEnumDefault("status"))
 
 			if err := s.CreateTiki(tk); err != nil {
 				t.Fatalf("CreateTiki() error = %v", err)
@@ -88,11 +89,11 @@ func TestInMemoryStore_CreateTikiNormalizesCollections(t *testing.T) {
 		t.Fatalf("CreateTiki() error = %v", err)
 	}
 
-	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
+	tags, _, _ := tk.StringSliceField("tags")
 	if !reflect.DeepEqual(tags, []string{"frontend", "backend"}) {
 		t.Errorf("tags = %v, want [frontend backend]", tags)
 	}
-	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
+	deps, _, _ := tk.StringSliceField("dependsOn")
 	if !reflect.DeepEqual(deps, []string{"AAA001", "BBB002"}) {
 		t.Errorf("dependsOn = %v, want [AAA001 BBB002]", deps)
 	}
@@ -297,9 +298,9 @@ func TestInMemoryStore_SearchTikis(t *testing.T) {
 			tk.SetTitle(spec.title)
 			tk.SetBody(spec.body)
 			if len(spec.tags) > 0 {
-				tk.Set(tikipkg.FieldTags, spec.tags)
+				tk.Set("tags", spec.tags)
 			}
-			tk.Set(tikipkg.FieldStatus, "backlog")
+			tk.Set("status", "backlog")
 			if err := s.CreateTiki(tk); err != nil {
 				tb.Fatalf("CreateTiki() error = %v", err)
 			}
@@ -410,19 +411,19 @@ func TestInMemoryStore_NewTikiTemplate(t *testing.T) {
 	if len(tmpl.ID()) != 6 {
 		t.Errorf("ID = %q, want 6-character bare ID", tmpl.ID())
 	}
-	if p, _, _ := tmpl.StringField(tikipkg.FieldPriority); p != "medium" {
+	if p, _, _ := tmpl.StringField("priority"); p != "medium" {
 		t.Errorf("Priority = %q, want %q", p, "medium")
 	}
-	if pts, _, _ := tmpl.StringField(tikipkg.FieldPoints); pts != "3" {
+	if pts, _, _ := tmpl.StringField("points"); pts != "3" {
 		t.Errorf("Points = %q, want %q", pts, "3")
 	}
-	if tags, _, _ := tmpl.StringSliceField(tikipkg.FieldTags); len(tags) != 1 || tags[0] != "idea" {
+	if tags, _, _ := tmpl.StringSliceField("tags"); len(tags) != 1 || tags[0] != "idea" {
 		t.Errorf("Tags = %v, want [idea]", tags)
 	}
-	if s, _, _ := tmpl.StringField(tikipkg.FieldStatus); s != workflowEnumDefault("status") {
+	if s, _, _ := tmpl.StringField("status"); s != workflowEnumDefault("status") {
 		t.Errorf("Status = %q, want %q", s, workflowEnumDefault("status"))
 	}
-	if s, _, _ := tmpl.StringField(tikipkg.FieldType); s != workflowEnumDefault("type") {
+	if s, _, _ := tmpl.StringField("type"); s != workflowEnumDefault("type") {
 		t.Errorf("Type = %q, want %q", s, workflowEnumDefault("type"))
 	}
 }
@@ -598,37 +599,57 @@ func TestSearchTikis_FilterRejectsAll(t *testing.T) {
 	}
 }
 
-func TestSearchTikis_MatchesTags(t *testing.T) {
+func TestSearchTikis_MatchesStringListFields(t *testing.T) {
+	fields := teststatuses.CanonicalFields()
+	for i := range fields {
+		if fields[i].Name == "tags" {
+			fields[i].Type = workflow.TypeString
+			fields[i].DefaultValue = nil
+		}
+	}
+	fields = append(fields, workflow.FieldDef{Name: "labels", Type: workflow.TypeListString})
+	config.ResetWorkflowFieldsForTest(fields)
+	t.Cleanup(teststatuses.Init)
+
 	s := NewInMemoryStore()
 	wf := tikipkg.New()
 	wf.SetID("TAG001")
 	wf.SetTitle("No match in title")
 	wf.SetBody("No match in body either")
-	wf.Set("tags", []string{"backend"})
+	wf.Set("labels", []string{"backend"})
 	wf.Set("status", "ready")
 	if err := s.CreateTiki(wf); err != nil {
 		t.Fatalf("failed to create tiki: %v", err)
 	}
+	formerName := tikipkg.New()
+	formerName.SetID("TAG002")
+	formerName.SetTitle("Former name")
+	formerName.Set("tags", []string{"legacy-only"})
+	if err := s.CreateTiki(formerName); err != nil {
+		t.Fatalf("failed to create former-name tiki: %v", err)
+	}
 
-	// SearchTikis searches id, title, body, AND tags — a tag-only query
-	// must surface the tiki even when neither title nor body matches.
+	// A list-only query must surface the tiki even when neither title nor body matches.
 	results := s.SearchTikis("backend", nil)
 	if len(results) != 1 || results[0].ID() != "TAG001" {
 		ids := make([]string, len(results))
 		for i, r := range results {
 			ids[i] = r.ID()
 		}
-		t.Fatalf("tag-only query: got %v, want [TAG001]", ids)
+		t.Fatalf("string-list-only query: got %v, want [TAG001]", ids)
 	}
 
-	// Substring within a tag should also match (case-insensitive).
+	// Substring within a list value should also match (case-insensitive).
 	if results := s.SearchTikis("BACK", nil); len(results) != 1 || results[0].ID() != "TAG001" {
-		t.Errorf("case-insensitive tag substring did not match: got %d results", len(results))
+		t.Errorf("case-insensitive list substring did not match: got %d results", len(results))
 	}
 
-	// And a query that does not match the tag, title, or body returns nothing.
+	// A query that does not match the list, title, or body returns nothing.
 	if results := s.SearchTikis("frontend", nil); len(results) != 0 {
 		t.Errorf("non-matching query returned results: %v", results)
+	}
+	if results := s.SearchTikis("legacy-only", nil); len(results) != 0 {
+		t.Errorf("undeclared former field name returned results: %v", results)
 	}
 }
 

@@ -205,30 +205,6 @@ func TestApplyDetailMode_EditDesc_InstallsDescRegistry(t *testing.T) {
 	}
 }
 
-// TestApplyDetailMode_EditTags_InstallsTagsRegistry pins that edit-tags
-// mode swaps in the tags-only registry on the view.
-func TestApplyDetailMode_EditTags_InstallsTagsRegistry(t *testing.T) {
-	dc, view, _, _ := newDetailEditTestRig(t)
-	if !dc.ApplyDetailMode(plugin.DetailModeEditTags, "", nil) {
-		t.Fatal("ApplyDetailMode returned false for edit-tags")
-	}
-	if !view.editing {
-		t.Error("edit-tags should enter edit mode")
-	}
-	if view.registry == nil {
-		t.Fatal("edit-tags did not install a registry on the view")
-	}
-	if view.registry.GetByID(ActionSaveTiki) == nil {
-		t.Error("edit-tags registry should contain ActionSaveTiki")
-	}
-	if view.registry.GetByID(ActionNextField) != nil {
-		t.Error("edit-tags registry should NOT contain ActionNextField (no field nav)")
-	}
-	if view.focusField != model.EditFieldTags {
-		t.Errorf("focus = %q, want %q", view.focusField, model.EditFieldTags)
-	}
-}
-
 // TestDetailController_RukiChooseActionRoundTrip exercises the full
 // choose() pipeline for a kind: ruki action declared on a kind: detail
 // view. Such actions used to be silently dropped at registration; this
@@ -314,7 +290,7 @@ func TestDetailController_RukiChooseActionRoundTrip(t *testing.T) {
 	if updated == nil {
 		t.Fatal("re-read project: nil")
 	}
-	deps, ok, _ := updated.StringSliceField(tikipkg.FieldDependsOn)
+	deps, ok, _ := updated.StringSliceField("dependsOn")
 	if !ok {
 		t.Fatal("project.dependsOn not present after HandleActionChoose")
 	}

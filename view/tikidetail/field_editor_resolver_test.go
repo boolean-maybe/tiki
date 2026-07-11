@@ -10,6 +10,7 @@ import (
 
 func TestResolvedTypeUI(t *testing.T) {
 	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "deadline", Type: workflow.TypeDate},
 		{Name: "dueBy", Type: workflow.TypeTimestamp},
 		{Name: "note", Type: workflow.TypeString},
 		{Name: "reviewer", Type: workflow.TypeUser},
@@ -21,11 +22,11 @@ func TestResolvedTypeUI(t *testing.T) {
 		name   string
 		wantOK bool
 	}{
-		{"due", true},               // descriptor-backed date
+		{"deadline", true},          // catalog-only date
 		{"dueBy", true},             // catalog-only timestamp
 		{"note", true},              // catalog-only text
 		{"reviewer", true},          // catalog-only user
-		{"assignee", true},          // workflow type wins over static descriptor
+		{"assignee", true},          // former user-field name follows workflow type
 		{"nope-nonexistent", false}, // unknown field
 	}
 	for _, c := range cases {
@@ -40,8 +41,8 @@ func TestResolvedTypeUI(t *testing.T) {
 	if !fieldIsReadOnly("createdAt") {
 		t.Fatal("createdAt should be read-only")
 	}
-	if fieldIsReadOnly("due") {
-		t.Fatal("due should not be read-only")
+	if fieldIsReadOnly("deadline") {
+		t.Fatal("date field should not be read-only")
 	}
 	ui, ok := resolvedTypeUI("assignee")
 	if !ok {

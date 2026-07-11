@@ -1,9 +1,12 @@
 package controller
 
 import (
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/boolean-maybe/ruki/recurrence"
+	"github.com/boolean-maybe/tiki/config"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/service"
@@ -24,7 +27,18 @@ func TestTikiEditSession_SaveWorkflowField(t *testing.T) {
 		{Name: "reviewer", Type: workflow.TypeUser},
 		{Name: "estimate", Type: workflow.TypeInt},
 		{Name: "blocked", Type: workflow.TypeBool},
+		{Name: "deadline", Type: workflow.TypeDate},
 		{Name: "dueBy", Type: workflow.TypeTimestamp},
+		{Name: "schedule", Type: workflow.TypeRecurrence},
+		{Name: "labels", Type: workflow.TypeListString},
+		{
+			Name: "estimateChoice",
+			Type: workflow.TypeEnum,
+			EnumValues: []workflow.EnumValue{
+				{Value: "1"},
+				{Value: "3"},
+			},
+		},
 	}); err != nil {
 		t.Fatalf("InitWith: %v", err)
 	}
@@ -47,9 +61,20 @@ func TestTikiEditSession_SaveWorkflowField(t *testing.T) {
 		{"blocked", "true", true, true},
 		{"blocked", "false", true, false},
 		{"blocked", "", true, nil},
+		{"deadline", "2026-07-08", true, "2026-07-08"}, // stored as time.Time; check via format
+		{"deadline", "", true, nil},
+		{"deadline", "garbage", false, nil},
 		{"dueBy", "2026-07-08 14:30", true, "2026-07-08 14:30"}, // stored as time.Time; check via format
 		{"dueBy", "", true, nil},
 		{"dueBy", "garbage", false, nil},
+		{"schedule", "0 0 * * MON", true, "0 0 * * MON"},
+		{"schedule", string(recurrence.RecurrenceNone), true, nil},
+		{"schedule", "garbage", false, nil},
+		{"labels", "alpha beta alpha", true, []string{"alpha", "beta"}},
+		{"labels", "", true, nil},
+		{"estimateChoice", "3", true, "3"},
+		{"estimateChoice", "", true, nil},
+		{"estimateChoice", "5", false, nil},
 	}
 	for _, c := range cases {
 		t.Run(c.field+"="+c.raw, func(t *testing.T) {
@@ -76,7 +101,21 @@ func TestTikiEditSession_SaveWorkflowField(t *testing.T) {
 				}
 				return
 			}
-			if c.field == "dueBy" {
+			switch c.field {
+			case "labels":
+				got, _ := v.([]string)
+				want, _ := c.wantStored.([]string)
+				if !slices.Equal(got, want) {
+					t.Fatalf("labels stored %v want %v", got, want)
+				}
+				return
+			case "deadline":
+				tm, _ := v.(time.Time)
+				if got := tm.Format(value.DateFormat); got != c.wantStored {
+					t.Fatalf("deadline stored %q want %q", got, c.wantStored)
+				}
+				return
+			case "dueBy":
 				tm, _ := v.(time.Time)
 				if got := value.FormatDateTime(tm); got != c.wantStored {
 					t.Fatalf("dueBy stored %q want %q", got, c.wantStored)
@@ -108,7 +147,7 @@ func TestWireEditFieldHandlers_UserPersists(t *testing.T) {
 	tk := tikipkg.New()
 	tk.SetID("TIKIUS")
 	tk.SetTitle("Test")
-	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set("status", "ready")
 	if err := tikiStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
@@ -142,6 +181,209 @@ func TestWireEditFieldHandlers_UserPersists(t *testing.T) {
 	}
 }
 
+func TestWireEditFieldHandlers_UsesDeclaredTypeForFormerDateName(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "due", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tikiStore := store.NewInMemoryStore()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	tc := NewTikiEditSession(tikiStore, gate, newMockNavigationController(), nil)
+	tc.SetDraft(tikipkg.New())
+
+	dc := &DetailController{editSession: tc}
+	view := newFakeDetailEditView()
+	view.layout = []string{"due"}
+	dc.wireEditFieldHandlers(view)
+
+	saver, ok := view.fieldHandlers["due"]
+	if !ok || saver == nil {
+		t.Fatal("date-named field save handler not installed")
+	}
+	saver("tomorrow")
+
+	got, present := tc.draftTiki.Get("due")
+	if !present || got != "tomorrow" {
+		t.Fatalf("date-named text field stored %v (present=%v), want tomorrow", got, present)
+	}
+}
+
+func TestWireEditFieldHandlers_UsesDeclaredTypeForFormerRecurrenceName(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "recurrence", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tikiStore := store.NewInMemoryStore()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	tc := NewTikiEditSession(tikiStore, gate, newMockNavigationController(), nil)
+	tc.SetDraft(tikipkg.New())
+
+	dc := &DetailController{editSession: tc}
+	view := newFakeDetailEditView()
+	view.layout = []string{"recurrence"}
+	dc.wireEditFieldHandlers(view)
+
+	saver, ok := view.fieldHandlers["recurrence"]
+	if !ok || saver == nil {
+		t.Fatal("recurrence-named field save handler not installed")
+	}
+	saver("later")
+
+	got, present := tc.draftTiki.Get("recurrence")
+	if !present || got != "later" {
+		t.Fatalf("recurrence-named text field stored %v (present=%v), want later", got, present)
+	}
+}
+
+func TestWireEditFieldHandlers_UsesDeclaredTypeForFormerStringListName(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "tags", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tikiStore := store.NewInMemoryStore()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	tc := NewTikiEditSession(tikiStore, gate, newMockNavigationController(), nil)
+	tc.SetDraft(tikipkg.New())
+
+	dc := &DetailController{editSession: tc}
+	view := newFakeDetailEditView()
+	view.layout = []string{"tags"}
+	dc.wireEditFieldHandlers(view)
+
+	saver, ok := view.fieldHandlers["tags"]
+	if !ok || saver == nil {
+		t.Fatal("string-list-named field save handler not installed")
+	}
+	saver("plain text")
+
+	got, present := tc.draftTiki.Get("tags")
+	if !present || got != "plain text" {
+		t.Fatalf("string-list-named text field stored %v (present=%v), want plain text", got, present)
+	}
+}
+
+func TestWireEditFieldHandlers_UsesDeclaredTypeForFormerPointsName(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "points", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tikiStore := store.NewInMemoryStore()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	tc := NewTikiEditSession(tikiStore, gate, newMockNavigationController(), nil)
+	tc.SetDraft(tikipkg.New())
+
+	dc := &DetailController{editSession: tc}
+	view := newFakeDetailEditView()
+	view.layout = []string{"points"}
+	dc.wireEditFieldHandlers(view)
+
+	saver, ok := view.fieldHandlers["points"]
+	if !ok || saver == nil {
+		t.Fatal("former points field save handler not installed")
+	}
+	saver("plain text")
+
+	got, present := tc.draftTiki.Get("points")
+	if !present || got != "plain text" {
+		t.Fatalf("string field named points stored %v (present=%v), want plain text", got, present)
+	}
+}
+
+func TestWireEditFieldHandlers_UsesDeclaredTypeForFormerPriorityName(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "priority", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tikiStore := store.NewInMemoryStore()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	tc := NewTikiEditSession(tikiStore, gate, newMockNavigationController(), nil)
+	tc.SetDraft(tikipkg.New())
+
+	dc := &DetailController{editSession: tc}
+	view := newFakeDetailEditView()
+	view.layout = []string{"priority"}
+	dc.wireEditFieldHandlers(view)
+
+	saver, ok := view.fieldHandlers["priority"]
+	if !ok || saver == nil {
+		t.Fatal("former priority field save handler not installed")
+	}
+	saver("plain text")
+
+	got, present := tc.draftTiki.Get("priority")
+	if !present || got != "plain text" {
+		t.Fatalf("string field named priority stored %v (present=%v), want plain text", got, present)
+	}
+}
+
+func TestWireEditFieldHandlers_UsesDeclaredTypeForFormerTypeName(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "type", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tikiStore := store.NewInMemoryStore()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	tc := NewTikiEditSession(tikiStore, gate, newMockNavigationController(), nil)
+	tc.SetDraft(tikipkg.New())
+
+	dc := &DetailController{editSession: tc}
+	view := newFakeDetailEditView()
+	view.layout = []string{"type"}
+	dc.wireEditFieldHandlers(view)
+
+	saver, ok := view.fieldHandlers["type"]
+	if !ok || saver == nil {
+		t.Fatal("former type field save handler not installed")
+	}
+	saver("plain text")
+
+	got, present := tc.draftTiki.Get("type")
+	if !present || got != "plain text" {
+		t.Fatalf("string field named type stored %v (present=%v), want plain text", got, present)
+	}
+}
+
+func TestWireEditFieldHandlers_UsesDeclaredTypeForFormerStatusName(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "status", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tikiStore := store.NewInMemoryStore()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	tc := NewTikiEditSession(tikiStore, gate, newMockNavigationController(), nil)
+	tc.SetDraft(tikipkg.New())
+
+	dc := &DetailController{editSession: tc}
+	view := newFakeDetailEditView()
+	view.layout = []string{"status"}
+	dc.wireEditFieldHandlers(view)
+
+	saver, ok := view.fieldHandlers["status"]
+	if !ok || saver == nil {
+		t.Fatal("former status field save handler not installed")
+	}
+	saver("plain text")
+
+	got, present := tc.draftTiki.Get("status")
+	if !present || got != "plain text" {
+		t.Fatalf("string field named status stored %v (present=%v), want plain text", got, present)
+	}
+}
+
 // TestWireEditFieldHandlers_CatalogDatetimePersists reproduces the silent-drop
 // bug: a catalog-only datetime field was editable but had no save handler, so
 // its edits vanished on commit. After wiring SaveWorkflowField generically, the
@@ -164,7 +406,7 @@ func TestWireEditFieldHandlers_CatalogDatetimePersists(t *testing.T) {
 	tk := tikipkg.New()
 	tk.SetID("TIKIDT1")
 	tk.SetTitle("Test")
-	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set("status", "ready")
 	if err := tikiStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}

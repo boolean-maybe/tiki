@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-// TikiEditSession handles tiki detail view actions: editing, status changes, comments.
+// TikiEditSession handles tiki detail view actions: editing, field changes, comments.
 type TikiEditSession struct {
 	tikiStore     store.Store
 	mutationGate  *service.TikiMutationGate
@@ -234,19 +234,6 @@ func (tc *TikiEditSession) SaveTitle(newTitle string) bool {
 	return false
 }
 
-// SaveTags saves the new tags to the current tiki (draft or editing).
-// Returns true if a tiki was updated, false if no tiki is being edited.
-func (tc *TikiEditSession) SaveTags(tags []string) bool {
-	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		normalized := collectionutil.NormalizeStringSet(tags)
-		if len(normalized) > 0 {
-			tk.Set(tikipkg.FieldTags, normalized)
-		} else {
-			tk.Delete(tikipkg.FieldTags)
-		}
-	})
-}
-
 // SaveDescription saves the new description to the current tiki (draft or editing).
 // For draft tikis (new tiki creation), updates the draft; for editing tikis, updates the editing copy.
 // Returns true if a tiki was updated, false if no tiki is being edited.
@@ -278,84 +265,9 @@ func (tc *TikiEditSession) updateTikiField(setter func(*tikipkg.Tiki)) bool {
 	return false
 }
 
-// SaveStatus saves the new status to the current tiki. Accepts either a
-// canonical enum key (the form emitted by the SemanticEnum editor) or a
-// display string (legacy form from the older typed editor). The lookup
-// order matters: a display-string match takes priority over normalization,
-// because NormalizeStatus("Done ✅") would camelCase the emoji into a
-// nonsense key ("done✅") and silently fall back to the default status.
-// Returns true on a successful update.
-func (tc *TikiEditSession) SaveStatus(statusOrDisplay string) bool {
-	if statusOrDisplay == "" {
-		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-			tk.Delete(tikipkg.FieldStatus)
-		})
-	}
-	statusFD, hasStatus := workflow.Field(tikipkg.FieldStatus)
-	// Canonical key path: editor-emitted values land here directly.
-	if hasStatus && statusFD.IsValidEnum(statusOrDisplay) {
-		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-			tk.Set(tikipkg.FieldStatus, statusOrDisplay)
-		})
-	}
-	// Display-string path: legacy callers pass "Ready 📋" etc.
-	if hasStatus {
-		if key, ok := statusFD.EnumParseDisplay(statusOrDisplay); ok {
-			return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-				tk.Set(tikipkg.FieldStatus, key)
-			})
-		}
-	}
-	// Loose normalization: camelCase / underscore / space variants.
-	if newStatus := normalizeStatusKey(statusOrDisplay); hasStatus && statusFD.IsValidEnum(newStatus) {
-		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-			tk.Set(tikipkg.FieldStatus, newStatus)
-		})
-	}
-	// Catch-all fallback to the configured default — preserves the legacy
-	// behavior where unrecognized input lands on the default status rather
-	// than rejecting the save.
-	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		def := ""
-		if hasStatus {
-			def = statusFD.EnumDefault()
-		}
-		tk.Set(tikipkg.FieldStatus, def)
-	})
-}
-
-// SaveType saves the new type to the current tiki. Accepts either a canonical
-// enum key or a display string — same dual-form contract as SaveStatus, since
-// the SemanticEnum editor emits keys but legacy callers still pass displays.
-// Returns true on a successful update.
-func (tc *TikiEditSession) SaveType(typeOrDisplay string) bool {
-	if typeOrDisplay == "" {
-		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-			tk.Delete(tikipkg.FieldType)
-		})
-	}
-	typeFD, hasType := workflow.Field(tikipkg.FieldType)
-	if hasType && typeFD.IsValidEnum(typeOrDisplay) {
-		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-			tk.Set(tikipkg.FieldType, typeOrDisplay)
-		})
-	}
-	if hasType {
-		if newType, ok := typeFD.EnumParseDisplay(typeOrDisplay); ok {
-			return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-				tk.Set(tikipkg.FieldType, newType)
-			})
-		}
-	}
-	slog.Warn("unrecognized type", "input", typeOrDisplay)
-	return false
-}
-
-// SaveWorkflowEnum saves a value to a workflow-declared enum field. Used by
-// the detail edit handler for custom enum fields (severity, environment,
-// etc.) — fields that have no built-in Save* method but still need an edit
-// path. The value must be a valid key for the configured enum, or empty
-// to delete the field. Returns true on success.
+// SaveWorkflowEnum saves a value to a workflow-declared enum field. The value
+// must be a valid key for the configured enum, or empty to delete the field.
+// Returns true on success.
 func (tc *TikiEditSession) SaveWorkflowEnum(fieldName, value string) bool {
 	wfd, ok := workflow.Field(fieldName)
 	if !ok || wfd.Type != workflow.TypeEnum {
@@ -376,12 +288,11 @@ func (tc *TikiEditSession) SaveWorkflowEnum(fieldName, value string) bool {
 }
 
 // SaveWorkflowField persists a raw editor string to a workflow-declared field
-// by its declared type, for catalog-only fields with no dedicated Save* method
-// (custom text/integer/boolean/datetime). It is the generic counterpart to
-// SaveWorkflowEnum and the single save authority the detail controller wires for
-// every non-builtin editable field. Empty raw clears the field. Integers are
-// unbounded (the schema declares no per-field range). Returns false on parse
-// failure so a malformed value is rejected rather than silently written.
+// by its declared type. It is the generic counterpart to SaveWorkflowEnum and
+// the save authority the detail controller wires for editable fields without
+// reserved-field handling. Empty raw clears the field. Integers are unbounded
+// because the schema declares no per-field range. Returns false on parse failure
+// so a malformed value is rejected rather than silently written.
 func (tc *TikiEditSession) SaveWorkflowField(name, raw string) bool {
 	wfd, ok := workflow.Field(name)
 	if !ok {
@@ -395,8 +306,14 @@ func (tc *TikiEditSession) SaveWorkflowField(name, raw string) bool {
 		return tc.saveWorkflowInt(name, raw)
 	case workflow.TypeBool:
 		return tc.saveWorkflowBool(name, raw)
+	case workflow.TypeDate:
+		return tc.saveWorkflowDate(name, raw)
 	case workflow.TypeTimestamp:
 		return tc.saveWorkflowTimestamp(name, raw)
+	case workflow.TypeRecurrence:
+		return tc.saveWorkflowRecurrence(name, raw)
+	case workflow.TypeListString:
+		return tc.saveWorkflowStringList(name, raw)
 	case workflow.TypeString, workflow.TypeUser:
 		return tc.setOrDelete(name, raw, raw == "")
 	}
@@ -428,6 +345,15 @@ func (tc *TikiEditSession) saveWorkflowBool(name, raw string) bool {
 	return tc.setOrDelete(name, b, false)
 }
 
+func (tc *TikiEditSession) saveWorkflowDate(name, raw string) bool {
+	parsed, ok := value.ParseDate(raw)
+	if !ok {
+		slog.Warn("saveWorkflowDate: cannot parse", "field", name, "value", raw)
+		return false
+	}
+	return tc.setOrDelete(name, parsed, parsed.IsZero())
+}
+
 func (tc *TikiEditSession) saveWorkflowTimestamp(name, raw string) bool {
 	if raw == "" {
 		return tc.setOrDelete(name, time.Time{}, true)
@@ -440,6 +366,20 @@ func (tc *TikiEditSession) saveWorkflowTimestamp(name, raw string) bool {
 	return tc.setOrDelete(name, t, t.IsZero())
 }
 
+func (tc *TikiEditSession) saveWorkflowRecurrence(name, raw string) bool {
+	r := recurrence.Recurrence(raw)
+	if !recurrence.IsValidRecurrence(r) {
+		slog.Warn("saveWorkflowRecurrence: invalid recurrence", "field", name, "value", raw)
+		return false
+	}
+	return tc.setOrDelete(name, string(r), r == recurrence.RecurrenceNone)
+}
+
+func (tc *TikiEditSession) saveWorkflowStringList(name, raw string) bool {
+	values := collectionutil.NormalizeStringSet(strings.Fields(raw))
+	return tc.setOrDelete(name, values, len(values) == 0)
+}
+
 // setOrDelete deletes the field when clear is true, else sets it to fieldValue,
 // on whichever tiki the session is currently editing (draft or existing copy).
 func (tc *TikiEditSession) setOrDelete(name string, fieldValue interface{}, clear bool) bool {
@@ -449,95 +389,6 @@ func (tc *TikiEditSession) setOrDelete(name string, fieldValue interface{}, clea
 			return
 		}
 		tk.Set(name, fieldValue)
-	})
-}
-
-// SavePriority saves the new priority to the current tiki. Priority is now
-// a workflow enum: empty string deletes the field, any other value must be
-// a recognized canonical key for the configured priority enum. Display
-// strings are not accepted — the editor emits canonical keys directly.
-// Returns true if the priority was successfully updated, false otherwise.
-func (tc *TikiEditSession) SavePriority(priority string) bool {
-	if priority != "" {
-		fd, ok := workflow.Field(tikipkg.FieldPriority)
-		if !ok || !fd.IsValidEnum(priority) {
-			slog.Warn("invalid priority", "value", priority)
-			return false
-		}
-	}
-
-	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		if priority == "" {
-			tk.Delete(tikipkg.FieldPriority)
-		} else {
-			tk.Set(tikipkg.FieldPriority, priority)
-		}
-	})
-}
-
-// SavePoints saves the new story points to the current tiki. Points is now
-// a workflow enum (declared values like "1"/"3"/"7"/"11" in kanban.yaml);
-// the int argument is the legacy interface from the per-field save plumbing
-// and is normalized to its decimal string form for enum-key validation.
-// Zero (or any value not declared as an enum key) clears the field.
-func (tc *TikiEditSession) SavePoints(points int) bool {
-	fd, ok := workflow.Field(tikipkg.FieldPoints)
-	clearField := func(tk *tikipkg.Tiki) { tk.Delete(tikipkg.FieldPoints) }
-	if !ok || fd.Type != workflow.TypeEnum {
-		// Points isn't an enum in the current workflow; treat as a no-op
-		// rather than writing an integer that would fail validation.
-		slog.Warn("points field is not a workflow enum; ignoring save", "value", points)
-		return false
-	}
-
-	if points == 0 {
-		return tc.updateTikiField(clearField)
-	}
-	key := strconv.Itoa(points)
-	if !fd.IsValidEnum(key) {
-		slog.Warn("points value not in workflow enum", "value", key)
-		return false
-	}
-	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		tk.Set(tikipkg.FieldPoints, key)
-	})
-}
-
-// SaveDue saves the new due date to the current tiki.
-// Empty string clears the due date (sets to zero time).
-// Returns true if the due date was successfully updated, false otherwise.
-func (tc *TikiEditSession) SaveDue(dateStr string) bool {
-	parsed, ok := value.ParseDate(dateStr)
-	if !ok {
-		return false
-	}
-	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		if parsed.IsZero() {
-			tk.Delete(tikipkg.FieldDue)
-		} else {
-			tk.Set(tikipkg.FieldDue, parsed)
-		}
-	})
-}
-
-// SaveRecurrence saves the new recurrence cron expression to the current tiki.
-// When recurrence is set, Due is auto-computed as the next occurrence.
-// When recurrence is cleared, Due is also cleared.
-// Returns true if the recurrence was successfully updated, false otherwise.
-func (tc *TikiEditSession) SaveRecurrence(cron string) bool {
-	r := recurrence.Recurrence(cron)
-	if !recurrence.IsValidRecurrence(r) {
-		slog.Warn("invalid recurrence", "cron", cron)
-		return false
-	}
-	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		if r == recurrence.RecurrenceNone {
-			tk.Delete(tikipkg.FieldRecurrence)
-			tk.Delete(tikipkg.FieldDue)
-		} else {
-			tk.Set(tikipkg.FieldRecurrence, string(r))
-			tk.Set(tikipkg.FieldDue, recurrence.NextOccurrence(r))
-		}
 	})
 }
 
@@ -606,52 +457,4 @@ func (tc *TikiEditSession) AddComment(author, text string) bool {
 	// trigger an unnecessary file write and fire validators/hooks/triggers.
 	tk.Set("comments", append(existing, comment))
 	return true
-}
-
-// normalizeStatusKey converts a raw status string ("in_progress", "In Progress",
-// "IN_PROGRESS") to canonical camelCase ("inProgress"). Splits on "_", "-",
-// " ", and camelCase boundaries, then reassembles. Generic — no knowledge of
-// any specific status field's allowed values; callers must validate the
-// result against the workflow catalog.
-func normalizeStatusKey(s string) string {
-	trimmed := strings.TrimSpace(s)
-	if trimmed == "" {
-		return ""
-	}
-	parts := strings.FieldsFunc(trimmed, func(r rune) bool {
-		return r == '_' || r == '-' || r == ' '
-	})
-	var words []string
-	for _, p := range parts {
-		words = append(words, splitCamelCase(p)...)
-	}
-	if len(words) == 0 {
-		return ""
-	}
-	var b strings.Builder
-	for i, w := range words {
-		if i == 0 {
-			b.WriteString(strings.ToLower(w))
-			continue
-		}
-		b.WriteString(strings.ToUpper(w[:1]))
-		b.WriteString(strings.ToLower(w[1:]))
-	}
-	return b.String()
-}
-
-func splitCamelCase(s string) []string {
-	if s == "" {
-		return nil
-	}
-	var words []string
-	start := 0
-	for i := 1; i < len(s); i++ {
-		if s[i] >= 'A' && s[i] <= 'Z' && s[i-1] >= 'a' && s[i-1] <= 'z' {
-			words = append(words, s[start:i])
-			start = i
-		}
-	}
-	words = append(words, s[start:])
-	return words
 }

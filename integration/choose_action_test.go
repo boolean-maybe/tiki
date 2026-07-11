@@ -9,7 +9,6 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/testutil"
-	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -328,7 +327,7 @@ func TestChooseAction_FiltersOutAlreadyLinkedEpics(t *testing.T) {
 	if updated == nil {
 		t.Fatal("epic not found")
 	}
-	deps, _, _ := updated.StringSliceField(tikipkg.FieldDependsOn)
+	deps, _, _ := updated.StringSliceField("dependsOn")
 	found := false
 	for _, dep := range deps {
 		if dep == "000001" {

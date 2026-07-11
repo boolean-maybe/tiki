@@ -73,11 +73,6 @@ func TestPluginViewParams_ModeFocusDraftRoundTrip(t *testing.T) {
 			in:   PluginViewParams{TikiID: "T1KI42", Mode: plugin.DetailModeEditDesc, Focus: EditFieldDescription},
 			want: PluginViewParams{TikiID: "T1KI42", Mode: plugin.DetailModeEditDesc, Focus: EditFieldDescription},
 		},
-		{
-			name: "edit-tags mode",
-			in:   PluginViewParams{TikiID: "T1KI42", Mode: plugin.DetailModeEditTags, Focus: EditFieldTags},
-			want: PluginViewParams{TikiID: "T1KI42", Mode: plugin.DetailModeEditTags, Focus: EditFieldTags},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

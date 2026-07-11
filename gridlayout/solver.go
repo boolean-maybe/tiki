@@ -42,7 +42,7 @@ type Plan struct {
 //  2. If required width (non-grow base widths + grow columns' floors + gaps)
 //     exceeds the available width, shed by position priority: drop the
 //     rightmost visible column — grow or not — and retry. Leftmost columns
-//     (the core identity/status fields) survive longest; rightmost (optional)
+//     (the primary fields) survive longest; rightmost (optional)
 //     content sheds first. A floored grow column at the right end sheds before
 //     any interior column rather than clinging on as a useless sliver.
 //  3. Grow columns split the residual width left after fixed/content columns
@@ -81,11 +81,19 @@ func SolveLayout(spec GridSpec, width, gap int, measure func(a Anchor) int, heig
 	base := computeColumnWidths(spec, grow, measure)
 	growFloors := computeGrowFloors(spec, grow)
 
+	// A trailing column that only ever receives a colspan passthrough (`--`)
+	// plus empty cells — no anchor rooted in it — holds no content of its own.
+	// Left in place it reserves a base width and an inter-column gap, stranding
+	// a dead gap between a grow column and the box's right frame (P/P1). Drop
+	// such columns up front (when a grow column exists to their left to absorb
+	// the reclaimed room) so the grow column fills to the frame.
+	dropTrailingSpanOnlyColumns(spec, grow, plan.Dropped)
+
 	// required width = non-grow base widths + grow columns' floors. Counting a
 	// grow column's floor (its explicit `:MIN..fr` minimum) means a grow column
 	// that cannot be given at least its floor triggers further shedding instead
-	// of silently shrinking to a useless sliver — e.g. a `dependsOn:8..fr`
-	// column is shed rather than clipped to "1E" when the box runs out of room.
+	// of silently shrinking to a useless sliver — e.g. a `references:8..fr`
+	// column is shed rather than clipped when the box runs out of room.
 	// A floorless grow column (plain `:fr`) contributes 0 and keeps its old
 	// behavior (absorb whatever residual remains).
 	computeFixed := func() int {
@@ -292,6 +300,49 @@ func computeGrowFloors(spec GridSpec, grow []bool) []int {
 	return floors
 }
 
+// dropTrailingSpanOnlyColumns marks the trailing run of columns that hold no
+// rooted anchor (only colspan passthrough and empty cells) as dropped, so a
+// grow column to their left absorbs the reclaimed width and gaps. It is a no-op
+// unless a grow column sits somewhere left of the trailing run — without a
+// grower to absorb the room there is no benefit, and dropping would only narrow
+// the grid. A rooted anchor (Anchor.Col == c) anchors real content in the
+// column and stops the scan; a spanning anchor passing through (Col < c) does
+// not root the column and is skipped.
+func dropTrailingSpanOnlyColumns(spec GridSpec, grow, dropped []bool) {
+	rooted := make([]bool, spec.Cols)
+	for _, a := range spec.Anchors {
+		if a.Col >= 0 && a.Col < spec.Cols {
+			rooted[a.Col] = true
+		}
+	}
+
+	firstTrailing := spec.Cols
+	for c := spec.Cols - 1; c >= 0; c-- {
+		if rooted[c] {
+			break
+		}
+		firstTrailing = c
+	}
+	if firstTrailing >= spec.Cols {
+		return // rightmost column is rooted: no trailing span-only run
+	}
+
+	growLeft := false
+	for c := 0; c < firstTrailing; c++ {
+		if grow[c] {
+			growLeft = true
+			break
+		}
+	}
+	if !growLeft {
+		return
+	}
+
+	for c := firstTrailing; c < spec.Cols; c++ {
+		dropped[c] = true
+	}
+}
+
 // computeColumnWidths returns per-column base (preferred) widths. Non-grow
 // columns are sized by mode; grow columns get base 0 (their width is assigned
 // from residual). A spanning anchor distributes its preferred width across its
@@ -407,10 +458,21 @@ func dropCoShedColumns(spec GridSpec, dropped []bool) {
 }
 
 // fieldNamed reports whether an anchor carries a field name to pair on — a
-// plain field anchor (value or `.caption`) or a single-field composite (e.g.
-// `status.label + " " + status.visual`, Name=="status"). Literal anchors carry
-// no field identity and never participate in co-shedding.
+// single-column field anchor (value or `.caption`) or a single-column,
+// single-field composite (e.g. `category.label + " " + category.visual`,
+// Name=="category"). Literal anchors carry no field identity and never
+// participate in co-shedding.
+//
+// Multi-column spanning anchors are excluded: co-shedding pairs a field's
+// single-cell caption with its single-cell value so neither survives orphaned.
+// A banner that spans many columns (a full-width title, or a value spanning its
+// own row) has no separate other-half to orphan — and treating it as a co-shed
+// participant would let dropping one decorative column under a full-width title
+// cascade into dropping the title's neighbors (P/P1).
 func fieldNamed(a Anchor) bool {
+	if a.ColSpan != 1 {
+		return false
+	}
 	switch a.Kind {
 	case AnchorField:
 		return a.Name != ""
@@ -493,7 +555,7 @@ func (p Plan) SuppressedAnchorAt(spec GridSpec, name string, row, col int) bool 
 
 // rightmostVisibleColumn returns the highest-index column not yet dropped, or -1
 // when every column is gone. This is the position-priority shedding victim: the
-// layout sheds from the right, so leftmost (core identity/status) columns survive
+// layout sheds from the right, so leftmost primary columns survive
 // longest and rightmost (optional) content sheds first — grow and non-grow alike.
 // A floored grow column at the right end is therefore shed before any interior
 // column, instead of clinging on as a useless sliver while a core column dies.

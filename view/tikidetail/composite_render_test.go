@@ -143,7 +143,7 @@ func TestBuildCompositeText_RoleOnLiteralSegment(t *testing.T) {
 		},
 	}
 	tk := tikipkg.New()
-	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set("status", "ready")
 	ctx := FieldRenderContext{Mode: RenderModeView, Roles: roles}
 
 	got := buildCompositeText(a, tk, ctx)
@@ -220,7 +220,7 @@ func TestRenderCompositePrimitive_SingleRowIsSingleLine(t *testing.T) {
 		},
 	}
 	tk := tikipkg.New()
-	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set("status", "ready")
 	ctx := FieldRenderContext{Mode: RenderModeView, Roles: roles}
 
 	prim := renderCompositePrimitive(a, tk, ctx)

@@ -907,6 +907,31 @@ func TestBuildAppContext_SelectableView(t *testing.T) {
 	}
 }
 
+// TestBuildAppContext_EmptyBoardStaleParams reproduces H/H2: a plugin board
+// view with no live selection (empty/filtered board, GetSelectedID == "") must
+// NOT report selection:one just because stale nav params still carry a TikiID.
+// The header renders selection-gated actions as enabled off this context, so a
+// contaminated context makes an empty board advertise actions it would refuse.
+func TestBuildAppContext_EmptyBoardStaleParams(t *testing.T) {
+	entry := &ViewEntry{
+		ViewID: model.MakePluginViewID("Kanban"),
+		Params: model.EncodePluginViewParams(model.PluginViewParams{TikiID: "ABC123"}),
+	}
+	emptyBoard := &mockSelectableView{selectedID: ""}
+
+	ctx := BuildAppContext(entry, emptyBoard)
+
+	if ctx.Has(string(RequireSelectionOne)) {
+		t.Error("empty board must not report selection:one from stale nav params")
+	}
+	if ctx.Has("id") {
+		t.Error("empty board must not report 'id' from stale nav params")
+	}
+	if ctx.Has(string(RequireSelectionAny)) {
+		t.Error("empty board must not report selection:any from stale nav params")
+	}
+}
+
 func TestSelectionSatisfies(t *testing.T) {
 	tests := []struct {
 		name  string

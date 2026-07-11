@@ -64,8 +64,8 @@ func tikiBoxItemHeight(spec gridlayout.GridSpec) int {
 // Tiki cards are fixed-height: every anchor reports height 1 to the
 // grid solver regardless of its natural multi-line size. This is the
 // design contract (a board card has a fixed visual footprint so cards
-// pack cleanly into lanes). Multi-row fields like `tags` or
-// `dependsOn` therefore render only their first row inside a card —
+// pack cleanly into lanes). Multi-row list fields therefore render only their
+// first row inside a card —
 // they are intentionally clipped by tview's natural cell-width truncation
 // in the same way long titles are. For multi-row rendering, declare the
 // field on a `kind: detail` view instead.

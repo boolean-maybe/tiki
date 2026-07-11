@@ -88,6 +88,7 @@ For list field types, values are normalized with set semantics:
 - empty entries are dropped
 - duplicate entries are removed
 - `tikiIdList` entries are uppercased
+- every `tikiIdList` entry must reference an existing loaded document
 
 `user` fields are not validated against the suggestion list. The editor offers known users from the store, but
 typing any value is allowed and the stored/ruki value remains a plain string.

@@ -27,7 +27,7 @@ This page explains how `ruki` statements, triggers, conditions, and expressions 
 `order by`
 
 - Each field must exist in the schema and be an orderable type.
-- Orderable types: `int`, `date`, `timestamp`, `duration`, `string`, `status`, `type`, `id`, `ref`.
+- Orderable types: `int`, `date`, `timestamp`, `duration`, `string`, enum, `id`, `ref`.
 - Non-orderable types: `list<string>`, `list<ref>`, `recurrence`, `bool`.
 - Default direction is ascending. Use `desc` for descending.
 - Duplicate fields are rejected.
@@ -164,7 +164,7 @@ Rules:
   them explicitly if needed (for example `targets.dependsOn - targets.id`).
 - projection types stay within existing list types:
   - `id`, ref fields, and `list<ref>` fields project to `list<ref>`.
-  - `string`, `status`, `type`, enum, and `list<string>` fields project to `list<string>`.
+  - `string`, enum, and `list<string>` fields project to `list<string>`.
   - scalar types without a list representation (`int`, `date`, `timestamp`, `duration`, `bool`,
     `recurrence`) are rejected — use `target.<field>` for those or convert explicitly.
 - a selected task ID that does not resolve to a known task raises a clear runtime error.
@@ -243,9 +243,9 @@ custom user-defined fields share the same presence-aware behavior.
 Rules that follow from presence:
 
 - Equality with a concrete value is asymmetric on absent fields: `where <field> = <value>` is **false**
-  and `where <field> != <value>` is **true**. `where points = 0` does not match tikis that never
-  declared points; only tikis whose frontmatter literally wrote `points: 0` match. `where points
-  != 0` matches both "declared points other than 0" *and* "no points declared".
+  and `where <field> != <value>` is **true**. For an integer field named `estimate`, `where estimate = 0`
+  does not match tikis that never declared it; only tikis whose frontmatter literally wrote `estimate: 0`
+  match. `where estimate != 0` matches both "declared estimates other than 0" and "no estimate declared".
 - Equality with `empty` treats absent as empty: `where <field> = empty` is **true** for absent fields,
   and `where <field> != empty` is **false**. This is the only equality form where absent and
   present-zero behave the same.
@@ -282,7 +282,7 @@ Rules that follow from presence:
 Setting any field on a tiki simply writes that key into its frontmatter:
 `update where id = "ABC123" set status = "ready"` adds `status: ready`. There is no separate "promotion"
 step or hidden classifier — fields are added like ordinary map entries. Sparse serialization is
-preserved: `set points = 0` writes exactly `points: 0`, not a full schema.
+preserved: `set estimate = 0` writes exactly `estimate: 0`, not a full schema.
 
 Removing a field is explicit. The canonical clear is `set <field> = empty`: assigning the empty literal
 deletes the key from frontmatter so subsequent loads see it as absent. List arithmetic does *not* delete
@@ -296,7 +296,7 @@ select where true
 select where blocked
 select where not blocked
 select where title     -- invalid: title is string-typed
-select where points    -- invalid: points is int-typed
+select where estimate  -- invalid when estimate is int-typed
 ```
 
 Expressions:
