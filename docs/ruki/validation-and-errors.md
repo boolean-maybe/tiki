@@ -315,7 +315,6 @@ select where user(1) = "bob"
 Argument type errors:
 
 ```sql
-select where blocks(priority) is empty
 create title=call(42)
 create title="x" due=next_date(42)
 ```

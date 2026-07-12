@@ -216,7 +216,6 @@ create title="x" dependsOn=dependsOn + tags
 | `monthly(...)` | `recurrence` | exactly 1 | argument must be an int day of month; errors at runtime for a day outside 1..31 |
 | `next_enum(...)` | same enum | exactly 1 | argument must be an enum field reference; returns the next value in the field's declared order, clamping at the last value. The stock workflow uses `set priority = next_enum(priority)` to bump priority |
 | `prev_enum(...)` | same enum | exactly 1 | argument must be an enum field reference; returns the previous value in the field's declared order, clamping at the first value |
-| `blocks(...)` | `list<ref>` | exactly 1 | argument must be `id`, `ref`, or string literal |
 | `id()` | `id` | 0 | plugin runtime only; requires exactly one selected tiki |
 | `ids()` | `list<ref>` | 0 | plugin runtime only; returns the full set of selected tiki IDs |
 | `selected_count()` | `int` | 0 | plugin runtime only; returns the number of selected tikis |
@@ -233,7 +232,6 @@ Examples:
 select where updatedAt < now()
 create title="x" due=next_date(recurrence)
 update where id = id() set recurrence=daily() due=next_date(daily())
-select where blocks(id) is empty
 select where id() in dependsOn
 select where count(select where assignee = outer.assignee and status = "inProgress") >= 3
 before update where new.type = "project"
