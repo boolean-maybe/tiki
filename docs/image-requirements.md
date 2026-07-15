@@ -14,20 +14,6 @@ Terminals known to support it include:
 
 In unsupported terminals, images are replaced with their alt text.
 
-## SVG images
-
-Rendering SVG files requires [`resvg`](https://github.com/linebender/resvg) to be installed and available in `PATH`.
-
-```
-# macOS
-brew install resvg
-
-# Cargo
-cargo install resvg
-```
-
-If `resvg` is not found, SVG images are not displayed.
-
 ## Mermaid diagrams
 
 Rendering Mermaid fenced code blocks requires [`mmdc`](https://github.com/mermaid-js/mermaid-cli) (Mermaid CLI) to be installed and available in `PATH`.
