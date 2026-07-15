@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/alecthomas/chroma/v2 v2.14.0
 	github.com/atotto/clipboard v0.1.4
-	github.com/boolean-maybe/navidown v0.4.21
+	github.com/boolean-maybe/navidown v0.5.0
 	github.com/gdamore/tcell/v2 v2.13.9
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/matoous/go-nanoid/v2 v2.1.0
@@ -22,6 +22,7 @@ require (
 	github.com/alecthomas/participle/v2 v2.1.4 // indirect
 	github.com/aymanbagabas/go-udiff v0.3.1 // indirect
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834 // indirect
+	github.com/tetratelabs/wazero v1.12.0 // indirect
 	go.abhg.dev/goldmark/frontmatter v0.3.0 // indirect
 )
 
@@ -31,6 +32,7 @@ require (
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
+	github.com/boolean-maybe/go-resvg v0.0.2 // indirect
 	github.com/boolean-maybe/ruki v0.1.3
 	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
 	github.com/charmbracelet/x/ansi v0.10.1 // indirect
@@ -56,7 +58,7 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pjbgf/sha1cd v0.3.2 // indirect
-	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/rivo/uniseg v0.4.7
 	github.com/sagikazarmark/locafero v0.7.0 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
@@ -73,7 +75,7 @@ require (
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/image v0.37.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/term v0.37.0 // indirect
 	golang.org/x/text v0.35.0
 	gopkg.in/warnings.v0 v0.1.2 // indirect
