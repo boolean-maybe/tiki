@@ -40,6 +40,16 @@ type QuickSelectView interface {
 	GetFilterInput() tview.Primitive
 }
 
+// MarkdownTreeView abstracts the markdown-tree overlay to avoid import cycles.
+type MarkdownTreeView interface {
+	OnShow(root *store.MarkdownDir)
+	GetFilterInput() tview.Primitive
+}
+
+// MarkdownFileViewerPlugin is the reserved name of the wiki plugin used to
+// render an arbitrary .md file picked from the markdown tree overlay.
+const MarkdownFileViewerPlugin = "__mdfileviewer"
+
 // TikiViewProvider is implemented by controllers that back a WorkflowPlugin view.
 // The view factory uses this to create PluginView without knowing the concrete controller type.
 type TikiViewProvider interface {
@@ -58,20 +68,22 @@ type TikiViewProvider interface {
 // - Return whether the event was consumed
 
 type InputRouter struct {
-	navController     *NavigationController
-	tikiEditSession   *TikiEditSession
-	pluginControllers map[string]PluginControllerInterface // keyed by plugin name
-	globalActions     *ActionRegistry
-	tikiStore         store.Store
-	mutationGate      *service.TikiMutationGate
-	statusline        *model.StatuslineConfig
-	schema            ruki.Schema
-	headerConfig      *model.HeaderConfig
-	paletteConfig     *model.ActionPaletteConfig
-	quickSelectConfig *model.QuickSelectConfig
-	quickSelectView   QuickSelectView
-	workflowPath      string
-	clipboardWriter   func([][]string) error
+	navController      *NavigationController
+	tikiEditSession    *TikiEditSession
+	pluginControllers  map[string]PluginControllerInterface // keyed by plugin name
+	globalActions      *ActionRegistry
+	tikiStore          store.Store
+	mutationGate       *service.TikiMutationGate
+	statusline         *model.StatuslineConfig
+	schema             ruki.Schema
+	headerConfig       *model.HeaderConfig
+	paletteConfig      *model.ActionPaletteConfig
+	quickSelectConfig  *model.QuickSelectConfig
+	quickSelectView    QuickSelectView
+	markdownTreeConfig *model.MarkdownTreeConfig
+	markdownTreeView   MarkdownTreeView
+	workflowPath       string
+	clipboardWriter    func([][]string) error
 }
 
 // NewInputRouter creates an input router
@@ -109,6 +121,16 @@ func (ir *InputRouter) SetPaletteConfig(pc *model.ActionPaletteConfig) {
 // SetQuickSelectConfig wires the quick-select config for choose() dispatch.
 func (ir *InputRouter) SetQuickSelectConfig(qc *model.QuickSelectConfig) {
 	ir.quickSelectConfig = qc
+}
+
+// SetMarkdownTreeConfig wires the config for ActionOpenMarkdownTree dispatch.
+func (ir *InputRouter) SetMarkdownTreeConfig(c *model.MarkdownTreeConfig) {
+	ir.markdownTreeConfig = c
+}
+
+// SetMarkdownTreeView wires the overlay view that receives scanned data.
+func (ir *InputRouter) SetMarkdownTreeView(v MarkdownTreeView) {
+	ir.markdownTreeView = v
 }
 
 // SetQuickSelectView wires the quick-select view (concrete type satisfies the interface).
@@ -540,6 +562,8 @@ func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 			ir.paletteConfig.SetVisible(true)
 		}
 		return true
+	case ActionOpenMarkdownTree:
+		return ir.startMarkdownTree()
 	case ActionToggleHeader:
 		ir.toggleHeader()
 		return true
@@ -557,6 +581,31 @@ func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 	default:
 		return false
 	}
+}
+
+// startMarkdownTree scans the doc root and opens the markdown-file tree overlay.
+func (ir *InputRouter) startMarkdownTree() bool {
+	if ir.markdownTreeConfig == nil || ir.markdownTreeView == nil {
+		return false
+	}
+	root, err := store.ScanMarkdown(config.GetDocDir())
+	if err != nil {
+		slog.Error("markdown tree scan failed", "error", err)
+		return false
+	}
+	ir.markdownTreeConfig.SetOnSelect(func(relPath string) {
+		ir.openMarkdownFile(relPath)
+	})
+	ir.markdownTreeConfig.SetOnCancel(func() {})
+	ir.markdownTreeView.OnShow(root)
+	ir.markdownTreeConfig.SetVisible(true)
+	return true
+}
+
+// openMarkdownFile pushes the reusable wiki viewer bound to the picked path.
+func (ir *InputRouter) openMarkdownFile(relPath string) {
+	params := model.EncodePluginViewParams(model.PluginViewParams{DocumentPath: relPath})
+	ir.navController.PushView(model.MakePluginViewID(MarkdownFileViewerPlugin), params)
 }
 
 // toggleHeader toggles the stored user preference and recomputes effective visibility

@@ -27,29 +27,30 @@ import (
 
 // TestApp wraps the full MVC stack for integration testing with SimulationScreen
 type TestApp struct {
-	App               *tview.Application
-	Screen            tcell.SimulationScreen
-	RootLayout        *view.RootLayout
-	TikiStore         store.Store
-	NavController     *controller.NavigationController
-	InputRouter       *controller.InputRouter
-	ViewFactory       *view.ViewFactory
-	TikiDir           string
-	t                 *testing.T
-	PluginConfigs     map[string]*model.PluginConfig
-	PluginControllers map[string]controller.PluginControllerInterface
-	PluginDefs        []plugin.Plugin
-	MutationGate      *service.TikiMutationGate
-	Schema            ruki.Schema
-	tikiEditSession   *controller.TikiEditSession
-	statuslineConfig  *model.StatuslineConfig
-	headerConfig      *model.HeaderConfig
-	viewContext       *model.ViewContext
-	layoutModel       *model.LayoutModel
-	paletteConfig     *model.ActionPaletteConfig
-	quickSelectConfig *model.QuickSelectConfig
-	actionPalette     *palette.ActionPalette
-	pages             *tview.Pages
+	App                *tview.Application
+	Screen             tcell.SimulationScreen
+	RootLayout         *view.RootLayout
+	TikiStore          store.Store
+	NavController      *controller.NavigationController
+	InputRouter        *controller.InputRouter
+	ViewFactory        *view.ViewFactory
+	TikiDir            string
+	t                  *testing.T
+	PluginConfigs      map[string]*model.PluginConfig
+	PluginControllers  map[string]controller.PluginControllerInterface
+	PluginDefs         []plugin.Plugin
+	MutationGate       *service.TikiMutationGate
+	Schema             ruki.Schema
+	tikiEditSession    *controller.TikiEditSession
+	statuslineConfig   *model.StatuslineConfig
+	headerConfig       *model.HeaderConfig
+	viewContext        *model.ViewContext
+	layoutModel        *model.LayoutModel
+	paletteConfig      *model.ActionPaletteConfig
+	quickSelectConfig  *model.QuickSelectConfig
+	markdownTreeConfig *model.MarkdownTreeConfig
+	actionPalette      *palette.ActionPalette
+	pages              *tview.Pages
 }
 
 // NewTestApp bootstraps the full MVC stack for integration testing.
@@ -487,12 +488,22 @@ func (ta *TestApp) LoadPlugins() error {
 	quickSelect.SetChangedFunc()
 	ta.InputRouter.SetQuickSelectView(quickSelect)
 
+	// Rebuild markdown-tree wiring (Ctrl-O overlay) with fresh config
+	ta.markdownTreeConfig = model.NewMarkdownTreeConfig()
+	ta.InputRouter.SetMarkdownTreeConfig(ta.markdownTreeConfig)
+	markdownTree := palette.NewMarkdownTree(ta.markdownTreeConfig)
+	markdownTree.SetChangedFunc()
+	ta.InputRouter.SetMarkdownTreeView(markdownTree)
+
 	// Update global input capture (matches production pipeline)
 	ta.App.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if ta.paletteConfig.IsVisible() {
 			return event
 		}
 		if ta.quickSelectConfig.IsVisible() {
+			return event
+		}
+		if ta.markdownTreeConfig.IsVisible() {
 			return event
 		}
 		ta.statuslineConfig.DismissAutoHide()
@@ -508,13 +519,28 @@ func (ta *TestApp) LoadPlugins() error {
 	for _, p := range plugins {
 		pluginDefs[p.GetName()] = p
 	}
+	// Register the reusable markdown-file viewer (opened from Ctrl-O), mirroring
+	// bootstrap. The factory clones this def per-navigation to inject DocumentPath.
+	pluginDefs[controller.MarkdownFileViewerPlugin] = &plugin.WikiPlugin{
+		BasePlugin: plugin.BasePlugin{
+			Name:        controller.MarkdownFileViewerPlugin,
+			Label:       "Markdown File",
+			Kind:        plugin.KindWiki,
+			ConfigIndex: -1,
+		},
+	}
 
 	viewFactory := view.NewViewFactory(ta.TikiStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, pluginControllers, globalActions)
 	// Mirror production wiring: fresh-per-navigation controllers for kind: detail
-	// (and wiki) so two pushed views don't share selectedTikiID.
+	// and wiki so two pushed views don't share selectedTikiID.
 	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController {
 		dc := controller.NewDetailController(def, ta.NavController, ta.statuslineConfig, nil, ta.TikiStore, ta.MutationGate, ta.Schema, ta.tikiEditSession)
+		dc.SetSelectedTikiID(selectedTikiID)
+		return dc
+	})
+	viewFactory.SetWikiControllerFactory(func(def plugin.Plugin, selectedTikiID string) *controller.WikiController {
+		dc := controller.NewWikiController(def, ta.NavController, ta.statuslineConfig, nil, globalActions, ta.TikiStore, ta.MutationGate, ta.Schema)
 		dc.SetSelectedTikiID(selectedTikiID)
 		return dc
 	})
@@ -576,6 +602,11 @@ func (ta *TestApp) LoadPlugins() error {
 	quickSelectBox.AddItem(tview.NewBox(), 0, 1, false)
 	quickSelectBox.AddItem(quickSelect.GetPrimitive(), palette.PaletteMinWidth, 0, true)
 	ta.pages.AddPage("quickselect", quickSelectBox, true, false)
+	ta.pages.RemovePage("markdowntree")
+	markdownTreeBox := tview.NewFlex()
+	markdownTreeBox.AddItem(tview.NewBox(), 0, 1, false)
+	markdownTreeBox.AddItem(markdownTree.GetPrimitive(), palette.PaletteMinWidth, 0, true)
+	ta.pages.AddPage("markdowntree", markdownTreeBox, true, false)
 
 	// wire QuickSelect visibility listener (fresh config = no stale listeners)
 	var qsPrev tview.Primitive
@@ -592,6 +623,24 @@ func (ta *TestApp) LoadPlugins() error {
 				ta.App.SetFocus(cv.GetPrimitive())
 			}
 			qsPrev = nil
+		}
+	})
+
+	// wire markdown-tree visibility listener
+	var mtPrev tview.Primitive
+	ta.markdownTreeConfig.AddListener(func() {
+		if ta.markdownTreeConfig.IsVisible() {
+			mtPrev = ta.App.GetFocus()
+			ta.pages.ShowPage("markdowntree")
+			ta.App.SetFocus(markdownTree.GetFilterInput())
+		} else {
+			ta.pages.HidePage("markdowntree")
+			if mtPrev != nil {
+				ta.App.SetFocus(mtPrev)
+			} else if cv := ta.RootLayout.GetContentView(); cv != nil {
+				ta.App.SetFocus(cv.GetPrimitive())
+			}
+			mtPrev = nil
 		}
 	})
 
@@ -618,6 +667,11 @@ func (ta *TestApp) GetPaletteConfig() *model.ActionPaletteConfig {
 // GetQuickSelectConfig returns the quick-select config for testing visibility assertions.
 func (ta *TestApp) GetQuickSelectConfig() *model.QuickSelectConfig {
 	return ta.quickSelectConfig
+}
+
+// GetMarkdownTreeConfig returns the markdown-tree config for visibility assertions.
+func (ta *TestApp) GetMarkdownTreeConfig() *model.MarkdownTreeConfig {
+	return ta.markdownTreeConfig
 }
 
 // GetPluginConfig retrieves the PluginConfig for a given plugin name.

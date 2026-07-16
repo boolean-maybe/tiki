@@ -330,11 +330,11 @@ func TestDefaultGlobalActions(t *testing.T) {
 	registry := DefaultGlobalActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 6 {
-		t.Errorf("expected 6 global actions, got %d", len(actions))
+	if len(actions) != 7 {
+		t.Errorf("expected 7 global actions, got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleHeader, ActionOpenPalette, ActionEditWorkflow}
+	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleHeader, ActionOpenPalette, ActionOpenMarkdownTree, ActionEditWorkflow}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)

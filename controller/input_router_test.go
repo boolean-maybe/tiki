@@ -8,7 +8,40 @@ import (
 
 	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/store"
 )
+
+// fakeMarkdownTreeView is a stand-in for the palette MarkdownTree overlay,
+// letting the router test assert OnShow was invoked without a live screen.
+type fakeMarkdownTreeView struct{ shown bool }
+
+func (f *fakeMarkdownTreeView) OnShow(*store.MarkdownDir)       { f.shown = true }
+func (f *fakeMarkdownTreeView) GetFilterInput() tview.Primitive { return nil }
+
+// TestInputRouter_OpenMarkdownTreeShowsOverlay pins that ActionOpenMarkdownTree
+// scans the doc dir, hands the tree to the overlay, and marks it visible.
+func TestInputRouter_OpenMarkdownTreeShowsOverlay(t *testing.T) {
+	cfg := model.NewMarkdownTreeConfig()
+	ir := &InputRouter{
+		navController: NewNavigationController(tview.NewApplication()),
+		statusline:    model.NewStatuslineConfig(),
+		globalActions: DefaultGlobalActions(),
+		tikiStore:     store.NewInMemoryStore(),
+	}
+	ir.SetMarkdownTreeConfig(cfg)
+	fake := &fakeMarkdownTreeView{}
+	ir.SetMarkdownTreeView(fake)
+
+	if !ir.handleGlobalAction(ActionOpenMarkdownTree) {
+		t.Fatal("ActionOpenMarkdownTree not handled")
+	}
+	if !cfg.IsVisible() {
+		t.Fatal("expected markdown tree overlay visible")
+	}
+	if !fake.shown {
+		t.Fatal("expected OnShow called on the tree view")
+	}
+}
 
 // routerFakeView is the minimal View used by the recurrence part-nav tests.
 type routerFakeView struct{}

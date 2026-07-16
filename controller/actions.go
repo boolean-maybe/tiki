@@ -20,6 +20,8 @@ const (
 	ActionToggleHeader ActionID = "toggle_header"
 	ActionOpenPalette  ActionID = "open_palette"
 	ActionEditWorkflow ActionID = "edit_workflow"
+
+	ActionOpenMarkdownTree ActionID = "open_markdown_tree"
 )
 
 // ActionID values for tiki navigation and manipulation (used by plugins).
@@ -622,6 +624,7 @@ func DefaultGlobalActions() *ActionRegistry {
 	r.Register(Action{ID: ActionRefresh, Key: tcell.KeyRune, Rune: 'r', Label: "Refresh", ShowInHeader: true})
 	r.Register(Action{ID: ActionToggleHeader, Key: tcell.KeyF10, Label: "Toggle Header", ShowInHeader: true})
 	r.Register(Action{ID: ActionOpenPalette, Key: tcell.KeyCtrlA, Modifier: tcell.ModCtrl, Label: "All actions", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionOpenMarkdownTree, Key: tcell.KeyCtrlO, Modifier: tcell.ModCtrl, Label: "Open", ShowInHeader: true})
 	r.Register(Action{ID: ActionEditWorkflow, Label: "Edit Workflow"})
 	return r
 }

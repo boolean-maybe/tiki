@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
@@ -147,7 +148,7 @@ func (dv *WikiView) build() {
 	pair := theme.Roles().PluginCaptions().At(dv.pluginDef.ConfigIndex)
 	bgColor := theme.NewColor(pair.Bg().TCell())
 	textColor := theme.NewColor(pair.Fg().TCell())
-	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, nil, theme.NewColorRoleAdapter(bgColor), textColor)
+	dv.titleBar = NewGradientCaptionRow([]string{dv.displayTitle()}, nil, theme.NewColorRoleAdapter(bgColor), textColor)
 
 	// Fetch initial content and create NavigableMarkdown with appropriate provider.
 	// Wiki views render the file at `path:`; `document: <ID>` binding is
@@ -267,11 +268,27 @@ func (dv *WikiView) SetSelectedID(id string) {
 // ShowNavigation returns true — wiki views always show plugin navigation keys.
 func (dv *WikiView) ShowNavigation() bool { return true }
 
-// GetViewName returns the plugin name for the header info section
-func (dv *WikiView) GetViewName() string { return dv.pluginDef.GetName() }
+// GetViewName returns the display title for the header info section.
+func (dv *WikiView) GetViewName() string { return dv.displayTitle() }
+
+// displayTitle is the human-readable title shown in the caption bar and header.
+// The reserved Ctrl-O markdown-file viewer has no meaningful plugin name, so it
+// shows the opened file's base name; every other wiki view keeps its label.
+func (dv *WikiView) displayTitle() string {
+	if dv.pluginDef.Name == controller.MarkdownFileViewerPlugin && dv.pluginDef.DocumentPath != "" {
+		return filepath.Base(dv.pluginDef.DocumentPath)
+	}
+	return dv.pluginDef.GetName()
+}
 
 // GetViewDescription returns the plugin description for the header info section
 func (dv *WikiView) GetViewDescription() string { return dv.pluginDef.GetDescription() }
+
+// DocumentPath returns the effective document path this view renders.
+// Exposed for tests that verify per-navigation path overrides.
+func (dv *WikiView) DocumentPath() string {
+	return dv.pluginDef.DocumentPath
+}
 
 func (dv *WikiView) GetPrimitive() tview.Primitive {
 	return dv.root

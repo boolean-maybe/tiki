@@ -10,10 +10,11 @@ import (
 // all detail-edit modes flow through it.
 
 const (
-	paramTikiID    = "tikiID"
-	paramDraftTiki = "draftTiki"
-	paramFocus     = "focus"
-	paramMode      = "mode"
+	paramTikiID       = "tikiID"
+	paramDraftTiki    = "draftTiki"
+	paramFocus        = "focus"
+	paramMode         = "mode"
+	paramDocumentPath = "documentPath"
 )
 
 // PluginViewParams are params accepted by any plugin view. TikiID carries the
@@ -28,10 +29,11 @@ const (
 // only set for mode: new and carries a freshly synthesized tiki that the
 // edit session adopts as its in-flight draft.
 type PluginViewParams struct {
-	TikiID string
-	Mode   plugin.DetailMode
-	Focus  EditField
-	Draft  *tikipkg.Tiki
+	TikiID       string
+	Mode         plugin.DetailMode
+	Focus        EditField
+	Draft        *tikipkg.Tiki
+	DocumentPath string
 }
 
 // EncodePluginViewParams serializes PluginViewParams to a navigation map.
@@ -43,7 +45,7 @@ func EncodePluginViewParams(p PluginViewParams) map[string]interface{} {
 	if p.TikiID == "" && p.Draft != nil {
 		p.TikiID = p.Draft.ID()
 	}
-	if p.TikiID == "" && p.Draft == nil && p.Mode == "" {
+	if p.TikiID == "" && p.Draft == nil && p.Mode == "" && p.DocumentPath == "" {
 		return nil
 	}
 	m := map[string]interface{}{}
@@ -58,6 +60,9 @@ func EncodePluginViewParams(p PluginViewParams) map[string]interface{} {
 	}
 	if p.Mode != "" {
 		m[paramMode] = string(p.Mode)
+	}
+	if p.DocumentPath != "" {
+		m[paramDocumentPath] = p.DocumentPath
 	}
 	return m
 }
@@ -89,6 +94,9 @@ func DecodePluginViewParams(params map[string]interface{}) PluginViewParams {
 		p.Mode = plugin.DetailMode(m)
 	case plugin.DetailMode:
 		p.Mode = m
+	}
+	if dp, ok := params[paramDocumentPath].(string); ok {
+		p.DocumentPath = dp
 	}
 	return p
 }

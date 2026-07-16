@@ -152,6 +152,13 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 			return nil
 		}
 		pluginParams := model.DecodePluginViewParams(params)
+		effective := wikiPlugin
+		if pluginParams.DocumentPath != "" {
+			// per-navigation path override — copy so the registered def stays immutable
+			clone := *wikiPlugin
+			clone.DocumentPath = pluginParams.DocumentPath
+			effective = &clone
+		}
 		// create a fresh WikiController per navigation so each view
 		// instance on the nav stack holds its own selectedTikiID. the
 		// shared map entry is updated so InputRouter always dispatches
@@ -162,7 +169,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 		} else if dc, ok := pluginControllerInterface.(*controller.WikiController); ok {
 			dc.SetSelectedTikiID(pluginParams.TikiID)
 		}
-		return NewWikiView(wikiPlugin, f.imageManager, f.mermaidOpts, f.globalActions, f.tikiStore, pluginParams.TikiID)
+		return NewWikiView(effective, f.imageManager, f.mermaidOpts, f.globalActions, f.tikiStore, pluginParams.TikiID)
 	case plugin.KindDetail:
 		detailPlugin, ok := pluginDef.(*plugin.DetailPlugin)
 		if !ok {
