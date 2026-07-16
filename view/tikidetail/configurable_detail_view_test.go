@@ -331,6 +331,7 @@ func TestConfigurableDetailView_RendersConfiguredMetadata(t *testing.T) {
 		detailPluginFromFields([]string{"status", "type", "priority"}),
 		registry,
 		nil, nil,
+		nil, nil,
 	)
 
 	if cv.GetViewName() != "Detail" {
@@ -379,6 +380,7 @@ func TestConfigurableDetailView_RendersDependsOnColumn(t *testing.T) {
 		detailPluginFromFields([]string{"dependsOn", "status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 
 	rendered := drawPrimitive(t, cv.GetPrimitive(), 80, 12)
@@ -426,6 +428,7 @@ func TestConfigurableDetailView_HandlesMissingTiki(t *testing.T) {
 		"TIKI_GONE",
 		detailPluginFromFields([]string{"status"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	if cv.GetSelectedID() != "TIKI_GONE" {
@@ -587,7 +590,7 @@ func TestConfigurableDetailView_HidesEmptyListFieldAndCaption(t *testing.T) {
 	if err := sEmpty.CreateTiki(empty); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	cvEmpty := NewConfigurableDetailView(sEmpty, empty.ID(), plug, controller.DetailViewActions(), nil, nil)
+	cvEmpty := NewConfigurableDetailView(sEmpty, empty.ID(), plug, controller.DetailViewActions(), nil, nil, nil, nil)
 	emptyOut := drawPrimitive(t, cvEmpty.GetPrimitive(), 60, 8)
 	if strings.Contains(emptyOut, "Deps") {
 		t.Errorf("empty deps should hide caption, but %q contains \"Deps\":\n%s", "Deps", emptyOut)
@@ -605,7 +608,7 @@ func TestConfigurableDetailView_HidesEmptyListFieldAndCaption(t *testing.T) {
 			t.Fatalf("create: %v", err)
 		}
 	}
-	cvFull := NewConfigurableDetailView(sFull, full.ID(), plug, controller.DetailViewActions(), nil, nil)
+	cvFull := NewConfigurableDetailView(sFull, full.ID(), plug, controller.DetailViewActions(), nil, nil, nil, nil)
 	fullOut := drawPrimitive(t, cvFull.GetPrimitive(), 60, 8)
 	if !strings.Contains(fullOut, "Deps") {
 		t.Errorf("non-empty deps should show caption %q:\n%s", "Deps", fullOut)
@@ -639,7 +642,7 @@ func TestConfigurableDetailView_HiddenEmptyListFieldNotEditTraversable(t *testin
 	if err := sEmpty.CreateTiki(empty); err != nil {
 		t.Fatalf("create empty: %v", err)
 	}
-	cvEmpty := NewConfigurableDetailView(sEmpty, empty.ID(), plug, controller.DetailViewActions(), nil, nil)
+	cvEmpty := NewConfigurableDetailView(sEmpty, empty.ID(), plug, controller.DetailViewActions(), nil, nil, nil, nil)
 	cvEmpty.SetEditModeRegistry(controller.DetailEditModeActions())
 	if !cvEmpty.EnterEditMode() {
 		t.Fatal("EnterEditMode (empty)")
@@ -655,7 +658,7 @@ func TestConfigurableDetailView_HiddenEmptyListFieldNotEditTraversable(t *testin
 	if err := sFull.CreateTiki(full); err != nil {
 		t.Fatalf("create full: %v", err)
 	}
-	cvFull := NewConfigurableDetailView(sFull, full.ID(), plug, controller.DetailViewActions(), nil, nil)
+	cvFull := NewConfigurableDetailView(sFull, full.ID(), plug, controller.DetailViewActions(), nil, nil, nil, nil)
 	cvFull.SetEditModeRegistry(controller.DetailEditModeActions())
 	if !cvFull.EnterEditMode() {
 		t.Fatal("EnterEditMode (full)")

@@ -63,6 +63,12 @@ type ConfigurableDetailView struct {
 	navMarkdown *markdown.NavigableMarkdown
 	listenerID  int
 
+	// progressHub reports image-resolution progress to the statusline; redraw
+	// runs a func on the UI goroutine (app.QueueUpdateDraw). Both may be nil
+	// in tests / minimal fixtures, in which case rendering stays synchronous.
+	progressHub *model.ProgressHub
+	redraw      func(func())
+
 	// edit-mode state
 	editMode          bool
 	focusedIdx        int                          // position in layout (-1 = not editing)
@@ -133,6 +139,8 @@ func NewConfigurableDetailView(
 	registry *controller.ActionRegistry,
 	imageManager *navtview.ImageManager,
 	mermaidOpts *nav.MermaidOptions,
+	progressHub *model.ProgressHub,
+	redraw func(func()),
 ) *ConfigurableDetailView {
 	cv := &ConfigurableDetailView{
 		Base: Base{
@@ -150,6 +158,8 @@ func NewConfigurableDetailView(
 		focusedIdx:        -1,
 		editors:           make(map[string]FieldEditorWidget),
 		onEditFieldChange: make(map[string]func(string)),
+		progressHub:       progressHub,
+		redraw:            redraw,
 	}
 
 	cv.build()
@@ -752,10 +762,35 @@ func (cv *ConfigurableDetailView) buildDescription(tk *tikipkg.Tiki) tview.Primi
 		MermaidOptions: cv.mermaidOpts,
 	})
 	desc = markdown.RewriteWikilinks(desc, resolver)
-	cv.navMarkdown.SetMarkdownWithSource(desc, tikiSourcePath, false)
 	cv.navMarkdown.Viewer().SetBorderPadding(1, 1, 2, 2)
 	cv.descView = cv.navMarkdown.Viewer()
+	cv.renderDescription(desc, tikiSourcePath)
 	return cv.navMarkdown.Viewer()
+}
+
+// renderDescription paints the markdown. When a progress hub and redraw are
+// wired, image resolution runs off the UI goroutine (statusline bar animates)
+// and the cache-warm render is applied on the UI goroutine afterward. Without
+// them (tests / minimal fixtures) it renders synchronously.
+func (cv *ConfigurableDetailView) renderDescription(desc, source string) {
+	if cv.progressHub == nil || cv.redraw == nil || cv.imageManager == nil {
+		cv.navMarkdown.SetMarkdownWithSource(desc, source, false)
+		return
+	}
+	// indeterminate "rendering" bar: images and mermaid/graphviz diagrams are
+	// pre-rendered off the UI goroutine (the slow, thread-safe work), so the bar
+	// animates while the UI stays responsive; then the cache-warm render +
+	// widget mutation runs on the UI goroutine. A single indeterminate model
+	// covers every render kind — a mermaid subprocess has no sub-progress, and
+	// images no longer report per-item.
+	reporter := cv.progressHub.StartProgress("rendering")
+	go func() {
+		defer reporter.Done()
+		cv.imageManager.PreResolveMarkdown(desc, source, descriptionRenderCols, cv.mermaidOpts, nil)
+		cv.redraw(func() {
+			cv.navMarkdown.SetMarkdownWithSource(desc, source, false)
+		})
+	}()
 }
 
 // EnterFullscreen and ExitFullscreen mirror the legacy tiki detail view so
@@ -835,6 +870,12 @@ func (cv *ConfigurableDetailView) SetEditFieldChangeHandler(fieldName string, h 
 // existing forward/backward traversal arithmetic ("editable indices in
 // 0..len(layout)") extends naturally — len(layout) means "description".
 const descriptionFieldName = "description"
+
+// descriptionRenderCols is the layout width used for the off-thread image
+// pre-resolve pass. The exact value only affects placeholder cell math, not
+// which images resolve, so a sane default suffices; the real viewer re-lays
+// out at its actual width on the next Draw.
+const descriptionRenderCols = 80
 
 // EnterEditMode flips the view into edit mode and focuses the first
 // editable metadata field. No-op if no field has an implemented editor —

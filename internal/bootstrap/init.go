@@ -47,6 +47,7 @@ type Result struct {
 	HeaderWidget      *header.HeaderWidget
 	StatuslineConfig  *model.StatuslineConfig
 	StatuslineWidget  *statusline.StatuslineWidget
+	ProgressHub       *model.ProgressHub
 	RootLayout        *view.RootLayout
 	PaletteConfig     *model.ActionPaletteConfig
 	QuickSelectConfig *model.QuickSelectConfig
@@ -138,6 +139,14 @@ func Bootstrap() (*Result, error) {
 	application := app.NewApp()
 	app.SetupSignalHandler(application)
 
+	// Progress hub: drains consumer progress events off the UI goroutine and
+	// pushes state to the statusline via QueueUpdateDraw. Constructed before
+	// controllers so plugin executors can report indeterminate run progress.
+	// QueueUpdateDraw returns the app for chaining; wrap to match the
+	// redraw func(func()) sink signature.
+	redraw := func(fn func()) { application.QueueUpdateDraw(fn) }
+	progressHub := model.NewProgressHub(statuslineConfig, redraw)
+
 	controllers := BuildControllers(
 		application,
 		tikiStore,
@@ -146,6 +155,7 @@ func Bootstrap() (*Result, error) {
 		globalActions,
 		pluginConfigs,
 		statuslineConfig,
+		progressHub,
 		schema,
 	)
 
@@ -163,12 +173,13 @@ func Bootstrap() (*Result, error) {
 	// Phase 9: View factory and layout
 	viewFactory := view.NewViewFactory(tikiStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins, globalActions)
+	viewFactory.SetProgressHub(progressHub, redraw)
 
 	// Wire fresh-per-navigation WikiController creation so each view instance
 	// on the nav stack holds its own selectedTikiID (prevents a second wiki
 	// navigation from overwriting the first view's context).
 	viewFactory.SetWikiControllerFactory(func(def plugin.Plugin, selectedTikiID string) *controller.WikiController {
-		dc := controller.NewWikiController(def, controllers.Nav, statuslineConfig, globalActions, tikiStore, gate, schema)
+		dc := controller.NewWikiController(def, controllers.Nav, statuslineConfig, progressHub, globalActions, tikiStore, gate, schema)
 		dc.SetSelectedTikiID(selectedTikiID)
 		return dc
 	})
@@ -176,7 +187,7 @@ func Bootstrap() (*Result, error) {
 	// Same fresh-per-navigation pattern for kind: detail views — two pushed
 	// Detail views must not share selectedTikiID state.
 	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController {
-		dc := controller.NewDetailController(def, controllers.Nav, statuslineConfig, tikiStore, gate, schema, controllers.TikiEdit)
+		dc := controller.NewDetailController(def, controllers.Nav, statuslineConfig, progressHub, tikiStore, gate, schema, controllers.TikiEdit)
 		dc.SetSelectedTikiID(selectedTikiID)
 		return dc
 	})
@@ -286,6 +297,7 @@ func Bootstrap() (*Result, error) {
 		HeaderWidget:      headerWidget,
 		StatuslineConfig:  statuslineConfig,
 		StatuslineWidget:  statuslineWidget,
+		ProgressHub:       progressHub,
 		RootLayout:        rootLayout,
 		PaletteConfig:     paletteConfig,
 		QuickSelectConfig: quickSelectConfig,

@@ -78,6 +78,7 @@ func NewDetailController(
 	pluginDef *plugin.DetailPlugin,
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
+	progressHub *model.ProgressHub,
 	tikiStore store.Store,
 	mutationGate *service.TikiMutationGate,
 	schema ruki.Schema,
@@ -91,7 +92,7 @@ func NewDetailController(
 		editSession:   editSession,
 	}
 	if tikiStore != nil && mutationGate != nil && schema != nil {
-		dc.executor = NewPluginExecutor(tikiStore, mutationGate, statusline, schema,
+		dc.executor = NewPluginExecutor(tikiStore, mutationGate, statusline, progressHub, schema,
 			pluginDef.GetName(), nil)
 	}
 	dc.registerPluginActions()

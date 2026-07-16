@@ -30,6 +30,7 @@ func BuildControllers(
 	globalActions []plugin.PluginAction,
 	pluginConfigs map[string]*model.PluginConfig,
 	statuslineConfig *model.StatuslineConfig,
+	progressHub *model.ProgressHub,
 	schema ruki.Schema,
 ) *Controllers {
 	navController := controller.NewNavigationController(app)
@@ -50,11 +51,12 @@ func BuildControllers(
 				tp,
 				navController,
 				statuslineConfig,
+				progressHub,
 				schema,
 			)
 		case plugin.KindWiki:
 			pluginControllers[p.GetName()] = controller.NewWikiController(
-				p, navController, statuslineConfig, globalActions,
+				p, navController, statuslineConfig, progressHub, globalActions,
 				tikiStore, mutationGate, schema,
 			)
 		case plugin.KindDetail:
@@ -63,7 +65,7 @@ func BuildControllers(
 				continue
 			}
 			pluginControllers[p.GetName()] = controller.NewDetailController(
-				dp, navController, statuslineConfig,
+				dp, navController, statuslineConfig, progressHub,
 				tikiStore, mutationGate, schema, editSession,
 			)
 		}

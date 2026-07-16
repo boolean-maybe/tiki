@@ -58,7 +58,7 @@ func TestDetailController_AssigneeUserUsesGenericHandler(t *testing.T) {
 	}
 
 	pluginDef := newTestDetailPlugin([]string{"assignee"}, nil)
-	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
+	dc := NewDetailController(pluginDef, nav, nil, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
 	dc.SetSelectedTikiID(tk.ID())
 
 	view := newFakeDetailEditView()
@@ -174,7 +174,7 @@ func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView,
 	}
 
 	pluginDef := newTestDetailPlugin([]string{"status", "type", "priority"}, nil)
-	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
+	dc := NewDetailController(pluginDef, nav, nil, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
 	dc.SetSelectedTikiID(tk.ID())
 
 	view := newFakeDetailEditView()
@@ -206,7 +206,7 @@ func newDetailEditTestRigWithStatusline(t *testing.T) (*DetailController, *fakeD
 	}
 
 	pluginDef := newTestDetailPlugin([]string{"status", "type", "priority"}, nil)
-	dc := NewDetailController(pluginDef, nav, sl, tikiStore, gate, rukiRuntime.NewSchema(), tc)
+	dc := NewDetailController(pluginDef, nav, sl, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
 	dc.SetSelectedTikiID(tk.ID())
 
 	view := newFakeDetailEditView()

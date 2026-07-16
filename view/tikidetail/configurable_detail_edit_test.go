@@ -29,6 +29,7 @@ func TestConfigurableDetailView_EnterAndExitEditMode(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	editReg := controller.DetailEditModeActions()
 	cv.SetEditModeRegistry(editReg)
@@ -77,6 +78,7 @@ func TestConfigurableDetailView_FlushFocusedEditor_FlushesAllEditors(t *testing.
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "tags"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -135,6 +137,7 @@ func TestConfigurableDetailView_EditModeHonorsTagsRowSpan(t *testing.T) {
 		}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 	if !cv.EnterEditMode() {
@@ -192,6 +195,7 @@ func TestBuildFieldPrimitive_FocusOnlyOnFocusedRow(t *testing.T) {
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -258,6 +262,7 @@ func TestConfigurableDetailView_FlushEmitsCanonicalKeyForEnums(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"status", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -323,6 +328,7 @@ func TestConfigurableDetailView_FlushOrderFollowsLayout(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"recurrence", "status"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -369,6 +375,7 @@ func TestConfigurableDetailView_TabTraversesCustomEnumField(t *testing.T) {
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "severity", "priority"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -441,6 +448,7 @@ func TestConfigurableDetailView_CaptionAnchorsAreNotTabStops(t *testing.T) {
 		},
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -482,6 +490,7 @@ func TestConfigurableDetailView_CountAnchorsAreNotTabStops(t *testing.T) {
 			{"status", "type"},
 		}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -542,6 +551,7 @@ func TestConfigurableDetailView_TabTraversesColumnMajor(t *testing.T) {
 		}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -589,6 +599,7 @@ func TestConfigurableDetailView_TabColumnMajorSkipsCaptionColumns(t *testing.T) 
 		}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -617,6 +628,7 @@ func TestConfigurableDetailView_TabTraversesEditableFields(t *testing.T) {
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -671,6 +683,7 @@ func TestConfigurableDetailView_ReadOnlyFieldsAreSkippedInTraversal(t *testing.T
 		s, tk.ID(), detailPluginFromFields([]string{"status", "createdBy", "type", "createdAt", "priority", "updatedAt"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -711,6 +724,7 @@ func TestConfigurableDetailView_TabReachesDescription(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"status", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -747,6 +761,7 @@ func TestConfigurableDetailView_NoEditableFieldsLeavesViewMode(t *testing.T) {
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"createdBy", "createdAt", "updatedAt"}), // all read-only
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -809,6 +824,7 @@ func TestConfigurableDetailView_FiresActionChangeHandlerOnToggle(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -867,6 +883,7 @@ func TestGetPreferredFocus_ReturnsActiveEditor(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"title", "status", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -900,6 +917,7 @@ func TestEnterEditModeWithFocus_FocusesGivenField(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"title", "status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -926,6 +944,7 @@ func TestEnterEditModeWithFocus_EmptyEqualsEnterEditMode(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -951,6 +970,7 @@ func TestEnterEditModeWithFocus_UnknownFieldFallsBackToDefault(t *testing.T) {
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -980,6 +1000,7 @@ func TestConfigurableDetailView_RecurrencePartNavigation(t *testing.T) {
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "recurrence"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -1058,6 +1079,7 @@ func TestConfigurableDetailView_RecurrencePartNavigation_NoEditorCached(t *testi
 		s, tk.ID(), detailPluginFromFields([]string{"recurrence", "status"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -1091,6 +1113,7 @@ func TestConfigurableDetailView_RecurrencePartNavigation_WrongAdapterType(t *tes
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"recurrence"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())

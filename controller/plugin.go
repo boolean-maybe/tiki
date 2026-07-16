@@ -26,6 +26,7 @@ func NewPluginController(
 	pluginDef *plugin.WorkflowPlugin,
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
+	progressHub *model.ProgressHub,
 	schema ruki.Schema,
 ) *PluginController {
 	pc := &PluginController{
@@ -36,6 +37,7 @@ func NewPluginController(
 			pluginDef:     pluginDef,
 			navController: navController,
 			statusline:    statusline,
+			progressHub:   progressHub,
 			registry:      PluginViewActions(),
 			schema:        schema,
 		},

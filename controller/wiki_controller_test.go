@@ -23,7 +23,7 @@ func newWikiTestController(t *testing.T, globals []plugin.PluginAction) *WikiCon
 	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
 	schema := rukiRuntime.NewSchema()
-	return NewWikiController(pluginDef, nil, statusline, globals, tikiStore, gate, schema)
+	return NewWikiController(pluginDef, nil, statusline, nil, globals, tikiStore, gate, schema)
 }
 
 func rukiGlobal(t *testing.T, key rune, label, stmt string) plugin.PluginAction {

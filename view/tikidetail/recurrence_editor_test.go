@@ -86,6 +86,8 @@ func TestRecurrencePartNavigationUsesFocusedFieldType(t *testing.T) {
 		controller.DetailViewActions(),
 		nil,
 		nil,
+		nil,
+		nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 	if !cv.EnterEditModeWithFocus(model.EditField("schedule")) {

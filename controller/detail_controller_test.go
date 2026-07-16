@@ -57,7 +57,7 @@ func TestDetailController_RegistryHasFullscreenAndStubEdit(t *testing.T) {
 	gate.SetStore(tikiStore)
 	nav := newMockNavigationController()
 
-	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
+	dc := NewDetailController(pluginDef, nav, nil, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
 
 	r := dc.GetActionRegistry()
 	if r.MatchBinding(tcell.KeyRune, 'f', 0) == nil {
@@ -91,7 +91,7 @@ func TestDetailController_SurfacesPerViewActions(t *testing.T) {
 	gate.SetStore(tikiStore)
 	nav := newMockNavigationController()
 
-	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
+	dc := NewDetailController(pluginDef, nav, nil, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
 
 	if act := dc.GetActionRegistry().MatchBinding(tcell.KeyRune, 'a', 0); act == nil {
 		t.Fatal("expected per-view action to be registered on 'a'")
@@ -109,7 +109,7 @@ func TestDetailController_SetSelectedTikiID(t *testing.T) {
 	gate.SetStore(tikiStore)
 	nav := newMockNavigationController()
 
-	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
+	dc := NewDetailController(pluginDef, nav, nil, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
 
 	dc.SetSelectedTikiID("TIKI001")
 	if dc.selectedTikiID != "TIKI001" {
@@ -121,7 +121,7 @@ func TestDetailController_SetSelectedTikiID(t *testing.T) {
 // plugin nav arrow keys.
 func TestDetailController_ShowNavigationFalse(t *testing.T) {
 	pluginDef := newTestDetailPlugin(nil, nil)
-	dc := NewDetailController(pluginDef, newMockNavigationController(), nil, nil, nil, nil, nil)
+	dc := NewDetailController(pluginDef, newMockNavigationController(), nil, nil, nil, nil, nil, nil)
 	if dc.ShowNavigation() {
 		t.Error("ShowNavigation() = true, want false for kind: detail")
 	}
@@ -247,7 +247,7 @@ func TestDetailController_RukiChooseActionRoundTrip(t *testing.T) {
 	gate := service.NewTikiMutationGate()
 	gate.SetStore(tikiStore)
 	nav := newMockNavigationController()
-	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
+	dc := NewDetailController(pluginDef, nav, nil, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
 	dc.SetSelectedTikiID("PROJ01")
 
 	// (a) registered

@@ -22,6 +22,11 @@ type ViewFactory struct {
 	tikiStore    store.Store
 	imageManager *navtview.ImageManager
 	mermaidOpts  *nav.MermaidOptions
+	// progressHub + redraw let detail views resolve images off the UI
+	// goroutine while the statusline shows a progress bar. Set via
+	// SetProgressHub after the app + hub exist in bootstrap.
+	progressHub *model.ProgressHub
+	redraw      func(func())
 	// Plugin support
 	pluginConfigs     map[string]*model.PluginConfig
 	pluginDefs        map[string]plugin.Plugin
@@ -72,6 +77,13 @@ func (f *ViewFactory) SetPlugins(
 	f.pluginDefs = defs
 	f.pluginControllers = controllers
 	f.globalActions = globalActions
+}
+
+// SetProgressHub wires the progress hub and a UI-goroutine redraw func into
+// detail views so image resolution can run off-thread with a statusline bar.
+func (f *ViewFactory) SetProgressHub(hub *model.ProgressHub, redraw func(func())) {
+	f.progressHub = hub
+	f.redraw = redraw
 }
 
 // SetWikiControllerFactory registers a factory function that creates a fresh
@@ -183,6 +195,8 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 			registry,
 			f.imageManager,
 			f.mermaidOpts,
+			f.progressHub,
+			f.redraw,
 		)
 		if dc != nil {
 			dc.BindEditView(cv)

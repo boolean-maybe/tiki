@@ -42,6 +42,7 @@ func NewWikiController(
 	pluginDef plugin.Plugin,
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
+	progressHub *model.ProgressHub,
 	globalActions []plugin.PluginAction,
 	tikiStore store.Store,
 	mutationGate *service.TikiMutationGate,
@@ -55,7 +56,7 @@ func NewWikiController(
 		globalActions: globalActions,
 	}
 	if tikiStore != nil && mutationGate != nil && schema != nil {
-		dc.executor = NewPluginExecutor(tikiStore, mutationGate, statusline, schema,
+		dc.executor = NewPluginExecutor(tikiStore, mutationGate, statusline, progressHub, schema,
 			pluginDef.GetName(), nil)
 	}
 	dc.mergeGlobalActions()

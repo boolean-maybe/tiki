@@ -153,7 +153,7 @@ func TestWireEditFieldHandlers_UserPersists(t *testing.T) {
 	}
 
 	pluginDef := newTestDetailPlugin([]string{"status", "reviewer"}, nil)
-	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
+	dc := NewDetailController(pluginDef, nav, nil, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
 	dc.SetSelectedTikiID(tk.ID())
 
 	view := newFakeDetailEditView()
@@ -412,7 +412,7 @@ func TestWireEditFieldHandlers_CatalogDatetimePersists(t *testing.T) {
 	}
 
 	pluginDef := newTestDetailPlugin([]string{"status", "dueBy"}, nil)
-	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
+	dc := NewDetailController(pluginDef, nav, nil, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
 	dc.SetSelectedTikiID(tk.ID())
 
 	view := newFakeDetailEditView()

@@ -280,3 +280,27 @@ func newTestWidget() *StatuslineWidget {
 	cfg := model.NewStatuslineConfig()
 	return &StatuslineWidget{TextView: tview.NewTextView(), config: cfg}
 }
+
+func TestStatuslineWidget_ProgressPreemptsMessage(t *testing.T) {
+	sw := newTestWidget()
+	sw.config.SetMessage("copied to clipboard", model.MessageLevelInfo, false)
+	sw.config.SetProgress(1, 4)
+
+	mid := sw.messageSectionForTest(testRoles())
+	if strings.Contains(mid, "copied to clipboard") {
+		t.Fatalf("message should be hidden while progress active: %q", mid)
+	}
+	if !strings.Contains(mid, "%") {
+		t.Fatalf("determinate progress bar (with %%) not rendered: %q", mid)
+	}
+}
+
+func TestStatuslineWidget_MessageWhenNoProgress(t *testing.T) {
+	sw := newTestWidget()
+	sw.config.SetMessage("copied to clipboard", model.MessageLevelInfo, false)
+
+	mid := sw.messageSectionForTest(testRoles())
+	if !strings.Contains(mid, "copied to clipboard") {
+		t.Fatalf("message should render when no progress active: %q", mid)
+	}
+}

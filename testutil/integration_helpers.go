@@ -436,11 +436,11 @@ func (ta *TestApp) LoadPlugins() error {
 			}
 			pc.SetLaneLayout(columns, widths)
 			pluginControllers[p.GetName()] = controller.NewPluginController(
-				ta.TikiStore, ta.MutationGate, pc, tp, ta.NavController, ta.statuslineConfig, ta.Schema,
+				ta.TikiStore, ta.MutationGate, pc, tp, ta.NavController, ta.statuslineConfig, nil, ta.Schema,
 			)
 		} else if dp, ok := p.(*plugin.WikiPlugin); ok {
 			pluginControllers[p.GetName()] = controller.NewWikiController(
-				dp, ta.NavController, ta.statuslineConfig, globalActions,
+				dp, ta.NavController, ta.statuslineConfig, nil, globalActions,
 				ta.TikiStore, ta.MutationGate, ta.Schema,
 			)
 		} else if detailPlugin, ok := p.(*plugin.DetailPlugin); ok {
@@ -449,7 +449,7 @@ func (ta *TestApp) LoadPlugins() error {
 			// views, blocking deps/plugin-navigation tests that traverse
 			// through a Detail step.
 			pluginControllers[p.GetName()] = controller.NewDetailController(
-				detailPlugin, ta.NavController, ta.statuslineConfig,
+				detailPlugin, ta.NavController, ta.statuslineConfig, nil,
 				ta.TikiStore, ta.MutationGate, ta.Schema, ta.tikiEditSession,
 			)
 		}
@@ -514,7 +514,7 @@ func (ta *TestApp) LoadPlugins() error {
 	// Mirror production wiring: fresh-per-navigation controllers for kind: detail
 	// (and wiki) so two pushed views don't share selectedTikiID.
 	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController {
-		dc := controller.NewDetailController(def, ta.NavController, ta.statuslineConfig, ta.TikiStore, ta.MutationGate, ta.Schema, ta.tikiEditSession)
+		dc := controller.NewDetailController(def, ta.NavController, ta.statuslineConfig, nil, ta.TikiStore, ta.MutationGate, ta.Schema, ta.tikiEditSession)
 		dc.SetSelectedTikiID(selectedTikiID)
 		return dc
 	})

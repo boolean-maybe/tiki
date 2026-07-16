@@ -573,3 +573,16 @@ func TestStatuslineConfig_SetViewStats_singleNotification(t *testing.T) {
 		t.Errorf("callCount = %d, want 1", callCount)
 	}
 }
+
+func TestStatusline_ProgressSetAndGet(t *testing.T) {
+	sc := NewStatuslineConfig()
+	sc.SetProgress(3, 10)
+	done, total, active := sc.GetProgress()
+	if done != 3 || total != 10 || !active {
+		t.Fatalf("got (%d,%d,active=%v), want (3,10,true)", done, total, active)
+	}
+	sc.ClearProgress()
+	if _, _, active := sc.GetProgress(); active {
+		t.Fatal("ClearProgress did not deactivate progress")
+	}
+}

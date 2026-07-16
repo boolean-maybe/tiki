@@ -20,6 +20,7 @@ type pluginBase struct {
 	pluginDef     *plugin.WorkflowPlugin
 	navController *NavigationController
 	statusline    *model.StatuslineConfig
+	progressHub   *model.ProgressHub
 	registry      *ActionRegistry
 	schema        ruki.Schema
 }
@@ -41,7 +42,7 @@ func (pb *pluginBase) newExecutor() *ruki.Executor {
 // BuildCreateDraft. onTikiUpdated is nil — a no-persist draft synthesis has no
 // store mutation for a cache to track.
 func (pb *pluginBase) pluginExecutor() *PluginExecutor {
-	return NewPluginExecutor(pb.tikiStore, pb.mutationGate, pb.statusline, pb.schema,
+	return NewPluginExecutor(pb.tikiStore, pb.mutationGate, pb.statusline, pb.progressHub, pb.schema,
 		pb.pluginDef.Name, nil)
 }
 

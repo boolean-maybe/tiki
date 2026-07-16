@@ -54,7 +54,7 @@ func TestGenericFieldEditors_EndToEndPersistToDisk(t *testing.T) {
 
 	layout := []string{"status", "reportedBy", "reviewer", "dueBy", "regression", "escalations"}
 	pluginDef := newTestDetailPlugin(layout, nil)
-	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
+	dc := NewDetailController(pluginDef, nav, nil, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
 	dc.SetSelectedTikiID(tk.ID())
 
 	view := newFakeDetailEditView()
