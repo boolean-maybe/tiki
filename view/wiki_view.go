@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"path/filepath"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
@@ -46,6 +45,7 @@ type WikiView struct {
 	surfacedGlobals     []plugin.PluginAction
 	selectedTikiID      string // selection carried in via PluginViewParams; surfaced through GetSelectedID() for action `require:` gates
 	actionChangeHandler func()
+	resolvedTitle       string // Ctrl-O markdown viewer only: document title (frontmatter/H1/filename), resolved from loaded content
 }
 
 // NewWikiView creates a wiki view. globalActions is the workflow's top-level
@@ -144,17 +144,15 @@ func pluginRequirementsToController(raw []string) []controller.Requirement {
 }
 
 func (dv *WikiView) build() {
-	// title bar with gradient background using theme-derived caption colors
-	pair := theme.Roles().PluginCaptions().At(dv.pluginDef.ConfigIndex)
-	bgColor := theme.NewColor(pair.Bg().TCell())
-	textColor := theme.NewColor(pair.Fg().TCell())
-	dv.titleBar = NewGradientCaptionRow([]string{dv.displayTitle()}, nil, theme.NewColorRoleAdapter(bgColor), textColor)
-
 	// Fetch initial content and create NavigableMarkdown with appropriate provider.
 	// Wiki views render the file at `path:`; `document: <ID>` binding is
 	// rejected at parse time. Detail views render the tiki whose id was
 	// carried in via PluginViewParams (6B.3), or a placeholder when no
 	// selection was passed.
+	//
+	// Content is loaded before the caption row is built because the Ctrl-O
+	// markdown viewer derives its display title from the document's own
+	// frontmatter/H1 (see resolveDisplayTitle), not from the plugin name.
 	var content string
 	var sourcePath string
 	var err error
@@ -189,6 +187,14 @@ func (dv *WikiView) build() {
 		// kind: detail with no selection, or a kind without a content source
 		content = "(no document selected)"
 	}
+
+	// Resolve the display title now that content is loaded, then build the
+	// caption bar. Both the caption and the header info read displayTitle().
+	dv.resolveDisplayTitle(content)
+	pair := theme.Roles().PluginCaptions().At(dv.pluginDef.ConfigIndex)
+	bgColor := theme.NewColor(pair.Bg().TCell())
+	textColor := theme.NewColor(pair.Fg().TCell())
+	dv.titleBar = NewGradientCaptionRow([]string{dv.displayTitle()}, nil, theme.NewColorRoleAdapter(bgColor), textColor)
 
 	dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
 		Provider:       provider,
@@ -271,14 +277,33 @@ func (dv *WikiView) ShowNavigation() bool { return true }
 // GetViewName returns the display title for the header info section.
 func (dv *WikiView) GetViewName() string { return dv.displayTitle() }
 
-// displayTitle is the human-readable title shown in the caption bar and header.
-// The reserved Ctrl-O markdown-file viewer has no meaningful plugin name, so it
-// shows the opened file's base name; every other wiki view keeps its label.
+// displayTitle is the human-readable title shown in both the caption bar and
+// the header. The reserved Ctrl-O markdown-file viewer has no meaningful plugin
+// name, so it shows the opened document's own title (resolved from frontmatter
+// / H1 / filename by resolveDisplayTitle); every other wiki view keeps its
+// plugin label.
 func (dv *WikiView) displayTitle() string {
-	if dv.pluginDef.Name == controller.MarkdownFileViewerPlugin && dv.pluginDef.DocumentPath != "" {
-		return filepath.Base(dv.pluginDef.DocumentPath)
+	if dv.isMarkdownFileViewer() {
+		return dv.resolvedTitle
 	}
 	return dv.pluginDef.GetName()
+}
+
+// resolveDisplayTitle caches the document's title for the Ctrl-O markdown
+// viewer, derived from the loaded content. For every other wiki view the
+// resolved title is unused (displayTitle returns the plugin name), so this is a
+// no-op there.
+func (dv *WikiView) resolveDisplayTitle(content string) {
+	if !dv.isMarkdownFileViewer() {
+		return
+	}
+	dv.resolvedTitle = docTitle(content, dv.pluginDef.DocumentPath)
+}
+
+// isMarkdownFileViewer reports whether this view is the reserved Ctrl-O
+// markdown-file viewer bound to a concrete document path.
+func (dv *WikiView) isMarkdownFileViewer() bool {
+	return dv.pluginDef.Name == controller.MarkdownFileViewerPlugin && dv.pluginDef.DocumentPath != ""
 }
 
 // GetViewDescription returns the plugin description for the header info section

@@ -40,6 +40,10 @@ directory. The overlay is a filterable, collapsible directory tree:
 
 Clearing the filter restores whatever folders you had manually expanded before you started typing.
 
+When a file opens, its title is shown in both the caption bar and the header. The title is taken from
+the document's frontmatter `title:`, falling back to its first `#` heading, and finally to the base
+filename for untitled notes.
+
 ## Open image files
 
 Likewise, you can open image files:
