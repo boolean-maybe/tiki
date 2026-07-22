@@ -69,6 +69,7 @@ func Run(input InputSpec) error {
 	// Set up image rendering for Kitty-compatible terminals
 	resolver := nav.NewImageResolver(input.SearchRoots)
 	resolver.SetDarkMode(!config.IsLightTheme())
+	resolver.SetSVGScaleFactor(1.6)
 	imgMgr := navtview.NewImageManager(resolver, 8, 16)
 	imgMgr.SetMaxRows(config.GetMaxImageRows())
 	imgMgr.SetSupported(util.SupportsKittyGraphics())
@@ -76,7 +77,7 @@ func Run(input InputSpec) error {
 	// Create NavigableMarkdown - OnStateChange is set after creation to avoid forward reference
 	// mermaidOpts is shared with the off-thread pre-resolve so diagrams render
 	// off the UI goroutine under the same options as the on-thread render.
-	mermaidOpts := &nav.MermaidOptions{}
+	mermaidOpts := &nav.MermaidOptions{MinDiagramWidth: 280}
 	md := markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
 		Provider:       provider,
 		SearchRoots:    input.SearchRoots,

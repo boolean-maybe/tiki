@@ -53,6 +53,7 @@ func NewViewFactory(tikiStore store.Store) *ViewFactory {
 	searchRoots := []string{config.GetDocDir()}
 	resolver := nav.NewImageResolver(searchRoots)
 	resolver.SetDarkMode(!config.IsLightTheme())
+	resolver.SetSVGScaleFactor(1.6)
 	imgMgr := navtview.NewImageManager(resolver, 8, 16)
 	imgMgr.SetMaxRows(config.GetMaxImageRows())
 	imgMgr.SetSupported(util.SupportsKittyGraphics())
@@ -60,7 +61,7 @@ func NewViewFactory(tikiStore store.Store) *ViewFactory {
 	return &ViewFactory{
 		tikiStore:    tikiStore,
 		imageManager: imgMgr,
-		mermaidOpts:  &nav.MermaidOptions{},
+		mermaidOpts:  &nav.MermaidOptions{MinDiagramWidth: 280},
 	}
 }
 
