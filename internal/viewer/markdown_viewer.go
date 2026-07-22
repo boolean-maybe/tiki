@@ -89,7 +89,7 @@ func Run(input InputSpec) error {
 		updateStatusBar(statusBar, md.Viewer())
 	})
 
-	// progress hub: renders the braille bar into the status bar while images
+	// progress hub: renders the block-shade bar into the status bar while images
 	// resolve off the UI goroutine. redraw runs a func on the UI goroutine.
 	redraw := func(fn func()) { app.QueueUpdateDraw(fn) }
 	sink := &progressStatusBar{bar: statusBar, viewer: md.Viewer}

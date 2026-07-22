@@ -98,8 +98,9 @@ func (sw *StatuslineWidget) render(width int) {
 	rightStatsLen := segmentsVisibleLen(rightSegments)
 
 	// middle section (between left and right): an active progress bar
-	// pre-empts any transient message.
-	msgRendered, msgLen := sw.messageSection(roles)
+	// pre-empts any transient message. availMiddle is the space it may fill.
+	availMiddle := width - leftLen - rightStatsLen
+	msgRendered, msgLen := sw.messageSection(roles, availMiddle)
 
 	// pad to fill the width with the fill background color
 	padLen := width - leftLen - msgLen - rightStatsLen
@@ -177,28 +178,51 @@ func segmentColors(index int, roles *theme.Theme) (theme.Role, theme.Role) {
 	return roles.StatuslineMain().Bg(), roles.StatuslineMain().Fg()
 }
 
-// progressBarCols is the fixed compact width (in cells) of the statusline
-// progress bar, excluding the trailing " NN%" for determinate bars.
-const progressBarCols = 12
+const (
+	// minProgressCols is the floor width (in cells) of the statusline progress
+	// bar when the middle zone is too narrow to fill.
+	minProgressCols = 8
+	// pctReserve is the cell budget held back for the trailing " NN%" of a
+	// determinate bar so the total width never exceeds the middle zone. Sized
+	// for the widest suffix, " 100%" (5 cells).
+	pctReserve = 5
+	// wrapPadding is the two spaces the bar wrapper adds around the bar (" %s ").
+	wrapPadding = 2
+)
 
-// messageSection returns the middle-zone rendered string and its visible
-// width. An active progress bar pre-empts any transient message.
-func (sw *StatuslineWidget) messageSection(roles *theme.Theme) (string, int) {
+// messageSection returns the middle-zone rendered string and its visible width.
+// An active progress bar pre-empts any transient message and fills availWidth.
+func (sw *StatuslineWidget) messageSection(roles *theme.Theme, availWidth int) (string, int) {
 	if done, total, active := sw.config.GetProgress(); active {
-		return sw.renderProgress(done, total, roles)
+		return sw.renderProgress(done, total, availWidth, roles)
 	}
 	msg, level, _ := sw.config.GetMessage()
 	return sw.renderMessage(msg, level, roles), visibleLen(msg)
 }
 
-// renderProgress colors the braille bar with the subdued statusline-info pair
-// and returns the rendered string plus its visible width. Indeterminate bars
+// progressCols derives the bar's cell count from the available middle width.
+// The wrapper adds wrapPadding spaces; determinate bars also reserve
+// pctReserve cells for the " NN%" suffix.
+func progressCols(availWidth int, determinate bool) int {
+	cols := availWidth - wrapPadding
+	if determinate {
+		cols -= pctReserve
+	}
+	if cols < minProgressCols {
+		cols = minProgressCols
+	}
+	return cols
+}
+
+// renderProgress colors the block bar with the subdued statusline-info pair and
+// returns the rendered string plus its visible width. Indeterminate bars
 // advance the animation frame on each render.
-func (sw *StatuslineWidget) renderProgress(done, total int, roles *theme.Theme) (string, int) {
+func (sw *StatuslineWidget) renderProgress(done, total, availWidth int, roles *theme.Theme) (string, int) {
 	if total <= 0 {
 		sw.animFrame++ // advance only for indeterminate
 	}
-	bar := RenderProgressBar(done, total, sw.animFrame, progressBarCols)
+	cols := progressCols(availWidth, total > 0)
+	bar := RenderProgressBar(done, total, sw.animFrame, cols)
 	fg, bg := roles.StatuslineInfo().Fg(), roles.StatuslineInfo().Bg()
 	return fmt.Sprintf("[%s:%s] %s [-:-]", fg.Hex(), bg.Hex(), bar), visibleLen(bar)
 }
@@ -207,7 +231,7 @@ func (sw *StatuslineWidget) renderProgress(done, total int, roles *theme.Theme) 
 // rendered string; roles are passed explicitly to avoid the theme.Roles()
 // bootstrap-order guard, matching the rest of this package's test seams.
 func (sw *StatuslineWidget) messageSectionForTest(roles *theme.Theme) string {
-	s, _ := sw.messageSection(roles)
+	s, _ := sw.messageSection(roles, minProgressCols+pctReserve+wrapPadding)
 	return s
 }
 

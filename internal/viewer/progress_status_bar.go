@@ -9,15 +9,15 @@ import (
 	"github.com/rivo/tview"
 )
 
-// progressBarCols is the compact width (in cells) of the braille bar rendered
-// into the standalone viewer's status bar.
+// progressBarCols is the compact width (in cells) of the block-shade bar
+// rendered into the standalone viewer's status bar.
 const progressBarCols = 12
 
 // progressStatusBar adapts the standalone viewer's status bar TextView to the
-// model.ProgressSink interface. While progress is active it renders the braille
-// bar; when it clears, it restores the normal status text. Its methods run on
-// the UI goroutine (invoked through the hub's QueueUpdateDraw redraw), so the
-// TextView mutations are safe.
+// model.ProgressSink interface. While progress is active it renders the
+// block-shade bar; when it clears, it restores the normal status text. Its
+// methods run on the UI goroutine (invoked through the hub's QueueUpdateDraw
+// redraw), so the TextView mutations are safe.
 type progressStatusBar struct {
 	bar       *tview.TextView
 	viewer    func() *navtview.TextViewViewer
@@ -25,7 +25,7 @@ type progressStatusBar struct {
 	active    bool
 }
 
-// SetProgress renders the braille bar into the status bar. Indeterminate
+// SetProgress renders the block-shade bar into the status bar. Indeterminate
 // progress advances the animation frame each call.
 func (p *progressStatusBar) SetProgress(done, total int) {
 	if total <= 0 {

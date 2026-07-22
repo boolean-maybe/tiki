@@ -295,6 +295,32 @@ func TestStatuslineWidget_ProgressPreemptsMessage(t *testing.T) {
 	}
 }
 
+func TestStatusline_ProgressBarFillsMiddleZone(t *testing.T) {
+	sw := newTestWidget()
+	sw.config.SetProgress(0, 0) // indeterminate, active
+
+	_, narrowLen := sw.messageSection(testRoles(), 20)
+	_, wideLen := sw.messageSection(testRoles(), 60)
+
+	if wideLen <= narrowLen {
+		t.Fatalf("bar width should grow with available width: narrow=%d wide=%d", narrowLen, wideLen)
+	}
+}
+
+func TestStatusline_DeterminatePercentStaysInsideZone(t *testing.T) {
+	// cover the widest suffix (" 100%") too: pctReserve must fit it.
+	cases := []struct{ done, total int }{{1, 2}, {10, 10}}
+	const avail = 30
+	for _, c := range cases {
+		sw := newTestWidget()
+		sw.config.SetProgress(c.done, c.total)
+		_, visLen := sw.messageSection(testRoles(), avail)
+		if visLen > avail {
+			t.Fatalf("%d/%d: bar+percent width %d exceeds zone %d", c.done, c.total, visLen, avail)
+		}
+	}
+}
+
 func TestStatuslineWidget_MessageWhenNoProgress(t *testing.T) {
 	sw := newTestWidget()
 	sw.config.SetMessage("copied to clipboard", model.MessageLevelInfo, false)
