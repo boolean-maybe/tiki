@@ -94,12 +94,21 @@ func (dc *WikiController) mergeGlobalActions() {
 		}
 		switch ga.Kind {
 		case plugin.ActionKindView:
-			// Surfaced unconditionally — except a global pointing at this
-			// view itself, which would no-op the keystroke or recurse.
+			// A global pointing at this view itself would no-op or recurse.
 			// Mirrors the loader-side filter for board/list/detail.
 			if ga.TargetView == dc.pluginDef.GetName() {
 				slog.Debug("dropping self-targeting view global from wiki registry",
 					"view", dc.pluginDef.GetName(), "key", ga.KeyStr)
+				continue
+			}
+			// A view action gated on a selection (Edit / Edit description /
+			// Edit tags) opens the selected tiki; the wiki has no selection, so
+			// it can't fire — drop it so keyboard dispatch matches the header/
+			// palette (which drop it via surfacedGlobalActions). Mirrors the
+			// ruki UsesTikiSelection case below.
+			if RequiresSelection(ga.Require) {
+				slog.Debug("dropping selection-gated view global from wiki registry",
+					"view", dc.pluginDef.GetName(), "key", ga.KeyStr, "label", ga.Label)
 				continue
 			}
 		case plugin.ActionKindRuki:
@@ -149,6 +158,25 @@ func UsesTikiSelection(stmt *ruki.ValidatedStatement) bool {
 	}
 	return stmt.UsesIDBuiltin() || stmt.UsesIDsBuiltin() ||
 		stmt.UsesFilepathBuiltin() || stmt.UsesFilepathsBuiltin()
+}
+
+// RequiresSelection reports whether an action's `require:` list gates it on a
+// tiki selection (`id` / `selection:one` / `selection:any`). A `kind: view`
+// action that opens the selected tiki (e.g. Edit, Edit description, Edit tags)
+// carries such a requirement — and cannot run on a wiki view, which has no
+// selection — so the wiki surfacing filters use this to drop it, the same way
+// UsesTikiSelection drops ruki globals keyed off id()/filepath(). Ruki actions
+// get their selection dependence from the statement (UsesTikiSelection);
+// view actions declare it only through `require:`, so both predicates are
+// needed to fully suppress selection-dependent actions on the wiki.
+func RequiresSelection(require []string) bool {
+	for _, r := range require {
+		switch Requirement(r) {
+		case RequireID, RequireSelectionOne, RequireSelectionAny:
+			return true
+		}
+	}
+	return false
 }
 
 // toRequirements converts the plugin action's []string requirements to the

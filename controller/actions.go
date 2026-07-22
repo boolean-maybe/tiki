@@ -264,6 +264,11 @@ const (
 	RequireSelectionMany Requirement = "selection:many"
 	RequireDetailPlugin  Requirement = "detail-plugin"
 	RequireSingleLane    Requirement = "single-lane"
+	// RequireLaneMoveActions marks a board whose lanes carry move actions, so
+	// Move ←/→ can actually relocate a tiki. Boards whose lanes are pure
+	// filters (e.g. SLA Watch's dueBy ranges) have no target value to set, so
+	// the move would silently no-op — this gate hides it there instead.
+	RequireLaneMoveActions Requirement = "lane-move-actions"
 )
 
 // AppContext is a dynamic set of active context attributes built from live UI state.
@@ -383,6 +388,23 @@ func SetSingleLanePredicate(fn func(model.ViewID) bool) {
 	singleLanePredicate = fn
 }
 
+// laneMoveablePredicate decides whether the board identified by id has any
+// lane carrying a move action, so Move ←/→ can actually relocate a tiki.
+// Set at bootstrap. Defaults to true so views without an installed predicate
+// (e.g. tests) keep advertising the move actions as before.
+var laneMoveablePredicate = func(model.ViewID) bool { return true }
+
+// SetLaneMoveablePredicate installs the predicate used by BuildAppContext to
+// hide move-tiki-left/right on boards whose lanes have no move actions.
+// Bootstrap wires this once per session. Passing nil resets to the default.
+func SetLaneMoveablePredicate(fn func(model.ViewID) bool) {
+	if fn == nil {
+		laneMoveablePredicate = func(model.ViewID) bool { return true }
+		return
+	}
+	laneMoveablePredicate = fn
+}
+
 // BuildAppContext constructs an AppContext from the current UI state.
 func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 	ctx := NewAppContext()
@@ -431,6 +453,9 @@ func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 		ctx.Set("view:" + string(currentView.ViewID))
 		if singleLanePredicate(currentView.ViewID) {
 			ctx.Set(string(RequireSingleLane))
+		}
+		if laneMoveablePredicate(currentView.ViewID) {
+			ctx.Set(string(RequireLaneMoveActions))
 		}
 	}
 
@@ -772,10 +797,13 @@ func PluginViewActions() *ActionRegistry {
 	// was likewise migrated: it is a global workflow action (`delete where
 	// id = id()`), no longer a hardcoded `d` binding here.
 	notSingleLane := "!" + RequireSingleLane
-	moveReq := []Requirement{RequireID, notSingleLane}
-	hideOnSingleLane := []Requirement{notSingleLane}
-	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: moveReq, HideRequire: hideOnSingleLane})
-	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: moveReq, HideRequire: hideOnSingleLane})
+	moveReq := []Requirement{RequireID, notSingleLane, RequireLaneMoveActions}
+	// hide the move actions on structurally non-moveable boards: single-lane
+	// boards (no neighbor) and boards whose lanes carry no move actions (nothing
+	// to set — e.g. SLA Watch's filter-only dueBy lanes).
+	hideWhenNotMoveable := []Requirement{notSingleLane, RequireLaneMoveActions}
+	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: moveReq, HideRequire: hideWhenNotMoveable})
+	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: moveReq, HideRequire: hideWhenNotMoveable})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
 	r.Register(Action{ID: ActionExecute, Key: tcell.KeyRune, Rune: '!', Label: "Execute", ShowInHeader: true})
 

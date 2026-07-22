@@ -783,12 +783,18 @@ func (cv *ConfigurableDetailView) renderDescription(desc, source string) {
 	// widget mutation runs on the UI goroutine. A single indeterminate model
 	// covers every render kind — a mermaid subprocess has no sub-progress, and
 	// images no longer report per-item.
+	// capture the live viewer: refresh()/OnBlur() may nil cv.navMarkdown before
+	// the deferred redraw closure drains (e.g. opening a new tiki then quickly
+	// navigating away), so re-reading the field at redraw time would dereference
+	// nil. Painting the (possibly detached) instance we rendered is harmless —
+	// once it leaves the layout the paint is invisible.
+	target := cv.navMarkdown
 	reporter := cv.progressHub.StartProgress("rendering")
 	go func() {
 		defer reporter.Done()
 		cv.imageManager.PreResolveMarkdown(desc, source, descriptionRenderCols, cv.mermaidOpts, nil)
 		cv.redraw(func() {
-			cv.navMarkdown.SetMarkdownWithSource(desc, source, false)
+			target.SetMarkdownWithSource(desc, source, false)
 		})
 	}()
 }

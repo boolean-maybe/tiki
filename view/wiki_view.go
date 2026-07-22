@@ -114,6 +114,13 @@ func surfacedGlobalActions(globals []plugin.PluginAction, hostViewName string) [
 			if ga.TargetView == hostViewName {
 				continue
 			}
+			// a view action gated on a selection (Edit / Edit description /
+			// Edit tags open the *selected* tiki) can't run on the wiki, which
+			// has no selection — drop it, mirroring the ruki UsesTikiSelection
+			// case below so header/palette never advertise a dead key.
+			if controller.RequiresSelection(ga.Require) {
+				continue
+			}
 			out = append(out, ga)
 		case plugin.ActionKindRuki:
 			if ga.HasInput || ga.HasChoose {
@@ -253,14 +260,15 @@ func (dv *WikiView) rebuildLayout() {
 	dv.root.AddItem(dv.md.Viewer(), 0, 1, true)
 }
 
-// GetSelectedID implements controller.SelectableView. Returns the tiki id
-// this view was navigated to with, or the empty string when the view has
-// no carried selection (kind: wiki on its own, since detail no longer
-// flows through WikiView). Load-bearing for the InputRouter enablement
-// gate: actions with `require: ["selection:one"]` read this to decide
-// whether to dispatch from a wiki view.
+// GetSelectedID implements controller.SelectableView. A kind:wiki view
+// renders a document and has no selectable tiki, so it always reports no
+// selection — even if a stale tiki id was carried in via PluginViewParams
+// (e.g. switching to Docs from a board with a card selected). Load-bearing
+// for the action enablement gate: reporting the carried id would make
+// `require: ["selection:one"]` actions (Edit, Edit tags, …) light up and act
+// on the stale tiki.
 func (dv *WikiView) GetSelectedID() string {
-	return dv.selectedTikiID
+	return ""
 }
 
 // SetSelectedID lets the harness inject a selection after construction.

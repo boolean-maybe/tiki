@@ -1158,3 +1158,50 @@ func TestToHeaderActions_MoveTikiVisibleOnMultiLaneView(t *testing.T) {
 		t.Fatalf("move-tiki actions must remain in header on multi-lane view (left=%v right=%v)", sawLeft, sawRight)
 	}
 }
+
+// TestToHeaderActions_MoveTikiHiddenWhenNoLaneActions guards the SLA-Watch
+// bug: a multi-lane board whose lanes are pure filters (no move action) has
+// nothing for Move ←/→ to set, so the actions must be omitted from the header
+// rather than advertised as a dead key.
+func TestToHeaderActions_MoveTikiHiddenWhenNoLaneActions(t *testing.T) {
+	viewID := model.MakePluginViewID("SLA Watch")
+	SetSingleLanePredicate(nil) // multi-lane
+	SetLaneMoveablePredicate(func(id model.ViewID) bool { return id != viewID })
+	defer SetLaneMoveablePredicate(nil)
+
+	r := PluginViewActions()
+	ctx := BuildAppContext(&ViewEntry{ViewID: viewID}, nil)
+	out := r.ToHeaderActionsForContext(ctx)
+
+	for _, a := range out {
+		if a.ID == string(ActionMoveTikiLeft) || a.ID == string(ActionMoveTikiRight) {
+			t.Fatalf("%s must be omitted from header on a board with no lane move actions, got %+v", a.ID, a)
+		}
+	}
+}
+
+// TestToHeaderActions_MoveTikiVisibleWhenLaneActions confirms a multi-lane
+// board whose lanes carry move actions still advertises Move ←/→.
+func TestToHeaderActions_MoveTikiVisibleWhenLaneActions(t *testing.T) {
+	viewID := model.MakePluginViewID("Kanban")
+	SetSingleLanePredicate(nil)
+	SetLaneMoveablePredicate(func(id model.ViewID) bool { return id == viewID })
+	defer SetLaneMoveablePredicate(nil)
+
+	r := PluginViewActions()
+	ctx := BuildAppContext(&ViewEntry{ViewID: viewID}, nil)
+	out := r.ToHeaderActionsForContext(ctx)
+
+	var sawLeft, sawRight bool
+	for _, a := range out {
+		switch a.ID {
+		case string(ActionMoveTikiLeft):
+			sawLeft = true
+		case string(ActionMoveTikiRight):
+			sawRight = true
+		}
+	}
+	if !sawLeft || !sawRight {
+		t.Fatalf("move-tiki actions must remain in header on a board with lane actions (left=%v right=%v)", sawLeft, sawRight)
+	}
+}
