@@ -410,6 +410,7 @@ The `type` tells tiki what kind of data the field holds:
 | Type | What it means | Example values |
 |------|--------------|----------------|
 | `text` | Any text | "needs design review" |
+| `user` | Any text, edited with user suggestions | "alice" |
 | `integer` | A whole number | 1, 5, 40 |
 | `boolean` | Yes or no | true, false |
 | `datetime` | A date and time | 2026-03-25 |
@@ -419,6 +420,9 @@ The `type` tells tiki what kind of data the field holds:
 
 For `enum` fields, you provide a `values:` list — only those choices are
 accepted.
+
+`user` and `text` both store free-form strings. `user` only changes the editor:
+it shows known-user suggestions while still accepting values that are not in the list.
 
 ### Using custom fields in a view
 

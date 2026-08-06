@@ -75,6 +75,7 @@ func TestBuildCustomFieldDefaults_WithDefaults(t *testing.T) {
 	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
 		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium", Default: true}, {Value: "high"}}},
 		{Name: "blocked", Type: workflow.TypeBool, DefaultValue: false},
+		{Name: "reviewer", Type: workflow.TypeUser, DefaultValue: "alice"},
 		{Name: "notes", Type: workflow.TypeString},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
@@ -90,6 +91,9 @@ func TestBuildCustomFieldDefaults_WithDefaults(t *testing.T) {
 	}
 	if v, ok := defaults["blocked"]; !ok || v != false {
 		t.Errorf("blocked = %v, want false", v)
+	}
+	if v, ok := defaults["reviewer"]; !ok || v != "alice" {
+		t.Errorf("reviewer = %v, want \"alice\"", v)
 	}
 	if _, ok := defaults["notes"]; ok {
 		t.Error("notes should not have a default")
@@ -151,10 +155,10 @@ func TestNewTikiTemplate_AppliesDefaultStatusFromWorkflow(t *testing.T) {
 	if !hasAnyWorkflowField(tmpl) {
 		t.Error("template has no schema-known fields, want defaults when a default status is configured")
 	}
-	if status, _, _ := tmpl.StringField(tikipkg.FieldStatus); status != "backlog" {
+	if status, _, _ := tmpl.StringField("status"); status != "backlog" {
 		t.Errorf("Status = %q, want %q", status, "backlog")
 	}
-	if priority, _, _ := tmpl.IntField(tikipkg.FieldPriority); priority == 0 {
+	if priority, _, _ := tmpl.IntField("priority"); priority == 0 {
 		t.Error("Priority = 0, want populated workflow default")
 	}
 }
@@ -189,16 +193,16 @@ func TestNewTikiTemplate_BareWhenNoDefaultStatusConfigured(t *testing.T) {
 	if hasAnyWorkflowField(tmpl) {
 		t.Error("template carries schema-known fields, want bare tiki when no default status is configured")
 	}
-	if status, ok, _ := tmpl.StringField(tikipkg.FieldStatus); ok && status != "" {
+	if status, ok, _ := tmpl.StringField("status"); ok && status != "" {
 		t.Errorf("Status = %q, want empty", status)
 	}
-	if priority, ok, _ := tmpl.IntField(tikipkg.FieldPriority); ok && priority != 0 {
+	if priority, ok, _ := tmpl.IntField("priority"); ok && priority != 0 {
 		t.Errorf("Priority = %d, want 0 (no defaults emitted)", priority)
 	}
-	if points, ok, _ := tmpl.IntField(tikipkg.FieldPoints); ok && points != 0 {
+	if points, ok, _ := tmpl.IntField("points"); ok && points != 0 {
 		t.Errorf("Points = %d, want 0 (no defaults emitted)", points)
 	}
-	if tags, ok, _ := tmpl.StringSliceField(tikipkg.FieldTags); ok && len(tags) != 0 {
+	if tags, ok, _ := tmpl.StringSliceField("tags"); ok && len(tags) != 0 {
 		t.Errorf("Tags = %v, want empty (no defaults emitted)", tags)
 	}
 	if tmpl.ID() == "" {

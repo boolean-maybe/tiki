@@ -16,6 +16,7 @@ func InstallGlobalInputCapture(
 	app *tview.Application,
 	paletteConfig *model.ActionPaletteConfig,
 	quickSelectConfig *model.QuickSelectConfig,
+	markdownTreeConfig *model.MarkdownTreeConfig,
 	statuslineConfig *model.StatuslineConfig,
 	inputRouter *controller.InputRouter,
 	navController *controller.NavigationController,
@@ -29,6 +30,10 @@ func InstallGlobalInputCapture(
 		}
 
 		if quickSelectConfig != nil && quickSelectConfig.IsVisible() {
+			return event
+		}
+
+		if markdownTreeConfig != nil && markdownTreeConfig.IsVisible() {
 			return event
 		}
 

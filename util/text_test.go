@@ -100,6 +100,33 @@ func TestTruncateTextWithColors(t *testing.T) {
 			maxWidth: 3,
 			expected: "[red]hi[-]",
 		},
+		{
+			// "⚙️" is base gear U+2699 + variation selector U+FE0F (2 runes),
+			// one grapheme cluster of display width 2. "In Progress ⚙️" is 14
+			// cells; the raw-rune counter over-counted the VS16 as a 15th cell.
+			// Display-width counting sizes it to 14, so at its measured width
+			// it must survive intact.
+			name:     "emoji with variation selector fits by display width",
+			text:     "In Progress ⚙️",
+			maxWidth: 14,
+			expected: "In Progress ⚙️",
+		},
+		{
+			// the cluster is never split mid-glyph: at maxWidth=13 the 2-cell
+			// gear would overflow, so it is dropped whole in favour of "…".
+			name:     "cluster dropped whole, not split",
+			text:     "In Progress ⚙️",
+			maxWidth: 13,
+			expected: "In Progress …",
+		},
+		{
+			// wide (2-cell) emoji: "🔁" is one cluster of display width 2, so
+			// "Regression 🔁" is 13 cells and must survive maxWidth=13.
+			name:     "wide emoji counted as two cells",
+			text:     "Regression 🔁",
+			maxWidth: 13,
+			expected: "Regression 🔁",
+		},
 	}
 
 	for _, tt := range tests {

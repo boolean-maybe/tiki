@@ -221,7 +221,8 @@ func hasAnyWorkflowFieldMem(tk *tikipkg.Tiki) bool {
 }
 
 // SearchTikis searches all tikis (including plain docs) with an optional
-// tiki-native filter. query matches against id, title, and body.
+// tiki-native filter. query matches id, title, body, and workflow-declared
+// string-list values.
 // filter is applied before the text match; nil means no pre-filter.
 // Results are sorted by title then id.
 func (s *InMemoryStore) SearchTikis(query string, filter func(*tikipkg.Tiki) bool) []*tikipkg.Tiki {
@@ -255,10 +256,15 @@ func matchesTikiQueryMem(tk *tikipkg.Tiki, queryLower string) bool {
 		strings.Contains(strings.ToLower(tk.Body()), queryLower) {
 		return true
 	}
-	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
-	for _, tag := range tags {
-		if strings.Contains(strings.ToLower(tag), queryLower) {
-			return true
+	for _, field := range workflow.WorkflowFields() {
+		if field.Type != workflow.TypeListString {
+			continue
+		}
+		values, _, _ := tk.StringSliceField(field.Name)
+		for _, value := range values {
+			if strings.Contains(strings.ToLower(value), queryLower) {
+				return true
+			}
 		}
 	}
 	return false

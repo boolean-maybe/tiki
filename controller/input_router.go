@@ -40,6 +40,16 @@ type QuickSelectView interface {
 	GetFilterInput() tview.Primitive
 }
 
+// MarkdownTreeView abstracts the markdown-tree overlay to avoid import cycles.
+type MarkdownTreeView interface {
+	OnShow(root *store.MarkdownDir)
+	GetFilterInput() tview.Primitive
+}
+
+// MarkdownFileViewerPlugin is the reserved name of the wiki plugin used to
+// render an arbitrary .md file picked from the markdown tree overlay.
+const MarkdownFileViewerPlugin = "__mdfileviewer"
+
 // TikiViewProvider is implemented by controllers that back a WorkflowPlugin view.
 // The view factory uses this to create PluginView without knowing the concrete controller type.
 type TikiViewProvider interface {
@@ -58,20 +68,22 @@ type TikiViewProvider interface {
 // - Return whether the event was consumed
 
 type InputRouter struct {
-	navController     *NavigationController
-	tikiEditSession   *TikiEditSession
-	pluginControllers map[string]PluginControllerInterface // keyed by plugin name
-	globalActions     *ActionRegistry
-	tikiStore         store.Store
-	mutationGate      *service.TikiMutationGate
-	statusline        *model.StatuslineConfig
-	schema            ruki.Schema
-	headerConfig      *model.HeaderConfig
-	paletteConfig     *model.ActionPaletteConfig
-	quickSelectConfig *model.QuickSelectConfig
-	quickSelectView   QuickSelectView
-	workflowPath      string
-	clipboardWriter   func([][]string) error
+	navController      *NavigationController
+	tikiEditSession    *TikiEditSession
+	pluginControllers  map[string]PluginControllerInterface // keyed by plugin name
+	globalActions      *ActionRegistry
+	tikiStore          store.Store
+	mutationGate       *service.TikiMutationGate
+	statusline         *model.StatuslineConfig
+	schema             ruki.Schema
+	headerConfig       *model.HeaderConfig
+	paletteConfig      *model.ActionPaletteConfig
+	quickSelectConfig  *model.QuickSelectConfig
+	quickSelectView    QuickSelectView
+	markdownTreeConfig *model.MarkdownTreeConfig
+	markdownTreeView   MarkdownTreeView
+	workflowPath       string
+	clipboardWriter    func([][]string) error
 }
 
 // NewInputRouter creates an input router
@@ -109,6 +121,16 @@ func (ir *InputRouter) SetPaletteConfig(pc *model.ActionPaletteConfig) {
 // SetQuickSelectConfig wires the quick-select config for choose() dispatch.
 func (ir *InputRouter) SetQuickSelectConfig(qc *model.QuickSelectConfig) {
 	ir.quickSelectConfig = qc
+}
+
+// SetMarkdownTreeConfig wires the config for ActionOpenMarkdownTree dispatch.
+func (ir *InputRouter) SetMarkdownTreeConfig(c *model.MarkdownTreeConfig) {
+	ir.markdownTreeConfig = c
+}
+
+// SetMarkdownTreeView wires the overlay view that receives scanned data.
+func (ir *InputRouter) SetMarkdownTreeView(v MarkdownTreeView) {
+	ir.markdownTreeView = v
 }
 
 // SetQuickSelectView wires the quick-select view (concrete type satisfies the interface).
@@ -276,7 +298,7 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 		return true, ctrl.HandleAction(ActionDetailSave)
 	case tcell.KeyEnter:
 		// Enter commits and closes on single-line fields. In a multi-line
-		// TextArea (description, tags) it keeps its native newline meaning:
+		// TextArea (description or a string-list field) it keeps its native newline meaning:
 		// stop=true prevents the edit-mode registry (which binds Enter to
 		// ActionDetailSaveAndClose for the footer) from firing, handled=false
 		// lets tview deliver the key to the focused widget's InputHandler.
@@ -304,13 +326,13 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 		return false, false
 	}
 
-	// When a free-form text editor (title InputField, assignee InputField,
-	// description/tags TextArea, or an adapter wrapping one) holds focus,
-	// typing keys must reach the widget rather than the global action
-	// registry. Without this, single-letter globals like 'r' (Refresh),
-	// 'q' (Quit), 'F1'..'F4' shadow the keystroke and the user cannot type
-	// those characters into the field. Tab/Backtab/Esc/Ctrl-S are already
-	// consumed above so this only covers the runes-and-backspace path.
+	// When a free-form text editor holds focus — title InputField,
+	// description/string-list TextArea, a free-typing select list, or an
+	// adapter wrapping one — typing keys must reach the widget rather than the
+	// global action registry. Without this, single-letter globals like 'r'
+	// (Refresh), 'q' (Quit), 'F1'..'F4' shadow the keystroke and the user
+	// cannot type those characters into the field. Tab/Backtab/Esc/Ctrl-S are
+	// already consumed above so this only covers the runes-and-backspace path.
 	if isTextInputFocused(ir.navController.GetApp()) && isTextInputKey(event) {
 		return true, false
 	}
@@ -319,21 +341,38 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 }
 
 // isTextInputFocused reports whether the currently focused tview primitive
-// is a free-form text editor — tview.InputField or tview.TextArea, directly
-// or via an embedding adapter (e.g. titleEditAdapter wraps *tview.InputField).
+// is a free-form text editor — tview.InputField or tview.TextArea, a
+// free-typing component.EditSelectList (via the textInputCapable marker),
+// directly or via an embedding adapter (e.g. titleEditAdapter wraps
+// *tview.InputField; selectListAdapter wraps *component.EditSelectList).
 func isTextInputFocused(app *tview.Application) bool {
 	return focusMatches(app, isInputFieldOrTextArea)
 }
 
 // isTextAreaFocused reports whether the focused primitive is specifically a
 // multi-line tview.TextArea (directly or via an embedding adapter such as
-// descriptionEditAdapter / tagsEditAdapter). Used to keep Enter as a newline
+// text-area editor adapters). Used to keep Enter as a newline
 // in textareas while it commits-and-closes on single-line fields.
 func isTextAreaFocused(app *tview.Application) bool {
 	return focusMatches(app, isTextArea)
 }
 
+// textInputCapable is a marker for widgets that capture free-form typing but
+// are neither *tview.InputField nor *tview.TextArea — e.g. component.EditSelectList
+// in free-typing mode. Such a widget embeds an InputField
+// but only IT knows whether typing is enabled, so it must declare the capability
+// rather than have the router infer it from struct shape via reflection.
+type textInputCapable interface {
+	AcceptsTextInput() bool
+}
+
 func isInputFieldOrTextArea(p tview.Primitive) bool {
+	// a widget that embeds an *tview.InputField but only conditionally accepts
+	// typing (EditSelectList) must be asked directly — a non-typing picker
+	// (enum/boolean) shares the same struct shape but must NOT swallow runes.
+	if tic, ok := p.(textInputCapable); ok {
+		return tic.AcceptsTextInput()
+	}
 	switch p.(type) {
 	case *tview.InputField, *tview.TextArea:
 		return true
@@ -360,6 +399,13 @@ func focusMatches(app *tview.Application, pred func(tview.Primitive) bool) bool 
 	}
 	if pred(focus) {
 		return true
+	}
+	// a widget that declares its text-input capability is authoritative: its
+	// embedded *tview.InputField must NOT be re-examined by the reflection
+	// fallback below, or a non-typing picker (AcceptsTextInput()==false) would
+	// be matched via that embedded field and wrongly swallow global keys.
+	if _, ok := focus.(textInputCapable); ok {
+		return false
 	}
 	// adapter case: wrapper struct embedding a *tview primitive
 	v := reflect.ValueOf(focus)
@@ -516,6 +562,8 @@ func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 			ir.paletteConfig.SetVisible(true)
 		}
 		return true
+	case ActionOpenMarkdownTree:
+		return ir.startMarkdownTree()
 	case ActionToggleHeader:
 		ir.toggleHeader()
 		return true
@@ -533,6 +581,31 @@ func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 	default:
 		return false
 	}
+}
+
+// startMarkdownTree scans the doc root and opens the markdown-file tree overlay.
+func (ir *InputRouter) startMarkdownTree() bool {
+	if ir.markdownTreeConfig == nil || ir.markdownTreeView == nil {
+		return false
+	}
+	root, err := store.ScanMarkdown(config.GetDocDir())
+	if err != nil {
+		slog.Error("markdown tree scan failed", "error", err)
+		return false
+	}
+	ir.markdownTreeConfig.SetOnSelect(func(relPath string) {
+		ir.openMarkdownFile(relPath)
+	})
+	ir.markdownTreeConfig.SetOnCancel(func() {})
+	ir.markdownTreeView.OnShow(root)
+	ir.markdownTreeConfig.SetVisible(true)
+	return true
+}
+
+// openMarkdownFile pushes the reusable wiki viewer bound to the picked path.
+func (ir *InputRouter) openMarkdownFile(relPath string) {
+	params := model.EncodePluginViewParams(model.PluginViewParams{DocumentPath: relPath})
+	ir.navController.PushView(model.MakePluginViewID(MarkdownFileViewerPlugin), params)
 }
 
 // toggleHeader toggles the stored user preference and recomputes effective visibility

@@ -1,7 +1,6 @@
 package component
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/boolean-maybe/ruki/recurrence"
@@ -21,10 +20,11 @@ type RecurrenceEdit struct {
 
 	frequencies []string
 	weekdays    []string
-	freqIndex   int // index into frequencies
-	weekdayIdx  int // index into weekdays
-	day         int // 1-31 for monthly
-	activePart  int // 0=frequency, 1=value
+	freqIndex   int    // index into frequencies
+	weekdayIdx  int    // index into weekdays
+	day         int    // 1-31 for monthly
+	activePart  int    // 0=frequency, 1=value
+	label       string // focus-marker markup, painted by Draw (not the InputField)
 	onChange    func(string)
 }
 
@@ -48,9 +48,11 @@ func NewRecurrenceEdit() *RecurrenceEdit {
 	return re
 }
 
-// SetLabel sets the label displayed before the input field.
+// SetLabel stores the focus-marker label for Draw to paint. It is NOT forwarded
+// to the embedded InputField: the custom Draw is the sole renderer (same reason
+// as segmentedTimeEdit — avoids double-painting the label).
 func (re *RecurrenceEdit) SetLabel(label string) *RecurrenceEdit {
-	re.InputField.SetLabel(label)
+	re.label = label
 	return re
 }
 
@@ -226,28 +228,79 @@ func (re *RecurrenceEdit) hasValuePart() bool {
 	return freq == recurrence.FrequencyWeekly || freq == recurrence.FrequencyMonthly
 }
 
-func (re *RecurrenceEdit) updateDisplay() {
-	freq := recurrence.RecurrenceFrequency(re.frequencies[re.freqIndex])
-	sep := " : "
-	if re.activePart == 1 {
-		sep = " > "
-	}
+// recurrenceSep is the constant separator between the frequency and value
+// parts. The active part is marked by the selection-band highlight in Draw, not
+// by swapping this separator (that was the old " : " / " > " glyph hack).
+const recurrenceSep = " · "
 
-	var text string
+// displayParts returns the frequency-part text, the value-part text (empty when
+// the frequency has no value part), and whether a value part exists.
+func (re *RecurrenceEdit) displayParts() (freqText, valueText string, hasValue bool) {
+	freq := recurrence.RecurrenceFrequency(re.frequencies[re.freqIndex])
 	switch freq {
 	case recurrence.FrequencyWeekly:
-		text = fmt.Sprintf("Weekly%s%s", sep, re.weekdays[re.weekdayIdx])
+		return "Weekly", re.weekdays[re.weekdayIdx], true
 	case recurrence.FrequencyMonthly:
-		text = fmt.Sprintf("Monthly%s%s", sep, strconv.Itoa(re.day)+recurrence.OrdinalSuffix(re.day))
+		return "Monthly", strconv.Itoa(re.day) + recurrence.OrdinalSuffix(re.day), true
 	default:
-		text = re.frequencies[re.freqIndex]
+		return re.frequencies[re.freqIndex], "", false
 	}
+}
 
-	re.SetText(text)
+// displayText assembles the full "Freq · Value" (or "Freq") string.
+func (re *RecurrenceEdit) displayText() string {
+	freqText, valueText, hasValue := re.displayParts()
+	if !hasValue {
+		return freqText
+	}
+	return freqText + recurrenceSep + valueText
+}
+
+// partCells returns the inclusive [lo, hi] rune range of the active part within
+// displayText, or {-1,-1} when there is nothing to highlight (the value part is
+// active but absent — which cannot normally happen since activePart resets).
+func (re *RecurrenceEdit) partCells() (int, int) {
+	freqText, valueText, hasValue := re.displayParts()
+	if re.activePart == 0 || !hasValue {
+		return 0, len([]rune(freqText)) - 1
+	}
+	start := len([]rune(freqText)) + len([]rune(recurrenceSep))
+	return start, start + len([]rune(valueText)) - 1
+}
+
+func (re *RecurrenceEdit) updateDisplay() {
+	// keep the InputField's text EMPTY: Draw is the sole renderer (it paints the
+	// value with the active-part selection band). Letting the InputField also
+	// hold the text would double-paint — same discipline as segmentedTimeEdit.
+	re.SetText("")
 }
 
 func (re *RecurrenceEdit) emitChange() {
 	if re.onChange != nil {
 		re.onChange(re.GetValue())
 	}
+}
+
+// Draw renders the label then the "Freq · Value" text, highlighting the active
+// part with the canonical selection band when focused — the same scheme the
+// segmented date/datetime editors use (via the shared highlightStyles /
+// drawHighlightedText helpers). The core owns all drawing; the InputField holds
+// no text (see updateDisplay).
+func (re *RecurrenceEdit) Draw(screen tcell.Screen) {
+	re.DrawForSubclass(screen, re)
+	x, y, width, height := re.GetInnerRect()
+	if width <= 0 || height <= 0 {
+		return
+	}
+
+	base, active := highlightStyles()
+
+	col := x
+	if re.label != "" {
+		_, drawn := tview.Print(screen, re.label, col, y, width, tview.AlignLeft, theme.Roles().TextPrimary().TCell())
+		col += drawn
+	}
+
+	lo, hi := re.partCells()
+	drawHighlightedText(screen, col, y, x+width, re.displayText(), lo, hi, re.HasFocus(), base, active)
 }

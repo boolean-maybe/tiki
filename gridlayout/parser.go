@@ -140,7 +140,7 @@ func tryParseComposite(s string) (Cell, bool, error) {
 // on any mode. A trailing `?` (before any display/sizing suffix) marks the
 // field hide-when-empty.
 //
-// Authoring caveat: identifier-shaped typos (e.g. `staus` instead of `status`)
+// Authoring caveat: identifier-shaped typos (e.g. `categry` instead of `category`)
 // reach FieldCell and trip schema validation at workflow-load time, surfacing
 // a clear error. Non-identifier-shaped typos (e.g. `status:` with stray
 // colon, `stat us` with embedded space, or any quoted form that includes

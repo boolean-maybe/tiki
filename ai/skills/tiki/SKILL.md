@@ -84,7 +84,7 @@ These seven fields exist regardless of workflow and cannot be redeclared by a `w
 | `type` | enum | `story` (default), `bug`, `spike` |
 | `priority` | enum | `"high"`, `"medium-high"`, `"medium"` (default), `"medium-low"`, `"low"` — pass the key as a string |
 | `points` | enum | `"1"`, `"3"` (default), `"7"`, `"11"` — pass the key as a string |
-| `assignee` | string | free text |
+| `assignee` | user | free text; ruki still treats it as `string` |
 | `tags` | list&lt;string&gt; | e.g. `["bug", "urgent"]` |
 | `dependsOn` | list&lt;ref&gt; | bare tiki ids, e.g. `["ABC123", "DEF456"]` |
 | `due` | date | `YYYY-MM-DD` (a date, not a timestamp) — compare against date literals, not `now()` |

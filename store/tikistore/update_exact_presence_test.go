@@ -124,7 +124,7 @@ func TestUpdateTiki_ExplicitDeleteRemovesField(t *testing.T) {
 		t.Fatal("GetTiki: nil")
 	}
 	updated := tk.Clone()
-	updated.Delete(tikipkg.FieldPriority)
+	updated.Delete("priority")
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}

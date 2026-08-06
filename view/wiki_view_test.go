@@ -60,3 +60,58 @@ func TestSurfacedGlobalsHidesSelectionBuiltin(t *testing.T) {
 		t.Error("List all (no selection builtin) should surface on the wiki, but it did not")
 	}
 }
+
+// viewGlobal builds a kind:view action targeting Detail with the given require list.
+func viewGlobal(label string, require []string) plugin.PluginAction {
+	return plugin.PluginAction{
+		Label:      label,
+		Kind:       plugin.ActionKindView,
+		TargetView: "Detail",
+		Require:    require,
+	}
+}
+
+// TestSurfacedGlobalsHidesSelectionViewAction guards the real bug: a kind:view
+// action that opens the SELECTED tiki (require: selection:one — e.g. Edit,
+// Edit description, Edit tags) must NOT surface on the wiki, which has no
+// selection. Only selection-free view actions (plain navigation / view-switch
+// / New) belong there. Before the fix the view branch surfaced every kind:view
+// action unconditionally, so the edit actions leaked onto Docs (greyed, but
+// present) no matter how the workflow YAML was authored.
+func TestSurfacedGlobalsHidesSelectionViewAction(t *testing.T) {
+	globals := []plugin.PluginAction{
+		viewGlobal("Edit", []string{"selection:one"}),
+		viewGlobal("Edit description", []string{"selection:one"}),
+		viewGlobal("Edit tags", []string{"selection:one"}),
+		viewGlobal("New", nil), // no selection required — must survive
+	}
+	surfaced := surfacedGlobalActions(globals, "Docs")
+
+	for _, label := range []string{"Edit", "Edit description", "Edit tags"} {
+		if hasLabel(surfaced, label) {
+			t.Errorf("%q requires a selection and must not surface on the wiki, but it did", label)
+		}
+	}
+	if !hasLabel(surfaced, "New") {
+		t.Error("New (no selection required) should surface on the wiki, but it did not")
+	}
+}
+
+// TestWikiViewReportsNoSelection guards against tiki-selection actions lighting
+// up on Docs. A kind:wiki view renders a document and has no selectable tiki,
+// so it must report no selection even when a stale tiki id was carried in via
+// PluginViewParams (e.g. switching to Docs from a board with a card selected).
+// Otherwise built-in actions like <e> Edit appear enabled and act on the stale
+// tiki.
+func TestWikiViewReportsNoSelection(t *testing.T) {
+	def := &plugin.WikiPlugin{
+		BasePlugin:   plugin.BasePlugin{Name: "Docs", Kind: plugin.KindWiki},
+		DocumentPath: "index.md",
+	}
+	// construct as the factory does when arriving with a carried selection.
+	v := NewWikiView(def, nil, nil, nil, nil, "DLBKGY")
+
+	if got := v.GetSelectedID(); got != "" {
+		t.Errorf("wiki view must report no selection, got %q", got)
+	}
+}

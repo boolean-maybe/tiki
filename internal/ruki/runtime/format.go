@@ -132,7 +132,7 @@ func extractFieldValue(t ruki.Document, name string) interface{} {
 // FormatScalar renders a single scalar result as one line followed by a
 // newline. Dates render as YYYY-MM-DD, timestamps as RFC3339, lists as JSON
 // arrays, nil/unset as a blank line. This is the CLI output for top-level
-// expression statements like `count(select where status = "done")`.
+// expression statements like `count(select where category = "done")`.
 func FormatScalar(w io.Writer, res *ruki.ScalarResult) error {
 	if res == nil {
 		_, err := fmt.Fprintln(w, "")

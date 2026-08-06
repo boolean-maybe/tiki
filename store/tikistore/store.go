@@ -32,7 +32,6 @@ type TikiStore struct {
 	listeners      map[int]store.ChangeListener
 	nextListenerID int
 	gitUtil        git.GitOps        // git utility for auto-staging modified files
-	upgrader       *LegacyUpgrader   // normalizes legacy field values on load
 	identity       *identityResolver // resolves current Tiki identity (config→git→OS)
 	diagnostics    *LoadDiagnostics  // rejections from the most recent load/reload cycle
 }
@@ -46,7 +45,6 @@ func NewTikiStore(dir string) (*TikiStore, error) {
 		tikis:          make(map[string]*tiki.Tiki),
 		listeners:      make(map[int]store.ChangeListener),
 		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
-		upgrader:       &LegacyUpgrader{},
 		diagnostics:    newLoadDiagnostics(),
 	}
 
@@ -132,7 +130,7 @@ func (s *TikiStore) GetGitOps() git.GitOps {
 	return s.gitUtil
 }
 
-// GetAllUsers returns candidate identities for assignee selection.
+// GetAllUsers returns candidate identities for user-field selection.
 // In git mode, merges the configured identity with git's commit-author list.
 // In no-git mode, returns the resolved identity (configured or OS user).
 func (s *TikiStore) GetAllUsers() ([]string, error) {

@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // TestLoadTiki_BareFileLoadsWithEmptyFields pins the load-side of exact-
@@ -86,7 +84,7 @@ func TestLoadTiki_PreservesAbsentSchemaKeys(t *testing.T) {
 	if tk == nil {
 		t.Fatal("GetTiki returned nil")
 	}
-	if _, has := tk.Fields[tikipkg.FieldStatus]; !has {
+	if _, has := tk.Fields["status"]; !has {
 		t.Error("status should be present in tiki Fields after load")
 	}
 	for _, k := range []string{"type", "priority", "points", "tags", "dependsOn", "due", "recurrence", "assignee"} {
@@ -118,10 +116,10 @@ func TestNewTikiTemplate_AppliesDefaultsWhenWorkflowConfigured(t *testing.T) {
 	if !hasAnyWorkflowField(tk) {
 		t.Fatal("template tiki has no schema-known fields — workflow defaults should be applied")
 	}
-	if _, has := tk.Fields[tikipkg.FieldStatus]; !has {
+	if _, has := tk.Fields["status"]; !has {
 		t.Error("template is missing status default")
 	}
-	if _, has := tk.Fields[tikipkg.FieldPriority]; !has {
+	if _, has := tk.Fields["priority"]; !has {
 		t.Error("template is missing priority default")
 	}
 }

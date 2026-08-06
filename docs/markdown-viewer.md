@@ -28,6 +28,22 @@ tiki github.com/boolean-maybe/tiki
 
 press `q` to quit
 
+## Browse markdown files with `Ctrl-O`
+
+From anywhere in the app press `Ctrl-O` to open a file tree of every `.md` file under the current
+directory. The overlay is a filterable, collapsible directory tree:
+
+- type to fuzzy-filter by path; matching files stay visible and their parent folders auto-expand
+- `↑/↓` move, `→` expands a folder, `←` collapses it, `Ctrl-U` clears the filter
+- `Enter` on a folder toggles it; `Enter` on a file opens it in the markdown viewer
+- `Esc` closes the overlay and restores focus to the previous view
+
+Clearing the filter restores whatever folders you had manually expanded before you started typing.
+
+When a file opens, its title is shown in both the caption bar and the header. The title is taken from
+the document's frontmatter `title:`, falling back to its first `#` heading, and finally to the base
+filename for untitled notes.
+
 ## Open image files
 
 Likewise, you can open image files:

@@ -294,9 +294,8 @@ func TestBundledKanban_AddToProjectExcludesPlainDocs(t *testing.T) {
 
 // TestBundledKanban_DetailMakeRecurringSetsRecurrenceAndDue pins the Detail
 // view's "Make recurring" action (key "R"). It must set recurrence to the
-// daily cron and, in the same statement, set due to the next occurrence — the
-// same recurrence/due coupling the edit path (SaveRecurrence) and the
-// recurring-completion trigger produce. The action is authored with ruki's
+// daily cron and, in the same statement, set due to the next occurrence.
+// The action is authored with ruki's
 // recurrence constructor daily() (added in ruki v0.1.1); a string literal would
 // fail validation because recurrence is a derived-only type.
 func TestBundledKanban_DetailMakeRecurringSetsRecurrenceAndDue(t *testing.T) {
@@ -362,11 +361,11 @@ func TestBundledKanban_DetailMakeRecurringSetsRecurrenceAndDue(t *testing.T) {
 	}
 
 	updated := tikipkg.UnwrapDoc(result.Update.Updated[0])
-	gotRecurrence, _, _ := updated.StringField(tikipkg.FieldRecurrence)
+	gotRecurrence, _, _ := updated.StringField("recurrence")
 	if gotRecurrence != "0 0 * * *" {
 		t.Errorf("recurrence = %q, want daily cron %q", gotRecurrence, "0 0 * * *")
 	}
-	gotDue, hasDue, _ := updated.TimeField(tikipkg.FieldDue)
+	gotDue, hasDue, _ := updated.TimeField("due")
 	if !hasDue || gotDue.IsZero() {
 		t.Errorf("due not set to next occurrence: hasDue=%v due=%v", hasDue, gotDue)
 	}

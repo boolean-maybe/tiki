@@ -47,6 +47,7 @@ type Result struct {
 	HeaderWidget      *header.HeaderWidget
 	StatuslineConfig  *model.StatuslineConfig
 	StatuslineWidget  *statusline.StatuslineWidget
+	ProgressHub       *model.ProgressHub
 	RootLayout        *view.RootLayout
 	PaletteConfig     *model.ActionPaletteConfig
 	QuickSelectConfig *model.QuickSelectConfig
@@ -119,6 +120,18 @@ func Bootstrap() (*Result, error) {
 	viewContext := model.NewViewContext()
 	pluginConfigs, pluginDefs := BuildPluginConfigsAndDefs(plugins)
 
+	// register the reusable markdown-file viewer (opened from the Ctrl-O tree).
+	// its DocumentPath is set per-navigation via PluginViewParams; the factory
+	// clones this def so the registered entry stays immutable across navigations.
+	pluginDefs[controller.MarkdownFileViewerPlugin] = &plugin.WikiPlugin{
+		BasePlugin: plugin.BasePlugin{
+			Name:        controller.MarkdownFileViewerPlugin,
+			Label:       "Markdown File",
+			Kind:        plugin.KindWiki,
+			ConfigIndex: -1,
+		},
+	}
+
 	// Phase 6.5: Trigger system — share the same identity projection as the
 	// runtime/plugin executors so email-only identity configurations reach
 	// `user()` calls inside triggers
@@ -138,6 +151,14 @@ func Bootstrap() (*Result, error) {
 	application := app.NewApp()
 	app.SetupSignalHandler(application)
 
+	// Progress hub: drains consumer progress events off the UI goroutine and
+	// pushes state to the statusline via QueueUpdateDraw. Constructed before
+	// controllers so plugin executors can report indeterminate run progress.
+	// QueueUpdateDraw returns the app for chaining; wrap to match the
+	// redraw func(func()) sink signature.
+	redraw := func(fn func()) { application.QueueUpdateDraw(fn) }
+	progressHub := model.NewProgressHub(statuslineConfig, redraw)
+
 	controllers := BuildControllers(
 		application,
 		tikiStore,
@@ -146,6 +167,7 @@ func Bootstrap() (*Result, error) {
 		globalActions,
 		pluginConfigs,
 		statuslineConfig,
+		progressHub,
 		schema,
 	)
 
@@ -163,12 +185,13 @@ func Bootstrap() (*Result, error) {
 	// Phase 9: View factory and layout
 	viewFactory := view.NewViewFactory(tikiStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins, globalActions)
+	viewFactory.SetProgressHub(progressHub, redraw)
 
 	// Wire fresh-per-navigation WikiController creation so each view instance
 	// on the nav stack holds its own selectedTikiID (prevents a second wiki
 	// navigation from overwriting the first view's context).
 	viewFactory.SetWikiControllerFactory(func(def plugin.Plugin, selectedTikiID string) *controller.WikiController {
-		dc := controller.NewWikiController(def, controllers.Nav, statuslineConfig, globalActions, tikiStore, gate, schema)
+		dc := controller.NewWikiController(def, controllers.Nav, statuslineConfig, progressHub, globalActions, tikiStore, gate, schema)
 		dc.SetSelectedTikiID(selectedTikiID)
 		return dc
 	})
@@ -176,7 +199,7 @@ func Bootstrap() (*Result, error) {
 	// Same fresh-per-navigation pattern for kind: detail views — two pushed
 	// Detail views must not share selectedTikiID state.
 	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController {
-		dc := controller.NewDetailController(def, controllers.Nav, statuslineConfig, tikiStore, gate, schema, controllers.TikiEdit)
+		dc := controller.NewDetailController(def, controllers.Nav, statuslineConfig, progressHub, tikiStore, gate, schema, controllers.TikiEdit)
 		dc.SetSelectedTikiID(selectedTikiID)
 		return dc
 	})
@@ -219,6 +242,22 @@ func Bootstrap() (*Result, error) {
 	quickSelect.SetChangedFunc()
 	inputRouter.SetQuickSelectView(quickSelect)
 
+	// Phase 11.7: markdown-file tree overlay (Ctrl-O)
+	markdownTreeConfig := model.NewMarkdownTreeConfig()
+	inputRouter.SetMarkdownTreeConfig(markdownTreeConfig)
+
+	markdownTree := palette.NewMarkdownTree(markdownTreeConfig)
+	markdownTree.SetChangedFunc()
+	markdownTree.SetDocMarker(func(abs string) bool {
+		for _, tk := range tikiStore.GetAllTikis() {
+			if tikiStore.PathForID(tk.ID()) == abs {
+				return true
+			}
+		}
+		return false
+	})
+	inputRouter.SetMarkdownTreeView(markdownTree)
+
 	// Build Pages root: base = rootLayout, overlay = palette + quickselect
 	pages := tview.NewPages()
 	pages.AddPage("base", rootLayout.GetPrimitive(), true, true)
@@ -226,6 +265,8 @@ func Bootstrap() (*Result, error) {
 	pages.AddPage("palette", paletteOverlay, true, false)
 	quickSelectOverlay := buildQuickSelectOverlay(quickSelect)
 	pages.AddPage("quickselect", quickSelectOverlay, true, false)
+	markdownTreeOverlay := buildMarkdownTreeOverlay(markdownTree)
+	pages.AddPage("markdowntree", markdownTreeOverlay, true, false)
 
 	// Wire palette visibility to Pages show/hide and focus management
 	var previousFocus tview.Primitive
@@ -260,9 +301,27 @@ func Bootstrap() (*Result, error) {
 		}
 	})
 
+	// Wire markdown-tree overlay visibility
+	var mtPreviousFocus tview.Primitive
+	markdownTreeConfig.AddListener(func() {
+		if markdownTreeConfig.IsVisible() {
+			mtPreviousFocus = application.GetFocus()
+			pages.ShowPage("markdowntree")
+			application.SetFocus(markdownTree.GetFilterInput())
+		} else {
+			pages.HidePage("markdowntree")
+			if mtPreviousFocus != nil {
+				application.SetFocus(mtPreviousFocus)
+			} else if cv := rootLayout.GetContentView(); cv != nil {
+				application.SetFocus(cv.GetPrimitive())
+			}
+			mtPreviousFocus = nil
+		}
+	})
+
 	// Phase 12: Navigation and input wiring
 	wireNavigation(controllers.Nav, layoutModel, rootLayout)
-	app.InstallGlobalInputCapture(application, paletteConfig, quickSelectConfig, statuslineConfig, inputRouter, controllers.Nav)
+	app.InstallGlobalInputCapture(application, paletteConfig, quickSelectConfig, markdownTreeConfig, statuslineConfig, inputRouter, controllers.Nav)
 
 	// Phase 13: Initial view — use the first plugin marked default: true,
 	// or fall back to the first plugin in the list.
@@ -286,6 +345,7 @@ func Bootstrap() (*Result, error) {
 		HeaderWidget:      headerWidget,
 		StatuslineConfig:  statuslineConfig,
 		StatuslineWidget:  statuslineWidget,
+		ProgressHub:       progressHub,
 		RootLayout:        rootLayout,
 		PaletteConfig:     paletteConfig,
 		QuickSelectConfig: quickSelectConfig,
@@ -377,6 +437,41 @@ func buildQuickSelectOverlay(qs *palette.QuickSelect) *quickSelectOverlayFlex {
 }
 
 func (o *quickSelectOverlayFlex) Draw(screen tcell.Screen) {
+	_, _, w, _ := o.GetRect()
+	pw := w / 3
+	if pw < palette.PaletteMinWidth {
+		pw = palette.PaletteMinWidth
+	}
+	if pw != o.lastSize {
+		o.Flex.Clear()
+		o.Flex.AddItem(o.spacer, 0, 1, false)
+		o.Flex.AddItem(o.picker, pw, 0, true)
+		o.lastSize = pw
+	}
+	o.Flex.Draw(screen)
+}
+
+// markdownTreeOverlayFlex mirrors quickSelectOverlayFlex for the markdown tree.
+type markdownTreeOverlayFlex struct {
+	*tview.Flex
+	picker   tview.Primitive
+	spacer   *tview.Flex
+	lastSize int
+}
+
+func buildMarkdownTreeOverlay(mt *palette.MarkdownTree) *markdownTreeOverlayFlex {
+	overlay := &markdownTreeOverlayFlex{
+		Flex:   tview.NewFlex(),
+		picker: mt.GetPrimitive(),
+	}
+	overlay.spacer = tview.NewFlex()
+	overlay.Flex.AddItem(overlay.spacer, 0, 1, false)
+	overlay.Flex.AddItem(overlay.picker, palette.PaletteMinWidth, 0, true)
+	overlay.lastSize = palette.PaletteMinWidth
+	return overlay
+}
+
+func (o *markdownTreeOverlayFlex) Draw(screen tcell.Screen) {
 	_, _, w, _ := o.GetRect()
 	pw := w / 3
 	if pw < palette.PaletteMinWidth {

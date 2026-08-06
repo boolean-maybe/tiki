@@ -118,12 +118,12 @@ before update where outer.id = new.id deny "blocked"
 The resulting task from `create` must have a non-empty `title`. If the template does not provide one, a
 `title=...` assignment is required.
 
-`title`, `status`, `type`, and `priority` reject `empty` assignment:
+`title` and enum fields reject `empty` assignment:
 
 ```sql
-create title="" priority="medium-high"
-create title="x" status=empty
-update where id = "ABC123" set priority=empty
+create title="" category="feature"
+create title="x" category=empty
+update where id = "ABC123" set severity=empty
 ```
 
 ## Type and operator errors
@@ -164,7 +164,7 @@ update where id="x" set title=status
 Invalid binary expressions:
 
 ```sql
-create title="x" points=1 + "a"
+create title="x" estimate=1 + "a"
 select where due = 2026-03-25 + 2026-03-20
 create title="x" dependsOn=dependsOn + status
 create title="x" dependsOn=dependsOn + tags
@@ -315,7 +315,6 @@ select where user(1) = "bob"
 Argument type errors:
 
 ```sql
-select where blocks(priority) is empty
 create title=call(42)
 create title="x" due=next_date(42)
 ```
@@ -416,7 +415,8 @@ Type mismatch (declared type incompatible with target field):
   input: int
 ```
 
-Fails at workflow load time: `int` is not assignable to string field `assignee`.
+Fails at workflow load time: `int` is not assignable to string field `assignee`. In the bundled workflow,
+`assignee` is declared as `type: user`, but ruki still sees it as a string field.
 
 `input()` with arguments:
 

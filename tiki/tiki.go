@@ -10,9 +10,9 @@ package tiki
 import "time"
 
 // Tiki is the unified representation of any managed markdown file under .doc/.
-// It is intentionally workflow-agnostic: status/type/priority/etc. are ordinary
-// entries in Fields with explicit presence, so a document with only id+title
-// cannot be accidentally promoted by a body-only edit.
+// It is intentionally workflow-agnostic: declared values are ordinary entries
+// in Fields with explicit presence, so a document with only id+title cannot be
+// accidentally promoted by a body-only edit.
 type Tiki struct {
 	// id is the bare uppercase identifier (6 alphanumeric chars). Always set
 	// for loaded tikis; generated on creation if absent. Read via ID().
@@ -25,10 +25,8 @@ type Tiki struct {
 	// markdown files without frontmatter this is the whole file. Read via Body().
 	body string
 
-	// Fields holds every frontmatter key other than id and title, in their
-	// raw or coerced form. Schema-known keys (status, type, priority, points,
-	// dependsOn, due, recurrence, assignee, tags) use their typed values;
-	// unknown keys round-trip verbatim.
+	// Fields holds every frontmatter key other than id and title, in its raw
+	// or schema-coerced form. Unknown keys round-trip verbatim.
 	Fields map[string]interface{}
 
 	// path is the on-disk path at load time. Authoritative file target for

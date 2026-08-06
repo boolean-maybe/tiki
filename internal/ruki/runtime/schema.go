@@ -57,7 +57,7 @@ func (s *workflowSchema) Field(name string) (ruki.FieldSpec, bool) {
 // mapValueType converts workflow.ValueType to ruki.ValueType.
 func mapValueType(wt workflow.ValueType) ruki.ValueType {
 	switch wt {
-	case workflow.TypeString:
+	case workflow.TypeString, workflow.TypeUser:
 		return ruki.ValueString
 	case workflow.TypeInt:
 		return ruki.ValueInt

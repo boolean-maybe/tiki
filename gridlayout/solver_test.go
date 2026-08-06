@@ -378,6 +378,58 @@ func TestSolveLayout_SingleColumnCompositeGrowsWithFr(t *testing.T) {
 	}
 }
 
+// TestSolveLayout_FrAbsorbsTrailingSpanOnlyColumn reproduces P/P1: a :fr grow
+// column followed by a trailing column that only ever receives a colspan
+// passthrough (title's `--`) plus empty cells. That trailing column has no
+// anchor rooted in it, yet distributeAcrossColumns leaves it a base width, and
+// its inter-column gap strands a dead horizontal gap between the fr prose and
+// the box's right frame. The fr column must absorb that residual and reach the
+// frame instead.
+func TestSolveLayout_FrAbsorbsTrailingSpanOnlyColumn(t *testing.T) {
+	spec := mustParse(t, [][]string{
+		{"title", "--", "--"},
+		{"caption", "prose:fr", "_"},
+	})
+	measure := func(a Anchor) int {
+		if a.Name == "prose" {
+			return 250 // long prose: wants far more than available
+		}
+		return 5
+	}
+	heightOf := func(a Anchor, w int) int { return 1 }
+	plan := SolveLayout(spec, 100, 1, measure, heightOf)
+
+	if plan.ColumnWidths[2] != 0 {
+		t.Errorf("trailing span-only col = %d, want 0 (fr should absorb it)", plan.ColumnWidths[2])
+	}
+	// fr reaches the frame: col0 + gap + fr == width (no third gap, no dead col).
+	if got := plan.ColumnWidths[0] + 1 + plan.ColumnWidths[1]; got != 100 {
+		t.Errorf("used width = %d, want 100 (fr fills to frame); cols=%v", got, plan.ColumnWidths)
+	}
+}
+
+// TestSolveLayout_FrKeepsTrailingRootedColumn guards the fix from over-reaching:
+// a trailing column with its OWN rooted anchor (a real fixed column, not a
+// span/empty remnant) must keep its width even when an fr column sits to its
+// left.
+func TestSolveLayout_FrKeepsTrailingRootedColumn(t *testing.T) {
+	spec := mustParse(t, [][]string{
+		{"prose:fr", "refs:20"},
+	})
+	measure := func(a Anchor) int {
+		if a.Name == "prose" {
+			return 250
+		}
+		return 20
+	}
+	heightOf := func(a Anchor, w int) int { return 1 }
+	plan := SolveLayout(spec, 100, 1, measure, heightOf)
+
+	if plan.ColumnWidths[1] != 20 {
+		t.Errorf("trailing rooted fixed col = %d, want 20 (must not be absorbed)", plan.ColumnWidths[1])
+	}
+}
+
 func TestSolveLayout_CompositeColumnFloor(t *testing.T) {
 	spec := mustParse(t, [][]string{
 		{"<text.label>status.caption", `(status.label + " " + status.visual):16..`},

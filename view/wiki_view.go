@@ -45,6 +45,7 @@ type WikiView struct {
 	surfacedGlobals     []plugin.PluginAction
 	selectedTikiID      string // selection carried in via PluginViewParams; surfaced through GetSelectedID() for action `require:` gates
 	actionChangeHandler func()
+	resolvedTitle       string // Ctrl-O markdown viewer only: document title (frontmatter/H1/filename), resolved from loaded content
 }
 
 // NewWikiView creates a wiki view. globalActions is the workflow's top-level
@@ -113,6 +114,13 @@ func surfacedGlobalActions(globals []plugin.PluginAction, hostViewName string) [
 			if ga.TargetView == hostViewName {
 				continue
 			}
+			// a view action gated on a selection (Edit / Edit description /
+			// Edit tags open the *selected* tiki) can't run on the wiki, which
+			// has no selection — drop it, mirroring the ruki UsesTikiSelection
+			// case below so header/palette never advertise a dead key.
+			if controller.RequiresSelection(ga.Require) {
+				continue
+			}
 			out = append(out, ga)
 		case plugin.ActionKindRuki:
 			if ga.HasInput || ga.HasChoose {
@@ -143,17 +151,15 @@ func pluginRequirementsToController(raw []string) []controller.Requirement {
 }
 
 func (dv *WikiView) build() {
-	// title bar with gradient background using theme-derived caption colors
-	pair := theme.Roles().PluginCaptions().At(dv.pluginDef.ConfigIndex)
-	bgColor := theme.NewColor(pair.Bg().TCell())
-	textColor := theme.NewColor(pair.Fg().TCell())
-	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, nil, theme.NewColorRoleAdapter(bgColor), textColor)
-
 	// Fetch initial content and create NavigableMarkdown with appropriate provider.
 	// Wiki views render the file at `path:`; `document: <ID>` binding is
 	// rejected at parse time. Detail views render the tiki whose id was
 	// carried in via PluginViewParams (6B.3), or a placeholder when no
 	// selection was passed.
+	//
+	// Content is loaded before the caption row is built because the Ctrl-O
+	// markdown viewer derives its display title from the document's own
+	// frontmatter/H1 (see resolveDisplayTitle), not from the plugin name.
 	var content string
 	var sourcePath string
 	var err error
@@ -188,6 +194,14 @@ func (dv *WikiView) build() {
 		// kind: detail with no selection, or a kind without a content source
 		content = "(no document selected)"
 	}
+
+	// Resolve the display title now that content is loaded, then build the
+	// caption bar. Both the caption and the header info read displayTitle().
+	dv.resolveDisplayTitle(content)
+	pair := theme.Roles().PluginCaptions().At(dv.pluginDef.ConfigIndex)
+	bgColor := theme.NewColor(pair.Bg().TCell())
+	textColor := theme.NewColor(pair.Fg().TCell())
+	dv.titleBar = NewGradientCaptionRow([]string{dv.displayTitle()}, nil, theme.NewColorRoleAdapter(bgColor), textColor)
 
 	dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
 		Provider:       provider,
@@ -246,14 +260,15 @@ func (dv *WikiView) rebuildLayout() {
 	dv.root.AddItem(dv.md.Viewer(), 0, 1, true)
 }
 
-// GetSelectedID implements controller.SelectableView. Returns the tiki id
-// this view was navigated to with, or the empty string when the view has
-// no carried selection (kind: wiki on its own, since detail no longer
-// flows through WikiView). Load-bearing for the InputRouter enablement
-// gate: actions with `require: ["selection:one"]` read this to decide
-// whether to dispatch from a wiki view.
+// GetSelectedID implements controller.SelectableView. A kind:wiki view
+// renders a document and has no selectable tiki, so it always reports no
+// selection — even if a stale tiki id was carried in via PluginViewParams
+// (e.g. switching to Docs from a board with a card selected). Load-bearing
+// for the action enablement gate: reporting the carried id would make
+// `require: ["selection:one"]` actions (Edit, Edit tags, …) light up and act
+// on the stale tiki.
 func (dv *WikiView) GetSelectedID() string {
-	return dv.selectedTikiID
+	return ""
 }
 
 // SetSelectedID lets the harness inject a selection after construction.
@@ -267,11 +282,46 @@ func (dv *WikiView) SetSelectedID(id string) {
 // ShowNavigation returns true — wiki views always show plugin navigation keys.
 func (dv *WikiView) ShowNavigation() bool { return true }
 
-// GetViewName returns the plugin name for the header info section
-func (dv *WikiView) GetViewName() string { return dv.pluginDef.GetName() }
+// GetViewName returns the display title for the header info section.
+func (dv *WikiView) GetViewName() string { return dv.displayTitle() }
+
+// displayTitle is the human-readable title shown in both the caption bar and
+// the header. The reserved Ctrl-O markdown-file viewer has no meaningful plugin
+// name, so it shows the opened document's own title (resolved from frontmatter
+// / H1 / filename by resolveDisplayTitle); every other wiki view keeps its
+// plugin label.
+func (dv *WikiView) displayTitle() string {
+	if dv.isMarkdownFileViewer() {
+		return dv.resolvedTitle
+	}
+	return dv.pluginDef.GetName()
+}
+
+// resolveDisplayTitle caches the document's title for the Ctrl-O markdown
+// viewer, derived from the loaded content. For every other wiki view the
+// resolved title is unused (displayTitle returns the plugin name), so this is a
+// no-op there.
+func (dv *WikiView) resolveDisplayTitle(content string) {
+	if !dv.isMarkdownFileViewer() {
+		return
+	}
+	dv.resolvedTitle = docTitle(content, dv.pluginDef.DocumentPath)
+}
+
+// isMarkdownFileViewer reports whether this view is the reserved Ctrl-O
+// markdown-file viewer bound to a concrete document path.
+func (dv *WikiView) isMarkdownFileViewer() bool {
+	return dv.pluginDef.Name == controller.MarkdownFileViewerPlugin && dv.pluginDef.DocumentPath != ""
+}
 
 // GetViewDescription returns the plugin description for the header info section
 func (dv *WikiView) GetViewDescription() string { return dv.pluginDef.GetDescription() }
+
+// DocumentPath returns the effective document path this view renders.
+// Exposed for tests that verify per-navigation path overrides.
+func (dv *WikiView) DocumentPath() string {
+	return dv.pluginDef.DocumentPath
+}
 
 func (dv *WikiView) GetPrimitive() tview.Primitive {
 	return dv.root

@@ -11,7 +11,6 @@ func TestDetailModeValues(t *testing.T) {
 		{DetailModeEdit, "edit"},
 		{DetailModeNew, "new"},
 		{DetailModeEditDesc, "edit-desc"},
-		{DetailModeEditTags, "edit-tags"},
 	}
 	for _, tc := range cases {
 		if string(tc.mode) != tc.want {

@@ -330,11 +330,11 @@ func TestDefaultGlobalActions(t *testing.T) {
 	registry := DefaultGlobalActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 6 {
-		t.Errorf("expected 6 global actions, got %d", len(actions))
+	if len(actions) != 7 {
+		t.Errorf("expected 7 global actions, got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleHeader, ActionOpenPalette, ActionEditWorkflow}
+	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleHeader, ActionOpenPalette, ActionOpenMarkdownTree, ActionEditWorkflow}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)
@@ -907,6 +907,31 @@ func TestBuildAppContext_SelectableView(t *testing.T) {
 	}
 }
 
+// TestBuildAppContext_EmptyBoardStaleParams reproduces H/H2: a plugin board
+// view with no live selection (empty/filtered board, GetSelectedID == "") must
+// NOT report selection:one just because stale nav params still carry a TikiID.
+// The header renders selection-gated actions as enabled off this context, so a
+// contaminated context makes an empty board advertise actions it would refuse.
+func TestBuildAppContext_EmptyBoardStaleParams(t *testing.T) {
+	entry := &ViewEntry{
+		ViewID: model.MakePluginViewID("Kanban"),
+		Params: model.EncodePluginViewParams(model.PluginViewParams{TikiID: "ABC123"}),
+	}
+	emptyBoard := &mockSelectableView{selectedID: ""}
+
+	ctx := BuildAppContext(entry, emptyBoard)
+
+	if ctx.Has(string(RequireSelectionOne)) {
+		t.Error("empty board must not report selection:one from stale nav params")
+	}
+	if ctx.Has("id") {
+		t.Error("empty board must not report 'id' from stale nav params")
+	}
+	if ctx.Has(string(RequireSelectionAny)) {
+		t.Error("empty board must not report selection:any from stale nav params")
+	}
+}
+
 func TestSelectionSatisfies(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -1131,5 +1156,52 @@ func TestToHeaderActions_MoveTikiVisibleOnMultiLaneView(t *testing.T) {
 	}
 	if !sawLeft || !sawRight {
 		t.Fatalf("move-tiki actions must remain in header on multi-lane view (left=%v right=%v)", sawLeft, sawRight)
+	}
+}
+
+// TestToHeaderActions_MoveTikiHiddenWhenNoLaneActions guards the SLA-Watch
+// bug: a multi-lane board whose lanes are pure filters (no move action) has
+// nothing for Move ←/→ to set, so the actions must be omitted from the header
+// rather than advertised as a dead key.
+func TestToHeaderActions_MoveTikiHiddenWhenNoLaneActions(t *testing.T) {
+	viewID := model.MakePluginViewID("SLA Watch")
+	SetSingleLanePredicate(nil) // multi-lane
+	SetLaneMoveablePredicate(func(id model.ViewID) bool { return id != viewID })
+	defer SetLaneMoveablePredicate(nil)
+
+	r := PluginViewActions()
+	ctx := BuildAppContext(&ViewEntry{ViewID: viewID}, nil)
+	out := r.ToHeaderActionsForContext(ctx)
+
+	for _, a := range out {
+		if a.ID == string(ActionMoveTikiLeft) || a.ID == string(ActionMoveTikiRight) {
+			t.Fatalf("%s must be omitted from header on a board with no lane move actions, got %+v", a.ID, a)
+		}
+	}
+}
+
+// TestToHeaderActions_MoveTikiVisibleWhenLaneActions confirms a multi-lane
+// board whose lanes carry move actions still advertises Move ←/→.
+func TestToHeaderActions_MoveTikiVisibleWhenLaneActions(t *testing.T) {
+	viewID := model.MakePluginViewID("Kanban")
+	SetSingleLanePredicate(nil)
+	SetLaneMoveablePredicate(func(id model.ViewID) bool { return id == viewID })
+	defer SetLaneMoveablePredicate(nil)
+
+	r := PluginViewActions()
+	ctx := BuildAppContext(&ViewEntry{ViewID: viewID}, nil)
+	out := r.ToHeaderActionsForContext(ctx)
+
+	var sawLeft, sawRight bool
+	for _, a := range out {
+		switch a.ID {
+		case string(ActionMoveTikiLeft):
+			sawLeft = true
+		case string(ActionMoveTikiRight):
+			sawRight = true
+		}
+	}
+	if !sawLeft || !sawRight {
+		t.Fatalf("move-tiki actions must remain in header on a board with lane actions (left=%v right=%v)", sawLeft, sawRight)
 	}
 }

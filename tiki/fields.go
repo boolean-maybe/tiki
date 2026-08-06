@@ -6,23 +6,6 @@ import (
 	"time"
 )
 
-// Convenience field-name constants for the well-known frontmatter keys used
-// by the bundled kanban-style workflow. They are plain strings — not a
-// registry — so callers can reference well-known names without hard-coding
-// the string in many places. Workflows are free to omit any of these keys;
-// none of them is special-cased by the runtime.
-const (
-	FieldStatus     = "status"
-	FieldType       = "type"
-	FieldPriority   = "priority"
-	FieldPoints     = "points"
-	FieldTags       = "tags"
-	FieldDependsOn  = "dependsOn"
-	FieldDue        = "due"
-	FieldRecurrence = "recurrence"
-	FieldAssignee   = "assignee"
-)
-
 // IsIdentityField reports whether name is one of the tiki identity/audit fields
 // that live as struct fields or reserved metadata rather than in the generic
 // Fields map (id, title, body, createdBy, createdAt, updatedAt, path/filepath).
@@ -48,8 +31,7 @@ func (t *Tiki) Has(name string) bool {
 
 // Get returns the raw field value and a presence flag. The value is whatever
 // was stored — typically a string, int, time.Time, or []string depending on
-// the key. Prefer the typed accessors (StatusField, PriorityField, etc.) for
-// workflow-declared fields.
+// the key. Prefer the typed accessors for workflow-declared fields.
 func (t *Tiki) Get(name string) (interface{}, bool) {
 	if t == nil || t.Fields == nil {
 		return nil, false

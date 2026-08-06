@@ -73,7 +73,7 @@ func RunQueryWithOptions(gate *service.TikiMutationGate, query string, out io.Wr
 	}
 
 	// for CREATE, fetch template before execution so field references
-	// (e.g. tags=tags+["new"]) resolve from template defaults
+	// (e.g. labels=labels+["new"]) resolve from template defaults
 	var input ruki.ExecutionInput
 	if stmt.RequiresCreateTemplate() {
 		tmpl, tmplErr := readStore.NewTikiTemplate()

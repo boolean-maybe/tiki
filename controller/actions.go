@@ -20,6 +20,8 @@ const (
 	ActionToggleHeader ActionID = "toggle_header"
 	ActionOpenPalette  ActionID = "open_palette"
 	ActionEditWorkflow ActionID = "edit_workflow"
+
+	ActionOpenMarkdownTree ActionID = "open_markdown_tree"
 )
 
 // ActionID values for tiki navigation and manipulation (used by plugins).
@@ -262,6 +264,11 @@ const (
 	RequireSelectionMany Requirement = "selection:many"
 	RequireDetailPlugin  Requirement = "detail-plugin"
 	RequireSingleLane    Requirement = "single-lane"
+	// RequireLaneMoveActions marks a board whose lanes carry move actions, so
+	// Move ←/→ can actually relocate a tiki. Boards whose lanes are pure
+	// filters (e.g. SLA Watch's dueBy ranges) have no target value to set, so
+	// the move would silently no-op — this gate hides it there instead.
+	RequireLaneMoveActions Requirement = "lane-move-actions"
 )
 
 // AppContext is a dynamic set of active context attributes built from live UI state.
@@ -381,30 +388,52 @@ func SetSingleLanePredicate(fn func(model.ViewID) bool) {
 	singleLanePredicate = fn
 }
 
+// laneMoveablePredicate decides whether the board identified by id has any
+// lane carrying a move action, so Move ←/→ can actually relocate a tiki.
+// Set at bootstrap. Defaults to true so views without an installed predicate
+// (e.g. tests) keep advertising the move actions as before.
+var laneMoveablePredicate = func(model.ViewID) bool { return true }
+
+// SetLaneMoveablePredicate installs the predicate used by BuildAppContext to
+// hide move-tiki-left/right on boards whose lanes have no move actions.
+// Bootstrap wires this once per session. Passing nil resets to the default.
+func SetLaneMoveablePredicate(fn func(model.ViewID) bool) {
+	if fn == nil {
+		laneMoveablePredicate = func(model.ViewID) bool { return true }
+		return
+	}
+	laneMoveablePredicate = fn
+}
+
 // BuildAppContext constructs an AppContext from the current UI state.
 func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 	ctx := NewAppContext()
 
 	selectedCount := 0
-	if activeView != nil {
-		if sv, ok := activeView.(SelectableView); ok && sv.GetSelectedID() != "" {
-			selectedCount = 1
-		}
+	// A live SelectableView is authoritative about its own selection: when the
+	// active view can answer, its answer wins and the params fallback below is
+	// skipped entirely. Otherwise a stale TikiID left in the nav params would
+	// contaminate the context — making an empty/filtered board advertise
+	// selection-gated actions as enabled (H/H2).
+	_, activeViewIsSelectable := activeView.(SelectableView)
+	if sv, ok := activeView.(SelectableView); ok && sv.GetSelectedID() != "" {
+		selectedCount = 1
 	}
 
-	if selectedCount == 0 && currentView != nil && IsDetailView(currentView.ViewID) {
+	if !activeViewIsSelectable && selectedCount == 0 && currentView != nil && IsDetailView(currentView.ViewID) {
 		if model.DecodePluginViewParams(currentView.Params).TikiID != "" {
 			selectedCount = 1
 		}
 	}
 
 	// Phase 6B.3/6B.7: plugin views (wiki, detail, board, list) may carry a
-	// selected tiki id via PluginViewParams. If the active view did not
-	// report a selection — e.g. the view does not implement SelectableView
-	// yet, or its selection is set after this gate runs — consult the nav
-	// params as a second source so actions gated on selection:one still
-	// dispatch from views that received a selection via nav passthrough.
-	if selectedCount == 0 && currentView != nil && model.IsPluginViewID(currentView.ViewID) {
+	// selected tiki id via PluginViewParams. Consulted only when the active
+	// view is not a live SelectableView — e.g. the view does not implement
+	// SelectableView yet, or its selection is set after this gate runs — so
+	// actions gated on selection:one still dispatch from views that received a
+	// selection via nav passthrough without overriding a live "nothing
+	// selected" answer.
+	if !activeViewIsSelectable && selectedCount == 0 && currentView != nil && model.IsPluginViewID(currentView.ViewID) {
 		if model.DecodePluginViewParams(currentView.Params).TikiID != "" {
 			selectedCount = 1
 		}
@@ -424,6 +453,9 @@ func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 		ctx.Set("view:" + string(currentView.ViewID))
 		if singleLanePredicate(currentView.ViewID) {
 			ctx.Set(string(RequireSingleLane))
+		}
+		if laneMoveablePredicate(currentView.ViewID) {
+			ctx.Set(string(RequireLaneMoveActions))
 		}
 	}
 
@@ -617,6 +649,7 @@ func DefaultGlobalActions() *ActionRegistry {
 	r.Register(Action{ID: ActionRefresh, Key: tcell.KeyRune, Rune: 'r', Label: "Refresh", ShowInHeader: true})
 	r.Register(Action{ID: ActionToggleHeader, Key: tcell.KeyF10, Label: "Toggle Header", ShowInHeader: true})
 	r.Register(Action{ID: ActionOpenPalette, Key: tcell.KeyCtrlA, Modifier: tcell.ModCtrl, Label: "All actions", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionOpenMarkdownTree, Key: tcell.KeyCtrlO, Modifier: tcell.ModCtrl, Label: "Open", ShowInHeader: true})
 	r.Register(Action{ID: ActionEditWorkflow, Label: "Edit Workflow"})
 	return r
 }
@@ -741,13 +774,6 @@ func DescOnlyEditActions() *ActionRegistry {
 	return r
 }
 
-// TagsOnlyEditActions returns actions for tags-only edit mode (no field navigation).
-func TagsOnlyEditActions() *ActionRegistry {
-	r := NewActionRegistry()
-	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
-	return r
-}
-
 // PluginViewActions returns the canonical action registry for plugin views.
 // Similar to backlog view but without sprint-specific actions.
 func PluginViewActions() *ActionRegistry {
@@ -771,10 +797,13 @@ func PluginViewActions() *ActionRegistry {
 	// was likewise migrated: it is a global workflow action (`delete where
 	// id = id()`), no longer a hardcoded `d` binding here.
 	notSingleLane := "!" + RequireSingleLane
-	moveReq := []Requirement{RequireID, notSingleLane}
-	hideOnSingleLane := []Requirement{notSingleLane}
-	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: moveReq, HideRequire: hideOnSingleLane})
-	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: moveReq, HideRequire: hideOnSingleLane})
+	moveReq := []Requirement{RequireID, notSingleLane, RequireLaneMoveActions}
+	// hide the move actions on structurally non-moveable boards: single-lane
+	// boards (no neighbor) and boards whose lanes carry no move actions (nothing
+	// to set — e.g. SLA Watch's filter-only dueBy lanes).
+	hideWhenNotMoveable := []Requirement{notSingleLane, RequireLaneMoveActions}
+	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: moveReq, HideRequire: hideWhenNotMoveable})
+	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: moveReq, HideRequire: hideWhenNotMoveable})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
 	r.Register(Action{ID: ActionExecute, Key: tcell.KeyRune, Rune: '!', Label: "Execute", ShowInHeader: true})
 

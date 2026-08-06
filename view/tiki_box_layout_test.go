@@ -16,9 +16,9 @@ import (
 func makeTiki(id string, tikiType string, priority string) *tikipkg.Tiki {
 	tk := tikipkg.New()
 	tk.SetID(id)
-	tk.Set(tikipkg.FieldType, tikiType)
+	tk.Set("type", tikiType)
 	if priority != "" {
-		tk.Set(tikipkg.FieldPriority, priority)
+		tk.Set("priority", priority)
 	}
 	return tk
 }
@@ -117,7 +117,7 @@ func TestCreateTikiBox_SingleRowRendersWithoutBorder(t *testing.T) {
 func TestCreateTikiBox_CompositeWithCountDrawsNumber(t *testing.T) {
 	tk := makeTiki("K3X9M2", "story", "medium")
 	tk.SetTitle("Fix login retry logic")
-	tk.Set(tikipkg.FieldDependsOn, []string{"AAAAAA", "BBBBBB"})
+	tk.Set("dependsOn", []string{"AAAAAA", "BBBBBB"})
 	spec, err := gridlayout.ParseGrid([][]string{
 		{"<highlight>title"},
 		{`"Deps: " + dependsOn.count`},

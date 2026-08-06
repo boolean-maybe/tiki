@@ -148,11 +148,13 @@ type DetailPlugin struct {
 // ruki "select [where <cond>]" that produces the candidate set for a
 // QuickSelect picker; the chosen tiki id is then carried into the target
 // view's navigation params instead of the source view's cursor selection.
+// focus is optional with mode: edit and names the initial field.
 type PluginActionConfig struct {
 	Key     string   `yaml:"key" mapstructure:"key"`
 	Label   string   `yaml:"label" mapstructure:"label"`
 	Kind    string   `yaml:"kind,omitempty" mapstructure:"kind"`
 	Mode    string   `yaml:"mode,omitempty" mapstructure:"mode"`
+	Focus   string   `yaml:"focus,omitempty" mapstructure:"focus"`
 	Action  string   `yaml:"action" mapstructure:"action"`
 	View    string   `yaml:"view,omitempty" mapstructure:"view"`
 	Choose  string   `yaml:"choose,omitempty" mapstructure:"choose"`
@@ -171,9 +173,8 @@ const (
 
 // DetailMode is the closed vocabulary for the optional `mode:` field on
 // kind: view actions targeting a kind: detail view. View opens read-only,
-// edit / edit-desc / edit-tags enter in-place edit mode focused on a
-// specific field, and new synthesizes a draft tiki and enters edit mode
-// focused on Title.
+// edit enters in-place edit mode, edit-desc focuses the document body, and new
+// synthesizes a draft tiki and enters edit mode focused on Title.
 type DetailMode string
 
 const (
@@ -181,7 +182,6 @@ const (
 	DetailModeEdit     DetailMode = "edit"
 	DetailModeNew      DetailMode = "new"
 	DetailModeEditDesc DetailMode = "edit-desc"
-	DetailModeEditTags DetailMode = "edit-tags"
 )
 
 // SuppliesOwnSubject reports whether the mode produces its own tiki rather
@@ -203,6 +203,7 @@ type PluginAction struct {
 	Label    string
 	Kind     ActionKind
 	Mode     DetailMode
+	Focus    string
 	Action   *ruki.ValidatedStatement
 	// CreateSeed is the optional ruki create statement declared via `action:`
 	// on a `mode: new` view action. When set, the dispatcher runs it (without

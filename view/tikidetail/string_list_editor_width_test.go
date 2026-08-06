@@ -4,37 +4,45 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 	"github.com/gdamore/tcell/v2"
 )
 
-// TestTagsEditor_SeedRendersUnwrappedAtMeasuredWidth pins the measure↔render
-// contract for the focused tags editor. The grid solver sizes the tags value
+// TestStringListEditor_SeedRendersUnwrappedAtMeasuredWidth pins the measure↔render
+// contract for a focused string-list editor. The grid solver sizes the value
 // column to MeasureFieldValue (the longest token, no padding — it measures the
 // read-only WordList footprint). The focused editor swaps in a *tview.TextArea
 // for the same column, so the editor's usable inner width must equal the
 // measured content width; otherwise the seed value wraps mid-word even though
 // the solver reserved exactly enough room for it.
 //
-// Regression: the tags TextArea carried SetBorderPadding(0,0,1,1), consuming
-// two columns the measure never accounted for. A new project seeded with the
-// template tag "idea" rendered "id"/"ea" stacked the moment focus landed on
-// tags — the column was 4 cells, the padded editor's inner width was 2.
-func TestTagsEditor_SeedRendersUnwrappedAtMeasuredWidth(t *testing.T) {
+// regression: the TextArea carried SetBorderPadding(0,0,1,1), consuming two
+// columns the measure never accounted for. A four-cell seed rendered as two
+// stacked rows the moment focus landed on the field.
+func TestStringListEditor_SeedRendersUnwrappedAtMeasuredWidth(t *testing.T) {
+	const fieldName = "labels"
 	const seed = "idea"
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: fieldName, Type: workflow.TypeListString},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
 
 	tk := tikipkg.New()
-	tk.SetID("TAGED1")
+	tk.SetID("LIST01")
 	tk.SetTitle("seeded project")
-	tk.Set(tikipkg.FieldTags, []string{seed})
+	tk.Set(fieldName, []string{seed})
 
-	ctx := FieldRenderContext{Mode: RenderModeEdit, Roles: theme.Roles(), FieldName: tikipkg.FieldTags}
+	ctx := FieldRenderContext{Mode: RenderModeEdit, Roles: theme.Roles(), FieldName: fieldName}
 
-	// width the solver grants the tags value column: its measured content.
-	colWidth := MeasureFieldValue(tikipkg.FieldTags, tk, ctx)
+	// width the solver grants the value column: its measured content.
+	colWidth := MeasureFieldValue(fieldName, tk, ctx)
 	if colWidth < len(seed) {
-		t.Fatalf("measured tags width %d < seed length %d; measure regressed", colWidth, len(seed))
+		t.Fatalf("measured list width %d < seed length %d; measure regressed", colWidth, len(seed))
 	}
 
 	cv := &ConfigurableDetailView{
@@ -42,7 +50,7 @@ func TestTagsEditor_SeedRendersUnwrappedAtMeasuredWidth(t *testing.T) {
 		editors:           map[string]FieldEditorWidget{},
 		onEditFieldChange: map[string]func(string){},
 	}
-	editor := cv.ensureEditor(tikipkg.FieldTags, tk, ctx)
+	editor := cv.ensureEditor(fieldName, tk, ctx)
 
 	const height = 4
 	screen := tcell.NewSimulationScreen("")
@@ -56,7 +64,7 @@ func TestTagsEditor_SeedRendersUnwrappedAtMeasuredWidth(t *testing.T) {
 
 	row0 := readSimRow(screen, 0)
 	if !strings.Contains(row0, seed) {
-		t.Errorf("tags editor at measured width %d wrapped the seed: row0=%q, want it to contain %q whole", colWidth, row0, seed)
+		t.Errorf("list editor at measured width %d wrapped the seed: row0=%q, want it to contain %q whole", colWidth, row0, seed)
 	}
 }
 

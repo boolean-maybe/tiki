@@ -43,7 +43,7 @@ import (
 // occupies its combined width. Consecutive rows without horizontal spans
 // render column-major (each column is a FlexRow) so per-column natural-
 // height packing works — short cells don't get padded when a neighbour
-// column's content grew the row (e.g. multi-line tags).
+// column's content grew the row (for example, a multi-line list).
 //
 // Using nested Flexes (rather than tview.Grid) keeps the focus chain
 // identical to the legacy renderer — editor widgets receive Tab/Down
@@ -207,8 +207,8 @@ func (g *Container) InputHandler() func(event *tcell.EventKey, setFocus func(p t
 //   - Consecutive rows without horizontal spans form a "packed band"
 //     rendered column-major (each column is a FlexRow). This preserves
 //     per-column natural-height packing so short cells in a row don't
-//     get padded when a neighbour column grew the row (e.g. multi-line
-//     tags). A residual flex-1 box at the bottom of each column absorbs
+//     get padded when a neighbour column grew the row. A residual flex-1 box
+//     at the bottom of each column absorbs
 //     leftover space.
 func (g *Container) rebuild(width int) {
 	g.lastWidth = width

@@ -24,6 +24,7 @@ type PluginExecutor struct {
 	tikiStore    store.Store
 	mutationGate *service.TikiMutationGate
 	statusline   *model.StatuslineConfig
+	progressHub  *model.ProgressHub
 	schema       ruki.Schema
 
 	// onTikiUpdated is invoked for each updated tiki so the host controller
@@ -36,11 +37,13 @@ type PluginExecutor struct {
 	pluginName string
 }
 
-// NewPluginExecutor constructs an executor. onTikiUpdated may be nil.
+// NewPluginExecutor constructs an executor. onTikiUpdated may be nil, and
+// progressHub may be nil (e.g. in tests) — Execute guards against it.
 func NewPluginExecutor(
 	tikiStore store.Store,
 	mutationGate *service.TikiMutationGate,
 	statusline *model.StatuslineConfig,
+	progressHub *model.ProgressHub,
 	schema ruki.Schema,
 	pluginName string,
 	onTikiUpdated func(*tikipkg.Tiki),
@@ -49,6 +52,7 @@ func NewPluginExecutor(
 		tikiStore:     tikiStore,
 		mutationGate:  mutationGate,
 		statusline:    statusline,
+		progressHub:   progressHub,
 		schema:        schema,
 		pluginName:    pluginName,
 		onTikiUpdated: onTikiUpdated,
@@ -111,7 +115,7 @@ func (pe *PluginExecutor) BuildCreateDraft(stmt *ruki.ValidatedStatement) (*tiki
 }
 
 // EvalChooseFilter evaluates an action's choose subquery against the current
-// store state, returning the candidate tikis sorted by priority/title. Errors
+// store state, returning the candidate tikis sorted by title. Errors
 // surface to the statusline so the caller can simply abort dispatch on
 // ok=false.
 //
@@ -137,7 +141,7 @@ func (pe *PluginExecutor) EvalChooseFilter(pa *plugin.PluginAction, input ruki.E
 		return nil, false
 	}
 	candidates := tikipkg.UnwrapDocs(candidateDocs)
-	sortTikisByPriorityTitle(candidates)
+	sortTikisByTitle(candidates)
 	return candidates, true
 }
 
@@ -148,6 +152,12 @@ func (pe *PluginExecutor) Execute(pa *plugin.PluginAction, input ruki.ExecutionI
 		slog.Error("plugin executor called with nil ruki statement", "key", pa.KeyStr)
 		return false
 	}
+
+	// indeterminate progress bracket (total 0): shows a moving bar for slow
+	// runs, no-op for sub-frame ones. Kept synchronous so the boolean return
+	// contract callers rely on for follow-up (focus/navigation) is preserved.
+	reporter := pe.startProgress("running query")
+	defer reporter.Done()
 
 	executor := ruki.NewExecutor(pe.schema, pe.factory(), pe.userFunc(),
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
@@ -239,6 +249,16 @@ func (pe *PluginExecutor) userFunc() func() string {
 		return func() string { return name }
 	}
 	return nil
+}
+
+// startProgress opens an indeterminate progress reporter, or returns nil when
+// no hub is attached (e.g. in unit tests). A nil *model.Reporter is safe to
+// Report/Done on.
+func (pe *PluginExecutor) startProgress(label string) *model.Reporter {
+	if pe.progressHub == nil {
+		return nil
+	}
+	return pe.progressHub.StartProgress(label)
 }
 
 // setError posts err to the statusline when one is attached.

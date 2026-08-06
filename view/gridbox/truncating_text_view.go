@@ -47,9 +47,12 @@ func (t *truncatingTextView) SetText(text string) *truncatingTextView {
 // Draw truncates the source text to one column short of the current inner
 // width (color-aware) and renders it. Reserving the last column keeps the
 // ellipsis (or any flush text) from butting against the column's right edge —
-// a one-cell breathing gap before the box border. The embedded view is left
-// holding the full source after Draw so the next Draw — possibly at a wider
-// width — truncates from the complete text rather than an already-clipped copy.
+// a one-cell breathing gap before the box border. The measure side adds this
+// cell back (scalarCellWidth / composite measure add scalarBreathingCell) so
+// the solver reserves content+1 and full-width content is not clipped. The
+// embedded view is left holding the full source after Draw so the next Draw —
+// possibly at a wider width — truncates from the complete text rather than an
+// already-clipped copy.
 func (t *truncatingTextView) Draw(screen tcell.Screen) {
 	_, _, width, _ := t.GetInnerRect()
 	if width > 0 {

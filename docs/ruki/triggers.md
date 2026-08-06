@@ -146,12 +146,12 @@ Auto-complete a project when all its dependencies are done:
 ```sql
 after update
   where new.status = "done"
-  update where id in blocks(old.id) and type = "project"
+  update where old.id in dependsOn and type = "project"
     and dependsOn all status = "done"
     set status="done"
 ```
 
-When any tiki is marked done, this finds projects that block on it. If all of the project's other dependencies are also done, the project is completed automatically. This itself fires further after-update triggers, so cascade chains work naturally (up to the depth limit).
+When any tiki is marked done, this finds projects that depend on it (`old.id in dependsOn` selects every tiki listing the just-completed one). If all of the project's other dependencies are also done, the project is completed automatically. This itself fires further after-update triggers, so cascade chains work naturally (up to the depth limit).
 
 ### Propagate cancellation
 
@@ -160,7 +160,7 @@ When a tiki is cancelled, cancel downstream tikis that haven't started:
 ```sql
 after update
   where new.status = "cancelled"
-  update where id in blocks(old.id) and status in ["inbox", "ready"]
+  update where old.id in dependsOn and status in ["inbox", "ready"]
     set status="cancelled"
 ```
 

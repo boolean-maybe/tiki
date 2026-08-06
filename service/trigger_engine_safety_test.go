@@ -28,9 +28,9 @@ func TestTriggerEngine_ValidatedOnlyBeforeEntryDenies(t *testing.T) {
 	blocked.SetID("VAL001")
 	blocked.SetTitle("should be blocked")
 	blocked.Fields = map[string]interface{}{
-		tikipkg.FieldStatus:   "ready",
-		tikipkg.FieldType:     "story",
-		tikipkg.FieldPriority: "medium",
+		"status":   "ready",
+		"type":     "story",
+		"priority": "medium",
 	}
 	err = gate.CreateTiki(context.Background(), blocked)
 	if err == nil {
@@ -54,9 +54,9 @@ func TestTriggerEngine_EmptyEventEntryIsSkipped(t *testing.T) {
 	allowed.SetID("EMP001")
 	allowed.SetTitle("allowed")
 	allowed.Fields = map[string]interface{}{
-		tikipkg.FieldStatus:   "ready",
-		tikipkg.FieldType:     "story",
-		tikipkg.FieldPriority: "medium",
+		"status":   "ready",
+		"type":     "story",
+		"priority": "medium",
 	}
 	err := gate.CreateTiki(context.Background(), allowed)
 	if err != nil {

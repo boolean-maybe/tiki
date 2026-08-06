@@ -1,4 +1,4 @@
-version: "0.6.0"
+version: "0.6.1"
 description: |
   Bug tracker for triaging and resolving customer-reported issues.
   Six statuses (Open → Triaged → In Progress → In Review → Verified, plus Won't Fix),
@@ -86,12 +86,12 @@ fields:
   - name: tags
     type: stringList
   - name: assignee
-    type: text
+    type: user
   - name: dependsOn
     type: tikiIdList
 
 actions:
-  # mode: closed vocabulary view|edit|new|edit-desc|edit-tags — see CLAUDE.md "Detail view layout".
+  # mode: closed vocabulary view|edit|new|edit-desc — see CLAUDE.md "Detail view layout".
   - key: Enter
     label: Open
     kind: view
@@ -103,11 +103,11 @@ actions:
     view: Detail
     mode: edit
     require: ["selection:one"]
-  - key: "n"
-    label: New
-    kind: view
-    view: Detail
-    mode: new
+  # New is declared per-board (below), not global: creating a bug belongs on the
+  # boards, not on the Docs wiki. mode:new needs no selection so the wiki
+  # surfacing filter can't drop it — keeping it off Docs is a scoping choice,
+  # mirroring kanban.yaml. (Open/Edit/Edit description/Edit tags are gated on
+  # selection:one, so the wiki filter already drops them even while global.)
   - key: "Ctrl-D"
     label: "Edit description"
     kind: view
@@ -118,7 +118,8 @@ actions:
     label: "Edit tags"
     kind: view
     view: Detail
-    mode: edit-tags
+    mode: edit
+    focus: tags
     require: ["selection:one"]
   - key: "a"
     label: "Assign to me"
@@ -139,10 +140,10 @@ actions:
   - key: "-"
     label: "Priority down"
     action: update where id = id() set priority = next_enum(priority)
-  - key: "R"
+  - key: "g"
     label: "Mark regression"
     action: update where id = id() set regression=true
-  - key: "r"
+  - key: "G"
     label: "Clear regression"
     action: update where id = id() set regression=false
   - key: "E"
@@ -196,6 +197,11 @@ views:
         filter: select where status = "verified" and has(priority) order by priority, createdAt
         action: update where id = id() set status="verified"
     actions:
+      - key: "n"
+        label: New
+        kind: view
+        view: Detail
+        mode: new
       - key: "w"
         label: "Won't fix"
         action: update where id = id() set status="wontFix"
@@ -224,6 +230,11 @@ views:
         filter: select where severity = "low" and status != "verified" and status != "wontFix" and has(priority) order by priority, createdAt
         action: update where id = id() set severity="low"
     actions:
+      - key: "n"
+        label: New
+        kind: view
+        view: Detail
+        mode: new
       - key: "c"
         label: "Clear severity"
         action: update where id = id() set severity=empty
@@ -252,6 +263,12 @@ views:
       - name: Unspecified
         columns: 1
         filter: select where environment is empty and status != "verified" and status != "wontFix" and has(priority) order by priority, createdAt
+    actions:
+      - key: "n"
+        label: New
+        kind: view
+        view: Detail
+        mode: new
 
   - name: SLA Watch
     kind: board
@@ -271,6 +288,11 @@ views:
       - name: No SLA
         filter: select where not has(dueBy) and status != "verified" and status != "wontFix" and has(priority) order by priority
     actions:
+      - key: "n"
+        label: New
+        kind: view
+        view: Detail
+        mode: new
       - key: "d"
         label: "Clear deadline"
         action: update where id = id() set dueBy=empty

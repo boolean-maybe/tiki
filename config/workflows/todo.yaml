@@ -1,4 +1,4 @@
-version: "0.6.0"
+version: "0.6.1"
 description: |
   Minimal single-lane todo list. Two statuses (todo / done), two fields
   (status, priority). One lane shows all tikis: open items first by

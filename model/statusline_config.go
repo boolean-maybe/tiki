@@ -22,6 +22,11 @@ type StatuslineConfig struct {
 	level    MessageLevel
 	autoHide bool // if true, message is dismissed on next keypress
 
+	// right section: progress bar (outranks message when active)
+	progressActive bool
+	progressDone   int
+	progressTotal  int
+
 	// visibility
 	visible bool
 
@@ -153,6 +158,38 @@ func (sc *StatuslineConfig) ClearMessage() {
 	if changed {
 		sc.notifyListeners()
 	}
+}
+
+// SetProgress sets the progress state and makes the statusline visible.
+// An active progress outranks any transient message in the right section.
+func (sc *StatuslineConfig) SetProgress(done, total int) {
+	sc.mu.Lock()
+	sc.progressActive = true
+	sc.progressDone = done
+	sc.progressTotal = total
+	sc.visible = true
+	sc.mu.Unlock()
+	sc.notifyListeners()
+}
+
+// ClearProgress deactivates the progress bar; any pending message shows again.
+func (sc *StatuslineConfig) ClearProgress() {
+	sc.mu.Lock()
+	changed := sc.progressActive
+	sc.progressActive = false
+	sc.progressDone = 0
+	sc.progressTotal = 0
+	sc.mu.Unlock()
+	if changed {
+		sc.notifyListeners()
+	}
+}
+
+// GetProgress returns the current progress state and whether it is active.
+func (sc *StatuslineConfig) GetProgress() (done, total int, active bool) {
+	sc.mu.RLock()
+	defer sc.mu.RUnlock()
+	return sc.progressDone, sc.progressTotal, sc.progressActive
 }
 
 // DismissAutoHide is called on every keypress. If auto-hide is active,

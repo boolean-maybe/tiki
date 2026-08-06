@@ -22,6 +22,11 @@ type ViewFactory struct {
 	tikiStore    store.Store
 	imageManager *navtview.ImageManager
 	mermaidOpts  *nav.MermaidOptions
+	// progressHub + redraw let detail views resolve images off the UI
+	// goroutine while the statusline shows a progress bar. Set via
+	// SetProgressHub after the app + hub exist in bootstrap.
+	progressHub *model.ProgressHub
+	redraw      func(func())
 	// Plugin support
 	pluginConfigs     map[string]*model.PluginConfig
 	pluginDefs        map[string]plugin.Plugin
@@ -48,6 +53,7 @@ func NewViewFactory(tikiStore store.Store) *ViewFactory {
 	searchRoots := []string{config.GetDocDir()}
 	resolver := nav.NewImageResolver(searchRoots)
 	resolver.SetDarkMode(!config.IsLightTheme())
+	resolver.SetSVGScaleFactor(1.6)
 	imgMgr := navtview.NewImageManager(resolver, 8, 16)
 	imgMgr.SetMaxRows(config.GetMaxImageRows())
 	imgMgr.SetSupported(util.SupportsKittyGraphics())
@@ -55,7 +61,7 @@ func NewViewFactory(tikiStore store.Store) *ViewFactory {
 	return &ViewFactory{
 		tikiStore:    tikiStore,
 		imageManager: imgMgr,
-		mermaidOpts:  &nav.MermaidOptions{},
+		mermaidOpts:  &nav.MermaidOptions{MinDiagramWidth: 280},
 	}
 }
 
@@ -72,6 +78,13 @@ func (f *ViewFactory) SetPlugins(
 	f.pluginDefs = defs
 	f.pluginControllers = controllers
 	f.globalActions = globalActions
+}
+
+// SetProgressHub wires the progress hub and a UI-goroutine redraw func into
+// detail views so image resolution can run off-thread with a statusline bar.
+func (f *ViewFactory) SetProgressHub(hub *model.ProgressHub, redraw func(func())) {
+	f.progressHub = hub
+	f.redraw = redraw
 }
 
 // SetWikiControllerFactory registers a factory function that creates a fresh
@@ -140,6 +153,13 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 			return nil
 		}
 		pluginParams := model.DecodePluginViewParams(params)
+		effective := wikiPlugin
+		if pluginParams.DocumentPath != "" {
+			// per-navigation path override — copy so the registered def stays immutable
+			clone := *wikiPlugin
+			clone.DocumentPath = pluginParams.DocumentPath
+			effective = &clone
+		}
 		// create a fresh WikiController per navigation so each view
 		// instance on the nav stack holds its own selectedTikiID. the
 		// shared map entry is updated so InputRouter always dispatches
@@ -150,7 +170,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 		} else if dc, ok := pluginControllerInterface.(*controller.WikiController); ok {
 			dc.SetSelectedTikiID(pluginParams.TikiID)
 		}
-		return NewWikiView(wikiPlugin, f.imageManager, f.mermaidOpts, f.globalActions, f.tikiStore, pluginParams.TikiID)
+		return NewWikiView(effective, f.imageManager, f.mermaidOpts, f.globalActions, f.tikiStore, pluginParams.TikiID)
 	case plugin.KindDetail:
 		detailPlugin, ok := pluginDef.(*plugin.DetailPlugin)
 		if !ok {
@@ -183,6 +203,8 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 			registry,
 			f.imageManager,
 			f.mermaidOpts,
+			f.progressHub,
+			f.redraw,
 		)
 		if dc != nil {
 			dc.BindEditView(cv)

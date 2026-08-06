@@ -12,8 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DateFormat is the canonical date-only layout used by date-typed workflow
-// fields (e.g. due).
+// DateFormat is the canonical layout used by date-typed workflow fields.
 const DateFormat = "2006-01-02"
 
 // DateValue is a YAML date encoder/decoder for date-only (YYYY-MM-DD) values.

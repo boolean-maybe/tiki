@@ -56,7 +56,7 @@ func CanonicalFields() []workflow.FieldDef {
 		{Name: "dependsOn", Type: workflow.TypeListRef},
 		{Name: "due", Type: workflow.TypeDate},
 		{Name: "recurrence", Type: workflow.TypeRecurrence},
-		{Name: "assignee", Type: workflow.TypeString},
+		{Name: "assignee", Type: workflow.TypeUser},
 	}
 }
 

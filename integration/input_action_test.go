@@ -8,7 +8,6 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/testutil"
-	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -585,7 +584,7 @@ func TestInputAction_AddTagMutation(t *testing.T) {
 	if updated == nil {
 		t.Fatal("tiki not found")
 	}
-	tags, _, _ := updated.StringSliceField(tikipkg.FieldTags)
+	tags, _, _ := updated.StringSliceField("tags")
 	found := false
 	for _, tag := range tags {
 		if tag == "urgent" {

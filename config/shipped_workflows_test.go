@@ -93,3 +93,45 @@ func TestEmbeddedWorkflows_HaveDescription(t *testing.T) {
 		})
 	}
 }
+
+func TestEmbeddedWorkflows_HaveExpectedVersionAndUserFields(t *testing.T) {
+	tests := []struct {
+		name           string
+		wantVersion    string
+		wantAssignee   string
+		wantReportedBy string
+	}{
+		{name: "kanban", wantVersion: "0.6.1", wantAssignee: "user"},
+		{name: "bug-tracker", wantVersion: "0.6.1", wantAssignee: "user", wantReportedBy: "text"},
+		{name: "todo", wantVersion: "0.6.1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wf, err := readWorkflowFile(filepath.Join("workflows", tt.name+".yaml"))
+			if err != nil {
+				t.Fatalf("read workflow: %v", err)
+			}
+			if wf.Version != tt.wantVersion {
+				t.Fatalf("version = %q, want %q", wf.Version, tt.wantVersion)
+			}
+			types := map[string]string{}
+			for _, field := range wf.Fields {
+				name, _ := field["name"].(string)
+				typ, _ := field["type"].(string)
+				types[name] = typ
+			}
+			if tt.wantAssignee == "" {
+				if _, ok := types["assignee"]; ok {
+					t.Fatal("assignee field should not exist")
+				}
+			} else if got := types["assignee"]; got != tt.wantAssignee {
+				t.Fatalf("assignee type = %q, want %q", got, tt.wantAssignee)
+			}
+			if tt.wantReportedBy != "" {
+				if got := types["reportedBy"]; got != tt.wantReportedBy {
+					t.Fatalf("reportedBy type = %q, want %q", got, tt.wantReportedBy)
+				}
+			}
+		})
+	}
+}

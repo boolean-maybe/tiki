@@ -43,6 +43,16 @@ func NewEditSelectList(values []string, allowTyping bool) *EditSelectList {
 	return esl
 }
 
+// AcceptsTextInput reports whether this list captures free-form typing (as
+// opposed to arrow-only value cycling). The input router uses this to decide
+// whether printable runes should reach the widget rather than falling through
+// to single-letter global actions like 'q' (Quit). It cannot be inferred from
+// the widget's struct shape — a typing and a non-typing list are identical
+// except for this flag — so the router asks the widget directly.
+func (esl *EditSelectList) AcceptsTextInput() bool {
+	return esl.allowTyping
+}
+
 // SetSubmitHandler sets the callback for when Enter is pressed.
 func (esl *EditSelectList) SetSubmitHandler(handler func(text string)) *EditSelectList {
 	esl.onSubmit = handler

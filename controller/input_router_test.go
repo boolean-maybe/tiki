@@ -8,7 +8,40 @@ import (
 
 	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/store"
 )
+
+// fakeMarkdownTreeView is a stand-in for the palette MarkdownTree overlay,
+// letting the router test assert OnShow was invoked without a live screen.
+type fakeMarkdownTreeView struct{ shown bool }
+
+func (f *fakeMarkdownTreeView) OnShow(*store.MarkdownDir)       { f.shown = true }
+func (f *fakeMarkdownTreeView) GetFilterInput() tview.Primitive { return nil }
+
+// TestInputRouter_OpenMarkdownTreeShowsOverlay pins that ActionOpenMarkdownTree
+// scans the doc dir, hands the tree to the overlay, and marks it visible.
+func TestInputRouter_OpenMarkdownTreeShowsOverlay(t *testing.T) {
+	cfg := model.NewMarkdownTreeConfig()
+	ir := &InputRouter{
+		navController: NewNavigationController(tview.NewApplication()),
+		statusline:    model.NewStatuslineConfig(),
+		globalActions: DefaultGlobalActions(),
+		tikiStore:     store.NewInMemoryStore(),
+	}
+	ir.SetMarkdownTreeConfig(cfg)
+	fake := &fakeMarkdownTreeView{}
+	ir.SetMarkdownTreeView(fake)
+
+	if !ir.handleGlobalAction(ActionOpenMarkdownTree) {
+		t.Fatal("ActionOpenMarkdownTree not handled")
+	}
+	if !cfg.IsVisible() {
+		t.Fatal("expected markdown tree overlay visible")
+	}
+	if !fake.shown {
+		t.Fatal("expected OnShow called on the tree view")
+	}
+}
 
 // routerFakeView is the minimal View used by the recurrence part-nav tests.
 type routerFakeView struct{}
@@ -25,9 +58,18 @@ type adapterEmbeddingInputField struct {
 	*tview.InputField
 }
 
-// adapterEmbeddingTextArea mirrors view/tikidetail.tagsEditAdapter.
+// adapterEmbeddingTextArea mirrors the detail view's string-list adapter.
 type adapterEmbeddingTextArea struct {
 	*tview.TextArea
+}
+
+// adapterEmbeddingEditSelectList mirrors view/tikidetail.selectListAdapter — the
+// assignee free-text editor after the "unify multi-part editors" refactor. It
+// wraps a *component.EditSelectList, which itself embeds *tview.InputField, so
+// the focused primitive nests the text input TWO levels deep. isTextInputFocused
+// must still recognise it when the list allows free typing.
+type adapterEmbeddingEditSelectList struct {
+	*component.EditSelectList
 }
 
 // TestIsTextInputFocused_DirectInputField pins that a bare InputField is
@@ -61,6 +103,34 @@ func TestIsTextInputFocused_EmbeddedTextAreaAdapter(t *testing.T) {
 	app.SetRoot(adapter, true)
 	if !isTextInputFocused(app) {
 		t.Error("expected isTextInputFocused=true for adapter embedding *tview.TextArea")
+	}
+}
+
+// TestIsTextInputFocused_EmbeddedEditSelectListAdapter pins the assignee
+// free-text editor (selectListAdapter → EditSelectList → *tview.InputField).
+// The reproduction for the smoke-test "q quits the app" defect: a free-typing
+// EditSelectList holds focus, so typed runes must reach the widget rather than
+// falling through to the global 'q' → Quit action. The primitive nests the
+// text input two levels deep, which the one-level reflection walk missed.
+func TestIsTextInputFocused_EmbeddedEditSelectListAdapter(t *testing.T) {
+	editor := component.NewEditSelectList([]string{"alice", "bob"}, true)
+	adapter := &adapterEmbeddingEditSelectList{EditSelectList: editor}
+	app := tview.NewApplication()
+	app.SetRoot(adapter, true)
+	if !isTextInputFocused(app) {
+		t.Error("expected isTextInputFocused=true for adapter embedding a free-typing *component.EditSelectList")
+	}
+}
+
+// TestIsTextInputFocused_ReadOnlyEditSelectList pins that a NON-typing
+// EditSelectList (enum/boolean pickers, allowTyping=false) is NOT treated as a
+// text input — arrow keys cycle values and single-letter globals stay active.
+func TestIsTextInputFocused_ReadOnlyEditSelectList(t *testing.T) {
+	editor := component.NewEditSelectList([]string{"low", "high"}, false)
+	app := tview.NewApplication()
+	app.SetRoot(editor, true)
+	if isTextInputFocused(app) {
+		t.Error("expected isTextInputFocused=false for a non-typing *component.EditSelectList")
 	}
 }
 

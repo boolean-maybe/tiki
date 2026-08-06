@@ -73,11 +73,6 @@ func TestPluginViewParams_ModeFocusDraftRoundTrip(t *testing.T) {
 			in:   PluginViewParams{TikiID: "T1KI42", Mode: plugin.DetailModeEditDesc, Focus: EditFieldDescription},
 			want: PluginViewParams{TikiID: "T1KI42", Mode: plugin.DetailModeEditDesc, Focus: EditFieldDescription},
 		},
-		{
-			name: "edit-tags mode",
-			in:   PluginViewParams{TikiID: "T1KI42", Mode: plugin.DetailModeEditTags, Focus: EditFieldTags},
-			want: PluginViewParams{TikiID: "T1KI42", Mode: plugin.DetailModeEditTags, Focus: EditFieldTags},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -128,5 +123,17 @@ func TestViewParams_ParamKeyConstants(t *testing.T) {
 	}
 	if _, ok := encoded["mode"]; !ok {
 		t.Error("PluginViewParams should use 'mode' key for Mode")
+	}
+}
+
+func TestPluginViewParams_DocumentPathRoundTrip(t *testing.T) {
+	in := PluginViewParams{DocumentPath: "docs/ruki/select.md"}
+	m := EncodePluginViewParams(in)
+	if m == nil {
+		t.Fatal("encode returned nil for DocumentPath-only params")
+	}
+	out := DecodePluginViewParams(m)
+	if out.DocumentPath != "docs/ruki/select.md" {
+		t.Fatalf("DocumentPath = %q, want docs/ruki/select.md", out.DocumentPath)
 	}
 }

@@ -37,7 +37,7 @@ func initTestRegistries() {
 		{Name: "dependsOn", Type: workflow.TypeListRef},
 		{Name: "due", Type: workflow.TypeDate},
 		{Name: "recurrence", Type: workflow.TypeRecurrence},
-		{Name: "assignee", Type: workflow.TypeString},
+		{Name: "assignee", Type: workflow.TypeUser},
 	})
 }
 
@@ -60,6 +60,7 @@ func TestSchemaFieldMapping(t *testing.T) {
 		{"createdAt", ruki.ValueTimestamp},
 		{"updatedAt", ruki.ValueTimestamp},
 		{"recurrence", ruki.ValueRecurrence},
+		{"assignee", ruki.ValueString},
 		{"filepath", ruki.ValueString},
 	}
 
@@ -132,11 +133,11 @@ func TestMapValueTypeCompleteness(t *testing.T) {
 		workflow.TypeTimestamp, workflow.TypeDuration, workflow.TypeBool,
 		workflow.TypeID, workflow.TypeRef, workflow.TypeRecurrence,
 		workflow.TypeListString, workflow.TypeListRef,
-		workflow.TypeEnum,
+		workflow.TypeEnum, workflow.TypeUser,
 	}
 
 	for _, wt := range types {
-		if got := mapValueType(wt); got == ruki.ValueString && wt != workflow.TypeString {
+		if got := mapValueType(wt); got == ruki.ValueString && wt != workflow.TypeString && wt != workflow.TypeUser {
 			t.Errorf("mapValueType(%d) fell back to ValueString", wt)
 		}
 	}

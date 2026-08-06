@@ -15,16 +15,16 @@ func TestListFieldCountText(t *testing.T) {
 	missing := tikipkg.New()
 
 	withThree := tikipkg.New()
-	withThree.Set(tikipkg.FieldTags, []string{"a", "b", "c"})
+	withThree.Set("tags", []string{"a", "b", "c"})
 
 	empty := tikipkg.New()
-	empty.Set(tikipkg.FieldTags, []string{})
+	empty.Set("tags", []string{})
 
 	scalar := tikipkg.New()
-	scalar.Set(tikipkg.FieldTags, "solo") // a scalar coerces to a one-element list
+	scalar.Set("tags", "solo") // a scalar coerces to a one-element list
 
 	nonCoercible := tikipkg.New()
-	nonCoercible.Set(tikipkg.FieldTags, map[string]any{"k": "v"})
+	nonCoercible.Set("tags", map[string]any{"k": "v"})
 
 	cases := []struct {
 		name string
@@ -39,7 +39,7 @@ func TestListFieldCountText(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := listFieldCountText(tikipkg.FieldTags, c.tk); got != c.want {
+			if got := listFieldCountText("tags", c.tk); got != c.want {
 				t.Errorf("listFieldCountText = %q, want %q", got, c.want)
 			}
 		})
@@ -48,9 +48,9 @@ func TestListFieldCountText(t *testing.T) {
 
 func TestRenderViewModeAnchor_CountRendersItemCount(t *testing.T) {
 	tk := tikipkg.New()
-	tk.Set(tikipkg.FieldTags, []string{"x", "y", "z"})
+	tk.Set("tags", []string{"x", "y", "z"})
 	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
-	a := gridlayout.Anchor{Kind: gridlayout.AnchorField, Name: tikipkg.FieldTags, Display: gridlayout.DisplayCount}
+	a := gridlayout.Anchor{Kind: gridlayout.AnchorField, Name: "tags", Display: gridlayout.DisplayCount}
 
 	got := extractTextView(RenderViewModeAnchor(a, tk, ctx), true)
 	if strings.TrimSpace(got) != "3" {
@@ -61,7 +61,7 @@ func TestRenderViewModeAnchor_CountRendersItemCount(t *testing.T) {
 func TestRenderViewModeAnchor_CountEmptyIsZero(t *testing.T) {
 	tk := tikipkg.New()
 	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
-	a := gridlayout.Anchor{Kind: gridlayout.AnchorField, Name: tikipkg.FieldTags, Display: gridlayout.DisplayCount}
+	a := gridlayout.Anchor{Kind: gridlayout.AnchorField, Name: "tags", Display: gridlayout.DisplayCount}
 
 	got := extractTextView(RenderViewModeAnchor(a, tk, ctx), true)
 	if strings.TrimSpace(got) != "0" {
@@ -71,9 +71,9 @@ func TestRenderViewModeAnchor_CountEmptyIsZero(t *testing.T) {
 
 func TestRenderViewModeAnchor_CountScalarIsOne(t *testing.T) {
 	tk := tikipkg.New()
-	tk.Set(tikipkg.FieldTags, "solo")
+	tk.Set("tags", "solo")
 	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
-	a := gridlayout.Anchor{Kind: gridlayout.AnchorField, Name: tikipkg.FieldTags, Display: gridlayout.DisplayCount}
+	a := gridlayout.Anchor{Kind: gridlayout.AnchorField, Name: "tags", Display: gridlayout.DisplayCount}
 
 	got := extractTextView(RenderViewModeAnchor(a, tk, ctx), true)
 	if strings.TrimSpace(got) != "1" {
@@ -90,9 +90,9 @@ func TestRenderViewModeAnchor_CompositeCountMissingFieldIsZero(t *testing.T) {
 	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
 	a := gridlayout.Anchor{
 		Kind: gridlayout.AnchorComposite,
-		Name: tikipkg.FieldDependsOn,
+		Name: "dependsOn",
 		Segments: []gridlayout.Segment{
-			{Kind: gridlayout.SegmentField, Name: tikipkg.FieldDependsOn, Display: gridlayout.DisplayCount},
+			{Kind: gridlayout.SegmentField, Name: "dependsOn", Display: gridlayout.DisplayCount},
 			{Kind: gridlayout.SegmentLiteral, Text: " tasks"},
 		},
 	}
@@ -114,10 +114,10 @@ func TestRenderViewModeAnchor_CompositeListSegmentEmptyIsBlank(t *testing.T) {
 	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
 	a := gridlayout.Anchor{
 		Kind: gridlayout.AnchorComposite,
-		Name: tikipkg.FieldTags,
+		Name: "tags",
 		Segments: []gridlayout.Segment{
 			{Kind: gridlayout.SegmentLiteral, Text: "tags: "},
-			{Kind: gridlayout.SegmentField, Name: tikipkg.FieldTags},
+			{Kind: gridlayout.SegmentField, Name: "tags"},
 		},
 	}
 
@@ -131,7 +131,7 @@ func TestRenderViewModeAnchor_CompositeListSegmentEmptyIsBlank(t *testing.T) {
 	}
 
 	full := tikipkg.New()
-	full.Set(tikipkg.FieldTags, []string{"xxx", "yyy", "zzz"})
+	full.Set("tags", []string{"xxx", "yyy", "zzz"})
 	gotFull := extractTextView(RenderViewModeAnchor(a, full, ctx), true)
 	if !strings.Contains(gotFull, "tags: xxx, yyy, zzz") {
 		t.Errorf("populated tags composite rendered %q, want it to contain %q", gotFull, "tags: xxx, yyy, zzz")
@@ -141,14 +141,14 @@ func TestRenderViewModeAnchor_CompositeListSegmentEmptyIsBlank(t *testing.T) {
 func TestRenderViewModeAnchor_CompositeWithCount(t *testing.T) {
 	s := store.NewInMemoryStore()
 	tk := tikipkg.New()
-	tk.Set(tikipkg.FieldDependsOn, []string{"AAAAAA", "BBBBBB"})
+	tk.Set("dependsOn", []string{"AAAAAA", "BBBBBB"})
 	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles(), Store: s}
 	a := gridlayout.Anchor{
 		Kind: gridlayout.AnchorComposite,
-		Name: tikipkg.FieldDependsOn,
+		Name: "dependsOn",
 		Segments: []gridlayout.Segment{
 			{Kind: gridlayout.SegmentLiteral, Text: "Deps: "},
-			{Kind: gridlayout.SegmentField, Name: tikipkg.FieldDependsOn, Display: gridlayout.DisplayCount},
+			{Kind: gridlayout.SegmentField, Name: "dependsOn", Display: gridlayout.DisplayCount},
 		},
 	}
 
@@ -162,14 +162,14 @@ func TestRenderViewModeAnchor_LongCompositeTruncatesWithEllipsis(t *testing.T) {
 	// a composite that overflows its drawn width must show a trailing ellipsis
 	// instead of hard-clipping mid-token. Drawn into a narrow rect directly.
 	tk := tikipkg.New()
-	tk.Set(tikipkg.FieldTags, []string{"backend", "security", "urgent", "refactor"})
+	tk.Set("tags", []string{"backend", "security", "urgent", "refactor"})
 	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
 	a := gridlayout.Anchor{
 		Kind: gridlayout.AnchorComposite,
-		Name: tikipkg.FieldTags,
+		Name: "tags",
 		Segments: []gridlayout.Segment{
 			{Kind: gridlayout.SegmentLiteral, Text: "tags: "},
-			{Kind: gridlayout.SegmentField, Name: tikipkg.FieldTags},
+			{Kind: gridlayout.SegmentField, Name: "tags"},
 		},
 	}
 	prim := RenderViewModeAnchor(a, tk, ctx)
@@ -199,11 +199,11 @@ func TestMeasureAnchor_CountMeasuresDigitWidth(t *testing.T) {
 	tk := tikipkg.New()
 	// a tag value far wider than its count's digit width, so the two measures
 	// are unambiguously distinguishable.
-	tk.Set(tikipkg.FieldTags, []string{"a-very-long-tag-token"})
+	tk.Set("tags", []string{"a-very-long-tag-token"})
 	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
 
-	countAnchor := gridlayout.Anchor{Kind: gridlayout.AnchorField, Name: tikipkg.FieldTags, Display: gridlayout.DisplayCount}
-	valueAnchor := gridlayout.Anchor{Kind: gridlayout.AnchorField, Name: tikipkg.FieldTags, Display: gridlayout.DisplayLabel}
+	countAnchor := gridlayout.Anchor{Kind: gridlayout.AnchorField, Name: "tags", Display: gridlayout.DisplayCount}
+	valueAnchor := gridlayout.Anchor{Kind: gridlayout.AnchorField, Name: "tags", Display: gridlayout.DisplayLabel}
 
 	count := MeasureAnchor(countAnchor, tk, ctx)
 	value := MeasureAnchor(valueAnchor, tk, ctx)

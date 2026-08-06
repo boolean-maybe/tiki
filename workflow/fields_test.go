@@ -24,7 +24,18 @@ func TestValueType_IsList(t *testing.T) {
 			t.Errorf("IsList(%v) = false, want true", lt)
 		}
 	}
-	nonList := []ValueType{TypeString, TypeInt, TypeDate, TypeTimestamp, TypeBool, TypeID, TypeRef, TypeRecurrence, TypeEnum}
+	nonList := []ValueType{
+		TypeString,
+		TypeInt,
+		TypeDate,
+		TypeTimestamp,
+		TypeBool,
+		TypeID,
+		TypeRef,
+		TypeRecurrence,
+		TypeEnum,
+		TypeUser,
+	}
 	for _, nt := range nonList {
 		if nt.IsList() {
 			t.Errorf("IsList(%v) = true, want false", nt)

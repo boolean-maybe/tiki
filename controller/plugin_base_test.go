@@ -3,7 +3,11 @@ package controller
 import (
 	"testing"
 
+	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/store"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // TestCreateDraftTiki_ReturnsInMemoryDraft pins the helper's contract:
@@ -25,5 +29,35 @@ func TestCreateDraftTiki_ReturnsInMemoryDraft(t *testing.T) {
 	}
 	if persisted := s.GetTiki(got.ID()); persisted != nil {
 		t.Error("draft was unexpectedly persisted to store")
+	}
+}
+
+func TestDefaultTikiSortDoesNotRecognizePriorityFieldName(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{
+			Name: "priority",
+			Type: workflow.TypeEnum,
+			EnumValues: []workflow.EnumValue{
+				{Value: "high"},
+				{Value: "low"},
+			},
+		},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	alpha := tikipkg.New()
+	alpha.SetID("AAAAAA")
+	alpha.SetTitle("Alpha")
+	alpha.Set("priority", "low")
+	beta := tikipkg.New()
+	beta.SetID("BBBBBB")
+	beta.SetTitle("Beta")
+	beta.Set("priority", "high")
+	tikis := []*tikipkg.Tiki{alpha, beta}
+
+	sortTikisByTitle(tikis)
+
+	if tikis[0] != alpha {
+		t.Fatalf("default sort used priority field value; first title = %q, want Alpha", tikis[0].Title())
 	}
 }

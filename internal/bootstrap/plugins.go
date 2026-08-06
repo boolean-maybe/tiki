@@ -31,6 +31,7 @@ func InitPluginActionRegistry(plugins []plugin.Plugin) {
 	pluginInfos := make([]controller.PluginInfo, 0, len(plugins))
 	detailViewIDs := make(map[model.ViewID]struct{})
 	singleLaneViewIDs := make(map[model.ViewID]struct{})
+	moveableViewIDs := make(map[model.ViewID]struct{})
 	for _, p := range plugins {
 		pk, pr, pm := p.GetActivationKey()
 		pluginInfos = append(pluginInfos, controller.PluginInfo{
@@ -45,8 +46,15 @@ func InitPluginActionRegistry(plugins []plugin.Plugin) {
 		if p.GetKind() == plugin.KindDetail {
 			detailViewIDs[model.MakePluginViewID(p.GetName())] = struct{}{}
 		}
-		if wp, ok := p.(*plugin.WorkflowPlugin); ok && len(wp.Lanes) <= 1 {
+		wp, ok := p.(*plugin.WorkflowPlugin)
+		if !ok {
+			continue
+		}
+		if len(wp.Lanes) <= 1 {
 			singleLaneViewIDs[model.MakePluginViewID(p.GetName())] = struct{}{}
+		}
+		if anyLaneHasMoveAction(wp.Lanes) {
+			moveableViewIDs[model.MakePluginViewID(p.GetName())] = struct{}{}
 		}
 	}
 	controller.InitPluginActions(pluginInfos)
@@ -67,6 +75,25 @@ func InitPluginActionRegistry(plugins []plugin.Plugin) {
 		_, ok := singleLaneViewIDs[id]
 		return ok
 	})
+
+	// gates Move ←/→ on boards whose lanes carry no move action: filter-only
+	// lanes (e.g. SLA Watch's dueBy ranges) have no field to set, so the move
+	// would silently no-op — hide it there instead of advertising a dead key.
+	controller.SetLaneMoveablePredicate(func(id model.ViewID) bool {
+		_, ok := moveableViewIDs[id]
+		return ok
+	})
+}
+
+// anyLaneHasMoveAction reports whether at least one lane declares a move
+// action. A board with no lane actions cannot relocate a tiki via Move ←/→.
+func anyLaneHasMoveAction(lanes []plugin.TikiLane) bool {
+	for i := range lanes {
+		if lanes[i].Action != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // BuildPluginConfigsAndDefs builds per-plugin configs and a name->definition map

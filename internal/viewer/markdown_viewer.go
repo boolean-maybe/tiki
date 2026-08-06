@@ -12,12 +12,38 @@ import (
 	nav "github.com/boolean-maybe/navidown/navidown"
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/util"
 	"github.com/boolean-maybe/tiki/view/markdown"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
+
+// renderMarkdownWithProgress renders content off the UI goroutine: it pre-renders
+// images and mermaid/graphviz diagrams (bar animates in the status bar), then
+// applies the cache-warm render + widget mutation back on the UI goroutine via
+// redraw. An indeterminate bar covers every render kind uniformly. hub/imgMgr
+// must be non-nil; mermaid may be nil to skip diagram pre-rendering.
+func renderMarkdownWithProgress(
+	hub *model.ProgressHub,
+	imgMgr *navtview.ImageManager,
+	mermaid *nav.MermaidOptions,
+	redraw func(func()),
+	md *markdown.NavigableMarkdown,
+	content, source string,
+) {
+	reporter := hub.StartProgress("rendering")
+	go func() {
+		defer reporter.Done()
+		imgMgr.PreResolveMarkdown(content, source, viewerRenderCols, mermaid, nil)
+		redraw(func() { md.SetMarkdownWithSource(content, source, false) })
+	}()
+}
+
+// viewerRenderCols is the layout width used for the off-thread pre-resolve pass
+// in the standalone viewer; the viewer re-lays out at its real width on Draw.
+const viewerRenderCols = 80
 
 // Markdown viewer runner: loads content from input spec and renders it with
 // navidown, allowing in-document link navigation for file and url sources.
@@ -43,21 +69,32 @@ func Run(input InputSpec) error {
 	// Set up image rendering for Kitty-compatible terminals
 	resolver := nav.NewImageResolver(input.SearchRoots)
 	resolver.SetDarkMode(!config.IsLightTheme())
+	resolver.SetSVGScaleFactor(1.6)
 	imgMgr := navtview.NewImageManager(resolver, 8, 16)
 	imgMgr.SetMaxRows(config.GetMaxImageRows())
 	imgMgr.SetSupported(util.SupportsKittyGraphics())
 
 	// Create NavigableMarkdown - OnStateChange is set after creation to avoid forward reference
+	// mermaidOpts is shared with the off-thread pre-resolve so diagrams render
+	// off the UI goroutine under the same options as the on-thread render.
+	mermaidOpts := &nav.MermaidOptions{MinDiagramWidth: 280}
 	md := markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
 		Provider:       provider,
 		SearchRoots:    input.SearchRoots,
 		ImageManager:   imgMgr,
-		MermaidOptions: &nav.MermaidOptions{},
+		MermaidOptions: mermaidOpts,
 	})
 	defer md.Close()
 	md.SetStateChangedHandler(func() {
 		updateStatusBar(statusBar, md.Viewer())
 	})
+
+	// progress hub: renders the block-shade bar into the status bar while images
+	// resolve off the UI goroutine. redraw runs a func on the UI goroutine.
+	redraw := func(fn func()) { app.QueueUpdateDraw(fn) }
+	sink := &progressStatusBar{bar: statusBar, viewer: md.Viewer}
+	progressHub := model.NewProgressHub(sink, redraw)
+	defer progressHub.Stop()
 
 	content, sourcePath, err := loadInitialContent(input, provider)
 	if err != nil {
@@ -65,7 +102,7 @@ func Run(input InputSpec) error {
 	}
 
 	if sourcePath != "" {
-		md.SetMarkdownWithSource(content, sourcePath, false)
+		renderMarkdownWithProgress(progressHub, imgMgr, mermaidOpts, redraw, md, content, sourcePath)
 	} else {
 		md.SetMarkdown(content)
 	}
@@ -86,7 +123,7 @@ func Run(input InputSpec) error {
 			app.Stop()
 			return nil
 		case 'r':
-			refreshContent(app, md, provider)
+			refreshContent(app, md, provider, progressHub, imgMgr, mermaidOpts, redraw)
 			return nil
 		case 'e':
 			srcPath := md.SourceFilePath()
@@ -107,8 +144,7 @@ func Run(input InputSpec) error {
 				slog.Error("failed to reload file after edit", "file", srcPath, "error", err)
 				return nil
 			}
-			md.SetMarkdownWithSource(string(data), srcPath, false)
-			updateStatusBar(statusBar, md.Viewer())
+			renderMarkdownWithProgress(progressHub, imgMgr, mermaidOpts, redraw, md, string(data), srcPath)
 			return nil
 		}
 		return event
@@ -122,7 +158,15 @@ func Run(input InputSpec) error {
 }
 
 // refreshContent clears image/diagram caches, re-reads the current file from disk, and re-renders.
-func refreshContent(app *tview.Application, md *markdown.NavigableMarkdown, provider *loaders.FileHTTP) {
+func refreshContent(
+	app *tview.Application,
+	md *markdown.NavigableMarkdown,
+	provider *loaders.FileHTTP,
+	hub *model.ProgressHub,
+	imgMgr *navtview.ImageManager,
+	mermaid *nav.MermaidOptions,
+	redraw func(func()),
+) {
 	srcPath := md.SourceFilePath()
 	if srcPath == "" {
 		return // stdin content — nothing to reload
@@ -133,11 +177,12 @@ func refreshContent(app *tview.Application, md *markdown.NavigableMarkdown, prov
 		content = markdown.FormatErrorContent(err)
 	}
 
-	// one-shot before-draw to get the screen for Kitty image purge
+	// one-shot before-draw to get the screen for Kitty image purge, then
+	// re-render off-thread with the progress bar.
 	app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
 		md.Viewer().InvalidateForDocument(screen)
-		md.SetMarkdownWithSource(content, srcPath, false)
 		app.SetBeforeDrawFunc(nil)
+		renderMarkdownWithProgress(hub, imgMgr, mermaid, redraw, md, content, srcPath)
 		return false
 	})
 }

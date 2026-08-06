@@ -143,10 +143,9 @@ Markdown body.
 - **`./**/*.md` is scanned.** The whole tree under the current directory is loaded recursively. `.git/`,
   dotted directories, `.gitignore`/`.tikiignore` matches, the workflow config files (`workflow.yaml`,
   `config.yaml`), and non-Markdown assets are excluded.
-- **Fields are open.** Beyond `id` and `title`, frontmatter is a generic field map. Schema-known fields
-  (`status`, `type`, `priority`, `points`, `tags`, `dependsOn`, `due`, `recurrence`, `assignee`) get typed
-  coercion; unknown keys are preserved as-is. Absence is meaningful — a tiki with no `status` is not the
-  same as one whose status is empty.
+- **Fields are open.** Beyond `id` and `title`, frontmatter is a generic field map. Fields declared in the
+  active workflow get coercion from their declared types; unknown keys are preserved as-is. Absence is
+  meaningful — an omitted field is distinct from a present field with an empty value.
 - **Views decide behavior via filters.** Board and list views narrow the workspace with ruki `select`
   statements (e.g. `where has(status)`); wiki and detail views render bodies. There is no hidden
   classification — what you query is what you see.

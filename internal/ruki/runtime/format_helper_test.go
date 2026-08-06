@@ -30,26 +30,26 @@ func tikiFromLegacy(f legacyFields) ruki.Document {
 		f.Recurrence != "" || f.Assignee != ""
 
 	if workflow {
-		tk.Set(tiki.FieldStatus, f.Status)
-		tk.Set(tiki.FieldType, f.Type)
+		tk.Set("status", f.Status)
+		tk.Set("type", f.Type)
 		if f.Priority != "" {
-			tk.Set(tiki.FieldPriority, f.Priority)
+			tk.Set("priority", f.Priority)
 		}
 		if f.Points != "" {
-			tk.Set(tiki.FieldPoints, f.Points)
+			tk.Set("points", f.Points)
 		}
-		tk.Set(tiki.FieldAssignee, f.Assignee)
-		tk.Set(tiki.FieldDue, f.Due)
-		tk.Set(tiki.FieldRecurrence, f.Recurrence)
+		tk.Set("assignee", f.Assignee)
+		tk.Set("due", f.Due)
+		tk.Set("recurrence", f.Recurrence)
 		if f.Tags != nil {
-			tk.Set(tiki.FieldTags, append([]string(nil), f.Tags...))
+			tk.Set("tags", append([]string(nil), f.Tags...))
 		} else {
-			tk.Set(tiki.FieldTags, []string{})
+			tk.Set("tags", []string{})
 		}
 		if f.DependsOn != nil {
-			tk.Set(tiki.FieldDependsOn, append([]string(nil), f.DependsOn...))
+			tk.Set("dependsOn", append([]string(nil), f.DependsOn...))
 		} else {
-			tk.Set(tiki.FieldDependsOn, []string{})
+			tk.Set("dependsOn", []string{})
 		}
 	}
 	for k, v := range f.CustomFields {

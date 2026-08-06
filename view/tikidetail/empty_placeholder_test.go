@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
@@ -18,21 +19,28 @@ import (
 // clipped to "N". The measure must cover the drawn placeholder width PLUS the
 // one breathing cell the truncating view reserves (it draws to width-1).
 func TestMeasureFieldValue_EmptyDateMatchesRenderedWidth(t *testing.T) {
-	tk := tikipkg.New() // due never set → empty date
+	const fieldName = "when"
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: fieldName, Type: workflow.TypeDate, Custom: true},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
 
-	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles(), FieldName: tikipkg.FieldDue}
-	rendered := extractTextView(renderDateValue(tk, ctx), true)
+	tk := tikipkg.New()
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles(), FieldName: fieldName}
+	rendered := extractTextView(renderConfiguredField(fieldName, tk, ctx), true)
 	if strings.TrimSpace(rendered) != "None" {
-		t.Fatalf("empty due rendered %q, want %q", rendered, "None")
+		t.Fatalf("empty date rendered %q, want %q", rendered, "None")
 	}
 
-	got := MeasureFieldValue(tikipkg.FieldDue, tk, ctx)
+	got := MeasureFieldValue(fieldName, tk, ctx)
 	want := tview.TaggedStringWidth(rendered) + scalarBreathingCell
 	if got != want {
-		t.Errorf("MeasureFieldValue(empty due) = %d, want %d (rendered %q + breathing cell)", got, want, rendered)
+		t.Errorf("MeasureFieldValue(empty date) = %d, want %d (rendered %q + breathing cell)", got, want, rendered)
 	}
 	if got != 4+scalarBreathingCell {
-		t.Errorf("MeasureFieldValue(empty due) = %d, want %d (\"None\" + breathing)", got, 4+scalarBreathingCell)
+		t.Errorf("MeasureFieldValue(empty date) = %d, want %d (\"None\" + breathing)", got, 4+scalarBreathingCell)
 	}
 }
 
@@ -48,6 +56,110 @@ func TestMeasureFieldValue_EmptyDateTimeMatchesRenderedWidth(t *testing.T) {
 	}
 }
 
+// TestMeasureFieldValue_EmptyStringListMatchesPlaceholderWidth is the regression
+// guard for a clipped list placeholder: an empty stringList RENDERS
+// its "(none)" placeholder through valueOnlyLine's truncating text view, which
+// draws to width-1. measureStringListField used to return the longest-token
+// floor of 1, so the solver reserved a 1-cell column and the placeholder clipped.
+// The measure must equal the placeholder width PLUS the breathing cell the
+// truncating view reserves — otherwise the last glyph clips ("(no…").
+func TestMeasureFieldValue_EmptyStringListMatchesPlaceholderWidth(t *testing.T) {
+	const fieldName = "labels"
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: fieldName, Type: workflow.TypeListString},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+	tk := tikipkg.New()
+
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles(), FieldName: fieldName}
+	placeholder := emptyPlaceholder(fieldName, SemanticStringList)
+
+	got := MeasureFieldValue(fieldName, tk, ctx)
+	if want := tview.TaggedStringWidth(placeholder) + scalarBreathingCell; got != want {
+		t.Errorf("MeasureFieldValue(empty list) = %d, want %d (placeholder %q + breathing cell)", got, want, placeholder)
+	}
+}
+
+func TestFormerPointsFieldNameUsesDeclaredStringPlaceholder(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "points", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tk := tikipkg.New()
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
+	got := strings.TrimSpace(extractTextView(renderConfiguredField("points", tk, ctx), true))
+	if got != "—" {
+		t.Fatalf("empty string field named points rendered %q, want %q", got, "—")
+	}
+}
+
+func TestFormerPriorityFieldNameUsesDeclaredStringPlaceholder(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "priority", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tk := tikipkg.New()
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
+	got := strings.TrimSpace(extractTextView(renderConfiguredField("priority", tk, ctx), true))
+	if got != "—" {
+		t.Fatalf("empty string field named priority rendered %q, want %q", got, "—")
+	}
+}
+
+func TestFormerTypeFieldNameUsesDeclaredStringPlaceholder(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "type", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tk := tikipkg.New()
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
+	got := strings.TrimSpace(extractTextView(renderConfiguredField("type", tk, ctx), true))
+	if got != "—" {
+		t.Fatalf("empty string field named type rendered %q, want %q", got, "—")
+	}
+}
+
+func TestFormerStatusFieldNameUsesDeclaredStringPlaceholder(t *testing.T) {
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "status", Type: workflow.TypeString},
+	})
+	t.Cleanup(teststatuses.Init)
+
+	tk := tikipkg.New()
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
+	got := strings.TrimSpace(extractTextView(renderConfiguredField("status", tk, ctx), true))
+	if got != "—" {
+		t.Fatalf("empty string field named status rendered %q, want %q", got, "—")
+	}
+}
+
+// TestMeasureFieldValue_EmptyTikiIDListMatchesPlaceholderWidth mirrors the above
+// for a TypeListRef field: empty renders "(none)" through the same truncating
+// view, so it needs placeholder width + breathing cell.
+func TestMeasureFieldValue_EmptyTikiIDListMatchesPlaceholderWidth(t *testing.T) {
+	const fieldName = "refs"
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: fieldName, Type: workflow.TypeListRef},
+	}); err != nil {
+		t.Fatalf("InitWith: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+	tk := tikipkg.New()
+
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles(), FieldName: fieldName}
+	placeholder := emptyPlaceholder(fieldName, SemanticTikiIDList)
+
+	got := MeasureFieldValue(fieldName, tk, ctx)
+	if want := tview.TaggedStringWidth(placeholder) + scalarBreathingCell; got != want {
+		t.Errorf("MeasureFieldValue(empty refs) = %d, want %d (placeholder %q + breathing cell)", got, want, placeholder)
+	}
+}
+
 // TestFieldIsEmpty_TypedPredicate pins the typed emptiness check across every
 // participating semantic type, plus the never-empty types (recurrence, boolean)
 // which report false regardless so they are never `?`-hidden.
@@ -57,6 +169,7 @@ func TestFieldIsEmpty_TypedPredicate(t *testing.T) {
 		{Name: "labels", Type: workflow.TypeListString, Custom: true},
 		{Name: "deps", Type: workflow.TypeListRef, Custom: true},
 		{Name: "owner", Type: workflow.TypeString, Custom: true},
+		{Name: "reviewer", Type: workflow.TypeUser, Custom: true},
 		{Name: "count", Type: workflow.TypeInt, Custom: true},
 		{Name: "flag", Type: workflow.TypeBool, Custom: true},
 		{Name: "cron", Type: workflow.TypeRecurrence, Custom: true},
@@ -72,6 +185,7 @@ func TestFieldIsEmpty_TypedPredicate(t *testing.T) {
 	full.Set("labels", []string{"x"})
 	full.Set("deps", []string{"ABC123"})
 	full.Set("owner", "alice")
+	full.Set("reviewer", "alice")
 	full.Set("count", 3)
 
 	mustField := func(name string) workflow.FieldDef {
@@ -82,7 +196,7 @@ func TestFieldIsEmpty_TypedPredicate(t *testing.T) {
 		return fd
 	}
 
-	emptyCases := []string{"when", "labels", "deps", "owner", "count"}
+	emptyCases := []string{"when", "labels", "deps", "owner", "reviewer", "count"}
 	for _, name := range emptyCases {
 		if !fieldIsEmpty(empty, mustField(name)) {
 			t.Errorf("fieldIsEmpty(empty, %q) = false, want true", name)
@@ -109,9 +223,10 @@ func TestEmptyPlaceholder_ResolutionOrder(t *testing.T) {
 		semantic SemanticType
 		want     string
 	}{
-		{"per-field override beats type default", tikipkg.FieldType, SemanticEnum, "(none)"},
-		{"per-type default when no override", tikipkg.FieldDue, SemanticDate, "None"},
-		{"enum with no override falls to dash", tikipkg.FieldStatus, SemanticEnum, "─"},
+		{"per-field override beats type default", "createdBy", SemanticText, "Unknown"},
+		{"per-type default when no override", "when", SemanticDate, "None"},
+		{"enum with no override falls to dash", "status", SemanticEnum, "─"},
+		{"user empty stays blank", "reviewer", SemanticUser, ""},
 		{"datetime default", "createdAt", SemanticDateTime, "Unknown"},
 		{"unknown field, type default", "does-not-exist", SemanticStringList, "(none)"},
 	}
@@ -140,6 +255,7 @@ func TestSemanticForValueType(t *testing.T) {
 		{workflow.TypeRecurrence, SemanticRecurrence},
 		{workflow.TypeListString, SemanticStringList},
 		{workflow.TypeListRef, SemanticTikiIDList},
+		{workflow.TypeUser, SemanticUser},
 		{workflow.TypeString, SemanticText},
 		{workflow.TypeID, SemanticText},
 		{workflow.TypeRef, SemanticText},
@@ -157,10 +273,18 @@ func TestSemanticForValueType(t *testing.T) {
 // lockstep with the measure. Also exercises the gridlayout import indirectly
 // via ctx.Display default.
 func TestRenderDateValue_EmptyReadsPlaceholderSource(t *testing.T) {
+	const fieldName = "when"
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: fieldName, Type: workflow.TypeDate, Custom: true},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
 	tk := tikipkg.New()
-	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles(), FieldName: tikipkg.FieldDue}
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles(), FieldName: fieldName}
 	got := strings.TrimSpace(extractTextView(renderDateValue(tk, ctx), true))
-	if got != emptyPlaceholder(tikipkg.FieldDue, SemanticDate) {
-		t.Errorf("renderDateValue empty = %q, want placeholder %q", got, emptyPlaceholder(tikipkg.FieldDue, SemanticDate))
+	if got != emptyPlaceholder(fieldName, SemanticDate) {
+		t.Errorf("renderDateValue empty = %q, want placeholder %q", got, emptyPlaceholder(fieldName, SemanticDate))
 	}
 }

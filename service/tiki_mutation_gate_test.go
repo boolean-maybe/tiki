@@ -27,9 +27,9 @@ func newGateWithStore() (*TikiMutationGate, store.Store) {
 
 func newWorkflowTiki(id, title string) *tikipkg.Tiki {
 	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID(id); t.SetTitle(title); return t }()
-	tk.Set(tikipkg.FieldStatus, "inbox")
-	tk.Set(tikipkg.FieldType, "story")
-	tk.Set(tikipkg.FieldPriority, "medium")
+	tk.Set("status", "inbox")
+	tk.Set("type", "story")
+	tk.Set("priority", "medium")
 	return tk
 }
 
@@ -254,7 +254,7 @@ func TestFieldValidators_RejectWrongTypeForWorkflowField(t *testing.T) {
 
 	// stage a wrong-type value: points is declared as int, set to a string
 	tk := valid.Clone()
-	tk.Set(tikipkg.FieldPoints, "ten")
+	tk.Set("points", "ten")
 
 	err := gate.UpdateTiki(context.Background(), tk)
 	if err == nil {
@@ -276,6 +276,28 @@ func TestFieldValidators_RejectWrongTypeForWorkflowField(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("expected points type rejection, got: %v", re.Rejections)
+	}
+}
+
+func TestValidateWorkflowFieldValue_UserRequiresString(t *testing.T) {
+	fd := workflow.FieldDef{Name: "reviewer", Type: workflow.TypeUser}
+	tests := []struct {
+		name    string
+		raw     interface{}
+		wantMsg string
+	}{
+		{name: "string accepted", raw: "alice"},
+		{name: "integer rejected", raw: 42, wantMsg: "reviewer field has wrong type (expected string)"},
+		{name: "boolean rejected", raw: true, wantMsg: "reviewer field has wrong type (expected string)"},
+		{name: "list rejected", raw: []string{"alice"}, wantMsg: "reviewer field has wrong type (expected string)"},
+		{name: "map rejected", raw: map[string]string{"name": "alice"}, wantMsg: "reviewer field has wrong type (expected string)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validateWorkflowFieldValue(fd, tt.raw); got != tt.wantMsg {
+				t.Fatalf("validateWorkflowFieldValue(%T) = %q, want %q", tt.raw, got, tt.wantMsg)
+			}
+		})
 	}
 }
 
@@ -354,7 +376,7 @@ func TestFieldValidators_AcceptSparseWorkflowCreate(t *testing.T) {
 		t.SetTitle("sparse workflow item")
 		return t
 	}()
-	sparse.Set(tikipkg.FieldPriority, "high")
+	sparse.Set("priority", "high")
 
 	if err := gate.CreateTiki(context.Background(), sparse); err != nil {
 		t.Fatalf("sparse workflow create rejected by gate: %v", err)
@@ -414,9 +436,9 @@ func TestBuildGate(t *testing.T) {
 
 	// BuildGate registers field validators, so an invalid tiki should be rejected
 	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC123"); return t }() // empty title → invalid
-	tk.Set(tikipkg.FieldStatus, "inbox")
-	tk.Set(tikipkg.FieldType, "story")
-	tk.Set(tikipkg.FieldPriority, "medium")
+	tk.Set("status", "inbox")
+	tk.Set("type", "story")
+	tk.Set("priority", "medium")
 	if err := gate.CreateTiki(context.Background(), tk); err == nil {
 		t.Fatal("expected rejection for empty title")
 	}

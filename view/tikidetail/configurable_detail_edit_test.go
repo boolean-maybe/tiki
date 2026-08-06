@@ -11,7 +11,6 @@ import (
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
-	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/rivo/tview"
 )
@@ -29,6 +28,7 @@ func TestConfigurableDetailView_EnterAndExitEditMode(t *testing.T) {
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	editReg := controller.DetailEditModeActions()
@@ -78,6 +78,7 @@ func TestConfigurableDetailView_FlushFocusedEditor_FlushesAllEditors(t *testing.
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "tags"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -136,6 +137,7 @@ func TestConfigurableDetailView_EditModeHonorsTagsRowSpan(t *testing.T) {
 		}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 	if !cv.EnterEditMode() {
@@ -193,6 +195,7 @@ func TestBuildFieldPrimitive_FocusOnlyOnFocusedRow(t *testing.T) {
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -259,6 +262,7 @@ func TestConfigurableDetailView_FlushEmitsCanonicalKeyForEnums(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"status", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -312,49 +316,43 @@ func TestConfigurableDetailView_FlushEmitsCanonicalKeyForEnums(t *testing.T) {
 	}
 }
 
-// TestConfigurableDetailView_FlushOrderRecurrenceLast pins the flush
-// ordering contract: due must flush before recurrence so SaveRecurrence's
-// Due side effect (auto-computing the next occurrence) isn't overwritten
-// by a stale due editor's text. Map iteration is nondeterministic in Go,
-// so a naive `for k, v := range editors` would let due flush either
-// before or after recurrence, manifesting as a flaky bug in production.
-func TestConfigurableDetailView_FlushOrderRecurrenceLast(t *testing.T) {
+// TestConfigurableDetailView_FlushOrderFollowsLayout pins deterministic,
+// field-agnostic flushing in declaration order.
+func TestConfigurableDetailView_FlushOrderFollowsLayout(t *testing.T) {
 	s := store.NewInMemoryStore()
 	tk := newTestViewTiki("TIKI109")
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID(), detailPluginFromFields([]string{"due", "recurrence"}),
+		s, tk.ID(), detailPluginFromFields([]string{"recurrence", "status"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
 	// Record the order in which handlers were called.
 	order := []string{}
-	cv.SetEditFieldChangeHandler("due", func(_ string) { order = append(order, "due") })
 	cv.SetEditFieldChangeHandler("recurrence", func(_ string) { order = append(order, "recurrence") })
+	cv.SetEditFieldChangeHandler("status", func(_ string) { order = append(order, "status") })
 
 	if !cv.EnterEditMode() {
 		t.Fatal("EnterEditMode")
 	}
 
 	// Cache both editors so the flush traverses them.
-	cv.editors["due"] = &fakeFlushWidget{text: "2026-05-08"}
 	cv.editors["recurrence"] = &fakeFlushWidget{text: "0 0 * * MON"}
+	cv.editors["status"] = &fakeFlushWidget{text: "ready"}
 
-	// Run the flush several times: with map iteration, ordering can vary
-	// per iteration and the failure is flaky. Repeating amplifies the
-	// signal — even one out-of-order pass fails the test.
 	for i := 0; i < 20; i++ {
 		order = order[:0]
 		cv.FlushFocusedEditor()
 		if len(order) != 2 {
 			t.Fatalf("iter %d: flushed %d handlers, want 2", i, len(order))
 		}
-		if order[len(order)-1] != "recurrence" {
-			t.Fatalf("iter %d: expected recurrence flushed last, got %v", i, order)
+		if want := []string{"recurrence", "status"}; !slices.Equal(order, want) {
+			t.Fatalf("iter %d: flush order %v, want %v", i, order, want)
 		}
 	}
 }
@@ -377,6 +375,7 @@ func TestConfigurableDetailView_TabTraversesCustomEnumField(t *testing.T) {
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "severity", "priority"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -449,6 +448,7 @@ func TestConfigurableDetailView_CaptionAnchorsAreNotTabStops(t *testing.T) {
 		},
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -479,7 +479,7 @@ func TestConfigurableDetailView_CaptionAnchorsAreNotTabStops(t *testing.T) {
 func TestConfigurableDetailView_CountAnchorsAreNotTabStops(t *testing.T) {
 	s := store.NewInMemoryStore()
 	tk := newTestViewTiki("TIKI130")
-	tk.Set(tikipkg.FieldTags, []string{"a", "b"})
+	tk.Set("tags", []string{"a", "b"})
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
@@ -490,6 +490,7 @@ func TestConfigurableDetailView_CountAnchorsAreNotTabStops(t *testing.T) {
 			{"status", "type"},
 		}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -550,6 +551,7 @@ func TestConfigurableDetailView_TabTraversesColumnMajor(t *testing.T) {
 		}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -597,6 +599,7 @@ func TestConfigurableDetailView_TabColumnMajorSkipsCaptionColumns(t *testing.T) 
 		}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -625,6 +628,7 @@ func TestConfigurableDetailView_TabTraversesEditableFields(t *testing.T) {
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -679,6 +683,7 @@ func TestConfigurableDetailView_ReadOnlyFieldsAreSkippedInTraversal(t *testing.T
 		s, tk.ID(), detailPluginFromFields([]string{"status", "createdBy", "type", "createdAt", "priority", "updatedAt"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -719,6 +724,7 @@ func TestConfigurableDetailView_TabReachesDescription(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"status", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -756,6 +762,7 @@ func TestConfigurableDetailView_NoEditableFieldsLeavesViewMode(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"createdBy", "createdAt", "updatedAt"}), // all read-only
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -775,7 +782,7 @@ func TestConfigurableDetailView_NoEditableFieldsLeavesViewMode(t *testing.T) {
 func TestFieldRegistry_ImplementedAndStubCapabilities(t *testing.T) {
 	implemented := []SemanticType{
 		SemanticEnum,
-		SemanticText, SemanticDate,
+		SemanticText, SemanticInteger, SemanticBoolean, SemanticDate, SemanticDateTime,
 		SemanticRecurrence, SemanticStringList,
 	}
 	for _, sem := range implemented {
@@ -790,7 +797,6 @@ func TestFieldRegistry_ImplementedAndStubCapabilities(t *testing.T) {
 		})
 	}
 	stubs := []SemanticType{
-		SemanticBoolean, SemanticDateTime, SemanticInteger,
 		SemanticTikiIDList,
 	}
 	for _, sem := range stubs {
@@ -817,6 +823,7 @@ func TestConfigurableDetailView_FiresActionChangeHandlerOnToggle(t *testing.T) {
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -876,6 +883,7 @@ func TestGetPreferredFocus_ReturnsActiveEditor(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"title", "status", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
@@ -909,10 +917,11 @@ func TestEnterEditModeWithFocus_FocusesGivenField(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"title", "status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
-	if !cv.EnterEditModeWithFocus(model.EditFieldPriority) {
+	if !cv.EnterEditModeWithFocus(model.EditField("priority")) {
 		t.Fatal("EnterEditModeWithFocus returned false")
 	}
 	if !cv.IsEditMode() {
@@ -934,6 +943,7 @@ func TestEnterEditModeWithFocus_EmptyEqualsEnterEditMode(t *testing.T) {
 	cv := NewConfigurableDetailView(
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
+		nil, nil,
 		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
@@ -961,10 +971,11 @@ func TestEnterEditModeWithFocus_UnknownFieldFallsBackToDefault(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"status", "type"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
-	if !cv.EnterEditModeWithFocus(model.EditFieldPriority) {
+	if !cv.EnterEditModeWithFocus(model.EditField("priority")) {
 		t.Fatal("EnterEditModeWithFocus returned false on missing field")
 	}
 	if got := cv.GetFocusedFieldName(); got != "status" {
@@ -982,7 +993,7 @@ func TestConfigurableDetailView_RecurrencePartNavigation(t *testing.T) {
 	tk := newTestViewTiki("TIKI115")
 	// seed a Weekly cron so the recurrence editor has both parts
 	// (frequency + value); MovePartRight is a no-op without a value part.
-	tk.Set(tikipkg.FieldRecurrence, "0 0 * * MON")
+	tk.Set("recurrence", "0 0 * * MON")
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
@@ -990,21 +1001,22 @@ func TestConfigurableDetailView_RecurrencePartNavigation(t *testing.T) {
 		s, tk.ID(), detailPluginFromFields([]string{"status", "recurrence"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
-	if !cv.EnterEditModeWithFocus(model.EditFieldRecurrence) {
+	if !cv.EnterEditModeWithFocus(model.EditField("recurrence")) {
 		t.Fatal("EnterEditModeWithFocus(recurrence) returned false")
 	}
-	if got := cv.GetFocusedFieldName(); got != tikipkg.FieldRecurrence {
-		t.Fatalf("focused field = %q, want %q", got, tikipkg.FieldRecurrence)
+	if got := cv.GetFocusedFieldName(); got != "recurrence" {
+		t.Fatalf("focused field = %q, want recurrence", got)
 	}
 
 	// build the real recurrence editor through the registry and seed it
 	// with a Weekly cron so the value part exists and cursor moves are
 	// observable.
-	ctx := FieldRenderContext{Mode: RenderModeEdit, Roles: theme.Roles(), FieldName: tikipkg.FieldRecurrence}
-	editor := buildFieldEditor(tikipkg.FieldRecurrence, tk, ctx, cv.onEditFieldChange[tikipkg.FieldRecurrence])
+	ctx := FieldRenderContext{Mode: RenderModeEdit, Roles: theme.Roles(), FieldName: "recurrence"}
+	editor := buildFieldEditor("recurrence", tk, ctx, cv.onEditFieldChange["recurrence"])
 	if editor == nil {
 		t.Fatal("recurrence editor nil")
 	}
@@ -1013,7 +1025,7 @@ func TestConfigurableDetailView_RecurrencePartNavigation(t *testing.T) {
 		t.Fatalf("expected *recurrenceEditAdapter, got %T", editor)
 	}
 	re.RecurrenceEdit.SetInitialValue("0 0 * * MON")
-	cv.editors[tikipkg.FieldRecurrence] = editor
+	cv.editors["recurrence"] = editor
 
 	// initial state: frequency part active, value part not focused.
 	if cv.IsRecurrenceValueFocused() {
@@ -1067,15 +1079,16 @@ func TestConfigurableDetailView_RecurrencePartNavigation_NoEditorCached(t *testi
 		s, tk.ID(), detailPluginFromFields([]string{"recurrence", "status"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 
-	if !cv.EnterEditModeWithFocus(model.EditFieldRecurrence) {
+	if !cv.EnterEditModeWithFocus(model.EditField("recurrence")) {
 		t.Fatal("EnterEditModeWithFocus(recurrence) returned false")
 	}
 	// editors map exists but has no recurrence entry — refresh hasn't
 	// run in tests because there's no tview Application.
-	delete(cv.editors, tikipkg.FieldRecurrence)
+	delete(cv.editors, "recurrence")
 	if cv.MoveRecurrencePartLeft() {
 		t.Error("MoveRecurrencePartLeft returned true when no editor cached")
 	}
@@ -1101,12 +1114,13 @@ func TestConfigurableDetailView_RecurrencePartNavigation_WrongAdapterType(t *tes
 		s, tk.ID(), detailPluginFromFields([]string{"recurrence"}),
 		controller.DetailViewActions(),
 		nil, nil,
+		nil, nil,
 	)
 	cv.SetEditModeRegistry(controller.DetailEditModeActions())
 	if !cv.EnterEditMode() {
 		t.Fatal("EnterEditMode")
 	}
-	cv.editors[tikipkg.FieldRecurrence] = &fakeFlushWidget{text: ""}
+	cv.editors["recurrence"] = &fakeFlushWidget{text: ""}
 	if cv.MoveRecurrencePartLeft() {
 		t.Error("MoveRecurrencePartLeft returned true on wrong adapter type")
 	}
@@ -1127,10 +1141,10 @@ func TestConfigurableDetailView_RecurrencePartNavigation_WrongAdapterType(t *tes
 // value anchor must reserve room for the marker so no editor clips.
 func TestMeasureAnchor_EditModeReservesFocusMarker(t *testing.T) {
 	tk := newTestViewTiki("TIKI118")
-	tk.Set(tikipkg.FieldRecurrence, "0 0 * * TUE") // Weekly on Tuesday
+	tk.Set("recurrence", "0 0 * * TUE") // Weekly on Tuesday
 
 	// DisplayLabel (zero value) is the value-rendering anchor, not a .caption.
-	anchor := gridlayout.Anchor{Name: tikipkg.FieldRecurrence, Display: gridlayout.DisplayLabel}
+	anchor := gridlayout.Anchor{Name: "recurrence", Display: gridlayout.DisplayLabel}
 	roles := theme.Roles()
 
 	viewCtx := FieldRenderContext{Mode: RenderModeView, Roles: roles}
@@ -1156,9 +1170,9 @@ func TestMeasureAnchor_EditModeReservesFocusMarker(t *testing.T) {
 // weekday the editor can cycle to in place.
 func TestMeasureAnchor_RecurrenceEditModeFitsWidestWeekday(t *testing.T) {
 	tk := newTestViewTiki("TIKI119")
-	tk.Set(tikipkg.FieldRecurrence, "0 0 * * MON") // stored: short weekday
+	tk.Set("recurrence", "0 0 * * MON") // stored: short weekday
 
-	anchor := gridlayout.Anchor{Name: tikipkg.FieldRecurrence, Display: gridlayout.DisplayLabel}
+	anchor := gridlayout.Anchor{Name: "recurrence", Display: gridlayout.DisplayLabel}
 	roles := theme.Roles()
 	editCtx := FieldRenderContext{Mode: RenderModeEdit, Roles: roles}
 

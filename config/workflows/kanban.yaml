@@ -1,4 +1,4 @@
-version: "0.6.0"
+version: "0.6.1"
 description: |
   Kanban-style workflow for small-team software work. Four statuses
   (Inbox → Ready → In Progress → Done) and four task types
@@ -69,7 +69,7 @@ fields:
     type: recurrence
     caption: "Recurrence"
   - name: assignee
-    type: text
+    type: user
     caption: "Assignee"
 
 actions:

@@ -55,6 +55,10 @@ fields:
     type: stringList
   - name: related
     type: tikiIdList
+  - name: reviewer
+    type: user
+  - name: backupReviewer
+    type: USER
 `
 	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -74,6 +78,8 @@ fields:
 		{"startedAt", workflow.TypeTimestamp},
 		{"labels", workflow.TypeListString},
 		{"related", workflow.TypeListRef},
+		{"reviewer", workflow.TypeUser},
+		{"backupReviewer", workflow.TypeUser},
 	}
 	for _, c := range checks {
 		f, ok := workflow.Field(c.name)
@@ -141,6 +147,9 @@ fields:
 	if err == nil {
 		t.Fatal("expected error for unknown type")
 	}
+	if !strings.Contains(err.Error(), "user") {
+		t.Fatalf("unknown type error %q does not list user as a valid type", err.Error())
+	}
 }
 
 func TestLoadWorkflowFields_EnumWithoutValues(t *testing.T) {
@@ -205,6 +214,7 @@ func TestCoerceFieldDefault_ValidTypes(t *testing.T) {
 		want    interface{}
 	}{
 		{"string", workflow.TypeString, "hello", nil, "hello"},
+		{"user", workflow.TypeUser, "alice", nil, "alice"},
 		{"int", workflow.TypeInt, 42, nil, 42},
 		{"int from float", workflow.TypeInt, float64(3), nil, 3},
 		{"bool", workflow.TypeBool, false, nil, false},
@@ -291,6 +301,7 @@ func TestCoerceFieldDefault_InvalidValues(t *testing.T) {
 		allowed []string
 	}{
 		{"string got int", workflow.TypeString, 42, nil},
+		{"user got int", workflow.TypeUser, 42, nil},
 		{"int got string", workflow.TypeInt, "hello", nil},
 		{"int got fractional", workflow.TypeInt, float64(1.5), nil},
 		{"bool got string", workflow.TypeBool, "yes", nil},

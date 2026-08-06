@@ -241,7 +241,7 @@ func TestBuildRow(t *testing.T) {
 	doneTiki := tikipkg.New()
 	doneTiki.SetID("ABC002")
 	doneTiki.SetTitle("My done tiki")
-	doneTiki.Set(tikipkg.FieldStatus, "done")
+	doneTiki.Set("status", "done")
 
 	// set tikis so idColumnWidth is computed
 	tl.SetTikis([]*tikipkg.Tiki{pendingTiki, doneTiki})

@@ -29,17 +29,15 @@ import (
 // plus gridbox.DetailBoxOverhead (borders + padding + spacer). Title is a regular
 // grid field — it only renders if declared in the layout (e.g.
 // `<highlight>title`). Field anchors render as value-only primitives,
-// literal cells render as static text captions. Multi-row fields (tags
-// via WordList wrapping, depends-on via TikiList) extend downward within
-// their own column thanks to per-column natural-height packing in
+// literal cells render as static text captions. Multi-row list fields extend
+// downward within their own column thanks to per-column natural-height packing in
 // gridbox.Container.rebuild. Heights are clamped by the solver's
 // maxRowHeight (6) per row.
 //
-// In-place edit mode toggles a per-field editor for editable metadata
-// fields. Editors come from the field registry (status / type / priority /
-// points / assignee / due / recurrence / tags). Read-only descriptors and
-// fields without an implemented editor render their read-only primitive
-// even in edit mode, matching the "render but skip in traversal" rule.
+// In-place edit mode toggles a per-field editor selected from workflow field
+// metadata. Read-only descriptors and fields without an implemented editor
+// render their read-only primitive even in edit mode, matching the
+// "render but skip in traversal" rule.
 type ConfigurableDetailView struct {
 	Base
 
@@ -64,6 +62,12 @@ type ConfigurableDetailView struct {
 
 	navMarkdown *markdown.NavigableMarkdown
 	listenerID  int
+
+	// progressHub reports image-resolution progress to the statusline; redraw
+	// runs a func on the UI goroutine (app.QueueUpdateDraw). Both may be nil
+	// in tests / minimal fixtures, in which case rendering stays synchronous.
+	progressHub *model.ProgressHub
+	redraw      func(func())
 
 	// edit-mode state
 	editMode          bool
@@ -135,6 +139,8 @@ func NewConfigurableDetailView(
 	registry *controller.ActionRegistry,
 	imageManager *navtview.ImageManager,
 	mermaidOpts *nav.MermaidOptions,
+	progressHub *model.ProgressHub,
+	redraw func(func()),
 ) *ConfigurableDetailView {
 	cv := &ConfigurableDetailView{
 		Base: Base{
@@ -152,6 +158,8 @@ func NewConfigurableDetailView(
 		focusedIdx:        -1,
 		editors:           make(map[string]FieldEditorWidget),
 		onEditFieldChange: make(map[string]func(string)),
+		progressHub:       progressHub,
+		redraw:            redraw,
 	}
 
 	cv.build()
@@ -224,7 +232,7 @@ func (cv *ConfigurableDetailView) RestoreFocus() bool {
 
 // getTiki returns the tiki to render. In edit mode with an editing source
 // installed, the in-memory editing copy is preferred so that in-flight
-// changes (cycled enum, typed assignee) survive Tab-driven refreshes.
+// field changes survive Tab-driven refreshes.
 func (cv *ConfigurableDetailView) getTiki() *tikipkg.Tiki {
 	if cv.editMode && cv.editTikiSource != nil {
 		if tk := cv.editTikiSource(); tk != nil {
@@ -414,12 +422,12 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 
 // anchorHeight is the grid's height callback. In view mode it is the rendered
 // value's wrapped row count (FieldHeight). In edit mode, a focused editable
-// field whose layout cell spans multiple rows (via `^`, e.g. tags) gets that
-// full declared span instead — without this its editor would be sized to the
-// stored value's height (1 row for empty/short tags), and a 1-row tview.TextArea
-// cannot move the cursor off the first line. The span is what the layout author
+// field whose layout cell spans multiple rows via `^` gets that full declared
+// span instead — without this its editor would be sized to the stored value's
+// height, and a 1-row tview.TextArea cannot move the cursor off the first line.
+// The span is what the layout author
 // reserved for editing; honoring it keeps the editor footprint stable
-// regardless of how many tags currently exist.
+// regardless of how many list values currently exist.
 func (cv *ConfigurableDetailView) anchorHeight(a gridlayout.Anchor, tk *tikipkg.Tiki, w int) int {
 	if cv.editMode && a.RowSpan > 1 && a.Name == cv.GetFocusedFieldName() && cv.isEditableLayoutField(a.Name) {
 		return a.RowSpan
@@ -530,7 +538,7 @@ func compositeSegmentContent(seg gridlayout.Segment, tk *tikipkg.Tiki, ctx Field
 
 // compositePlainText concatenates a composite's segment contents with no color
 // tags — the wrap-measure source for MeasureAnchor's row-spanned-composite
-// branch. Tags would inflate word widths (a leading [#hex] glues onto the
+// branch. Markup would inflate word widths (a leading [#hex] glues onto the
 // first word), so measurement runs against this untagged form.
 func compositePlainText(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) string {
 	var buf strings.Builder
@@ -555,7 +563,7 @@ func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRe
 		return tv
 	}
 	// single-row composite: truncate with an ellipsis when it overflows its
-	// column instead of hard-clipping mid-token (e.g. "tags: backend, sec…").
+	// column instead of hard-clipping mid-token (e.g. "values: one, two…").
 	return gridbox.NewTruncatingTextView().SetText(text)
 }
 
@@ -754,10 +762,41 @@ func (cv *ConfigurableDetailView) buildDescription(tk *tikipkg.Tiki) tview.Primi
 		MermaidOptions: cv.mermaidOpts,
 	})
 	desc = markdown.RewriteWikilinks(desc, resolver)
-	cv.navMarkdown.SetMarkdownWithSource(desc, tikiSourcePath, false)
 	cv.navMarkdown.Viewer().SetBorderPadding(1, 1, 2, 2)
 	cv.descView = cv.navMarkdown.Viewer()
+	cv.renderDescription(desc, tikiSourcePath)
 	return cv.navMarkdown.Viewer()
+}
+
+// renderDescription paints the markdown. When a progress hub and redraw are
+// wired, image resolution runs off the UI goroutine (statusline bar animates)
+// and the cache-warm render is applied on the UI goroutine afterward. Without
+// them (tests / minimal fixtures) it renders synchronously.
+func (cv *ConfigurableDetailView) renderDescription(desc, source string) {
+	if cv.progressHub == nil || cv.redraw == nil || cv.imageManager == nil {
+		cv.navMarkdown.SetMarkdownWithSource(desc, source, false)
+		return
+	}
+	// indeterminate "rendering" bar: images and mermaid/graphviz diagrams are
+	// pre-rendered off the UI goroutine (the slow, thread-safe work), so the bar
+	// animates while the UI stays responsive; then the cache-warm render +
+	// widget mutation runs on the UI goroutine. A single indeterminate model
+	// covers every render kind — a mermaid subprocess has no sub-progress, and
+	// images no longer report per-item.
+	// capture the live viewer: refresh()/OnBlur() may nil cv.navMarkdown before
+	// the deferred redraw closure drains (e.g. opening a new tiki then quickly
+	// navigating away), so re-reading the field at redraw time would dereference
+	// nil. Painting the (possibly detached) instance we rendered is harmless —
+	// once it leaves the layout the paint is invisible.
+	target := cv.navMarkdown
+	reporter := cv.progressHub.StartProgress("rendering")
+	go func() {
+		defer reporter.Done()
+		cv.imageManager.PreResolveMarkdown(desc, source, descriptionRenderCols, cv.mermaidOpts, nil)
+		cv.redraw(func() {
+			target.SetMarkdownWithSource(desc, source, false)
+		})
+	}()
 }
 
 // EnterFullscreen and ExitFullscreen mirror the legacy tiki detail view so
@@ -797,8 +836,8 @@ func (cv *ConfigurableDetailView) IsEditMode() bool { return cv.editMode }
 
 // SetEditTikiSource installs a function that returns the in-memory editing
 // copy of the tiki. When set and edit mode is active, refresh reads from
-// this source instead of the store so in-flight field changes (status
-// cycled, assignee typed) survive a Tab-driven re-render.
+// this source instead of the store so in-flight field changes survive a
+// Tab-driven re-render.
 func (cv *ConfigurableDetailView) SetEditTikiSource(fn func() *tikipkg.Tiki) {
 	cv.editTikiSource = fn
 }
@@ -837,6 +876,12 @@ func (cv *ConfigurableDetailView) SetEditFieldChangeHandler(fieldName string, h 
 // existing forward/backward traversal arithmetic ("editable indices in
 // 0..len(layout)") extends naturally — len(layout) means "description".
 const descriptionFieldName = "description"
+
+// descriptionRenderCols is the layout width used for the off-thread image
+// pre-resolve pass. The exact value only affects placeholder cell math, not
+// which images resolve, so a sane default suffices; the real viewer re-lays
+// out at its actual width on the next Draw.
+const descriptionRenderCols = 80
 
 // EnterEditMode flips the view into edit mode and focuses the first
 // editable metadata field. No-op if no field has an implemented editor —
@@ -1059,19 +1104,10 @@ func (cv *ConfigurableDetailView) prevEditableIndex(current int) int {
 // cached editor, passing each widget's live text. Despite the "Focused"
 // in the name (kept for the original interface), the implementation
 // flushes *all* visited editors — not just the one currently holding
-// focus — because some widgets (notably the tags textarea) buffer their
-// input internally and only push it on Ctrl+S. If the user edits tags,
-// tabs to another field, then presses Ctrl+S, the tags widget is no
-// longer focused but its cached buffer must still flow into the edit
-// session before commit, otherwise the in-flight edit is dropped.
-//
-// Flush order matters: SaveRecurrence writes Due as a side effect (when
-// recurrence is non-empty), so a stale Due flush after SaveRecurrence
-// would overwrite the auto-computed Due with the user's pre-recurrence
-// text. Iterate cv.layout (column-major order), then flush recurrence
-// last — so any side-effect-producing field always wins over stale
-// per-field cache entries.
-//
+// focus — because some widgets, notably string-list textareas, buffer their
+// input internally and only push it on Ctrl+S. If the user edits such a field,
+// tabs to another field, then presses Ctrl+S, the widget is no longer focused,
+// but its cached buffer must still flow into the edit session before commit.
 // Each editor's onChange is idempotent — cyclable editors already emit
 // on every step, so re-emitting their current value is a no-op for the
 // edit session. The cost is a per-editor handler call, bounded by the
@@ -1091,18 +1127,10 @@ func (cv *ConfigurableDetailView) FlushFocusedEditor() {
 		}
 		handler(w.GetText())
 	}
-	// First pass: every cached metadata field except recurrence, in
-	// declaration order. This is deterministic so map-iteration races
-	// can't reorder due/recurrence/etc.
+	// Flush every cached metadata field in declaration order.
 	for _, name := range cv.layout {
-		if name == tikipkg.FieldRecurrence {
-			continue
-		}
 		flush(name)
 	}
-	// Second pass: recurrence last, so its Due side-effect overwrites
-	// any stale Due that flushed in the first pass.
-	flush(tikipkg.FieldRecurrence)
 	// Description lives outside the metadata layout (it's the body section
 	// edited inline when Tab lands past the last metadata field), so it's
 	// not covered by the layout walk above. Flush it here so a Tab-away
@@ -1111,9 +1139,9 @@ func (cv *ConfigurableDetailView) FlushFocusedEditor() {
 	flush(descriptionFieldName)
 }
 
-// MoveRecurrencePartLeft moves the recurrence editor's part cursor to
-// the frequency part. Returns true when the focused field is recurrence,
-// the editor exists, and is a recurrenceEditAdapter; false otherwise.
+// MoveRecurrencePartLeft moves the focused recurrence editor to its frequency
+// part. Returns false when the focused field is not recurrence-typed or its
+// editor is unavailable.
 func (cv *ConfigurableDetailView) MoveRecurrencePartLeft() bool {
 	re, ok := cv.focusedRecurrenceEditor()
 	if !ok {
@@ -1123,9 +1151,9 @@ func (cv *ConfigurableDetailView) MoveRecurrencePartLeft() bool {
 	return true
 }
 
-// MoveRecurrencePartRight moves the recurrence editor's part cursor to
-// the value part. Returns true when the focused field is recurrence,
-// the editor exists, and is a recurrenceEditAdapter; false otherwise.
+// MoveRecurrencePartRight moves the focused recurrence editor to its value
+// part. Returns false when the focused field is not recurrence-typed or its
+// editor is unavailable.
 func (cv *ConfigurableDetailView) MoveRecurrencePartRight() bool {
 	re, ok := cv.focusedRecurrenceEditor()
 	if !ok {
@@ -1135,9 +1163,8 @@ func (cv *ConfigurableDetailView) MoveRecurrencePartRight() bool {
 	return true
 }
 
-// IsRecurrenceValueFocused reports whether the recurrence field's value
-// part is currently active. Returns false when the focused field is not
-// recurrence or the editor isn't a recurrenceEditAdapter.
+// IsRecurrenceValueFocused reports whether the focused recurrence editor's
+// value part is active.
 func (cv *ConfigurableDetailView) IsRecurrenceValueFocused() bool {
 	re, ok := cv.focusedRecurrenceEditor()
 	if !ok {
@@ -1146,15 +1173,15 @@ func (cv *ConfigurableDetailView) IsRecurrenceValueFocused() bool {
 	return re.IsValueFocused()
 }
 
-// focusedRecurrenceEditor returns the recurrence editor adapter when the
-// recurrence field is focused and its editor is cached as the expected
-// adapter type. Centralizes the focus-and-cast guards used by the three
-// RecurrencePartNavigable methods.
+// focusedRecurrenceEditor returns the focused recurrence-typed field's cached
+// editor adapter.
 func (cv *ConfigurableDetailView) focusedRecurrenceEditor() (*recurrenceEditAdapter, bool) {
-	if cv.GetFocusedFieldName() != tikipkg.FieldRecurrence {
+	name := cv.GetFocusedFieldName()
+	fd, ok := workflow.Field(name)
+	if !ok || fd.Type != workflow.TypeRecurrence {
 		return nil, false
 	}
-	w, ok := cv.editors[tikipkg.FieldRecurrence]
+	w, ok := cv.editors[name]
 	if !ok || w == nil {
 		return nil, false
 	}

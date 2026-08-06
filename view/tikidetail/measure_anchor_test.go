@@ -6,6 +6,7 @@ import (
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/rivo/tview"
 )
 
 // TestMeasureAnchor_RowSpannedCompositeWrapsByLongestWord pins that a
@@ -67,5 +68,58 @@ func TestMeasureAnchor_SingleRowCompositeUsesFullWidth(t *testing.T) {
 	got := MeasureAnchor(a, tk, ctx)
 	if got < len("Done In Progress") {
 		t.Errorf("single-row composite measured %d; want full width >= %d", got, len("Done In Progress"))
+	}
+}
+
+// TestMeasureAnchor_SingleRowCompositeReservesBreathingCell pins that a
+// single-row composite reserves the same one-cell breathing gap every other
+// truncator-backed cell does (scalarCellWidth, the literal +1). The composite
+// draws through gridbox.NewTruncatingTextView, which truncates to width-1; if
+// the measure returned only the content width the solver would size an N-cell
+// column and the draw would clip to N-1 — the "In Progress ⚙️" → "In Progress …"
+// bug. Measured width must therefore be content display width + 1.
+func TestMeasureAnchor_SingleRowCompositeReservesBreathingCell(t *testing.T) {
+	tk := tikipkg.New()
+	tk.SetID("BREATH")
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
+
+	// "In Progress ⚙️": base gear U+2699 + variation selector U+FE0F is one
+	// grapheme cluster of display width 2, so the content is 14 cells.
+	text := "In Progress ⚙️"
+	a := gridlayout.Anchor{
+		Kind:     gridlayout.AnchorComposite,
+		RowSpan:  1,
+		ColSpan:  1,
+		Segments: []gridlayout.Segment{{Kind: gridlayout.SegmentLiteral, Text: text}},
+	}
+
+	got := MeasureAnchor(a, tk, ctx)
+	want := tview.TaggedStringWidth(text) + scalarBreathingCell
+	if got != want {
+		t.Errorf("single-row composite measured %d; want content+breathing cell = %d", got, want)
+	}
+}
+
+// TestMeasureFieldValue_EnumReservesWidestLabel pins that an enum field's
+// column reserves the widest declared label's width regardless of the stored
+// value. The in-place enum editor cycles labels without the grid re-solving,
+// so a column sized to a short stored value ("low") would clip when the user
+// cycles to a longer one ("critical"). Sizing to the widest label makes the
+// column stable across values and never clip — in view and edit mode alike.
+func TestMeasureFieldValue_EnumReservesWidestLabel(t *testing.T) {
+	cleanup := registerExtraWorkflowFieldForTest(t, "severity", []string{"low", "medium", "critical"})
+	defer cleanup()
+
+	tk := tikipkg.New()
+	tk.SetID("ENUMWD")
+	tk.Set("severity", "low") // stored value is the SHORTEST label
+	ctx := FieldRenderContext{Mode: RenderModeView, FieldName: "severity", Roles: theme.Roles()}
+
+	got := MeasureFieldValue("severity", tk, ctx)
+	// "critical" is the widest label; the column must fit it plus the breathing
+	// cell every scalar reserves, even though the stored value is "low".
+	want := tview.TaggedStringWidth("critical") + scalarBreathingCell
+	if got != want {
+		t.Errorf("enum column measured %d for stored 'low'; want widest-label width %d", got, want)
 	}
 }

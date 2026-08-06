@@ -57,13 +57,8 @@ func formatTikiAsMarkdown(tk *tikipkg.Tiki) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", tk.Title())
 
-	statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
-	typeStr, _, _ := tk.StringField(tikipkg.FieldType)
-	fmt.Fprintf(&b, "**%s** · %s · %s", tk.ID(), statusStr, typeStr)
+	fmt.Fprintf(&b, "**%s**", tk.ID())
 
-	if priority, _, _ := tk.StringField(tikipkg.FieldPriority); priority != "" {
-		fmt.Fprintf(&b, " · %s", priority)
-	}
 	b.WriteString("\n\n")
 	if tk.Body() != "" {
 		b.WriteString(tk.Body())
